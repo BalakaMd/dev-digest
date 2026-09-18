@@ -55,11 +55,11 @@ pnpm typecheck                                    # tsc --noEmit
   syncing `client/src/vendor/shared`
 - `src/db/migrations/**` — drizzle-kit output; add a migration, never edit one
 
-## Reference (load only when the condition matches)
+## Read When
 
 | Document | Read it when |
 |----------|--------------|
+| [docs/architecture.md](docs/architecture.md) | adding a module, swapping an adapter, or tracing a request |
+| [specs/review-flow.md](specs/review-flow.md) | touching anything between `POST /review` and persisted findings |
 | [README.md](README.md) | you need the API map, the DI flow diagram, or the env table |
-| [docs/](docs/) | deeper background on a server subsystem |
-| [specs/](specs/) | you are implementing a new server module for a lesson |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change here |

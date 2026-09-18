@@ -86,7 +86,7 @@ rubric, the bar, and the dedup procedure.
   running that package's own installer. Each package owns its lockfile
 - `clones/` — working checkouts of imported repos, git-ignored
 
-## Reference (load only when the condition matches)
+## Read When (load only when the condition matches)
 
 | Document | Read it when |
 |----------|--------------|

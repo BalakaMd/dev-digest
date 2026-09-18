@@ -21,9 +21,9 @@ This package uses **npm** (`package-lock.json`), not pnpm.
 
 ## Conventions
 
-- **`specs/` here means browser flows, not product specifications.** Each file is
-  `NN-name.flow.json`, a JSON list of agent-browser commands executed in order by
-  `run.ts`. Product specs for this package do not live here.
+- **`specs/` here holds executable browser flows.** Each is `NN-name.flow.json`, a
+  JSON list of agent-browser commands run in order by `run.ts`, which filters on
+  that extension — `specs/flows.md` documents them and is ignored by the runner.
 - **Assertions are the waits.** `wait --text` / `wait --url` exit non-zero on
   timeout, and a non-zero exit fails the step and the flow.
 - **Deterministic locators only** — `--url`, `--text`, `find role|text|label`.
@@ -40,10 +40,11 @@ This package uses **npm** (`package-lock.json`), not pnpm.
 - The hermetic run uses an ephemeral Postgres with no volume, so the seeded demo
   repo is the only repo and the home redirect lands on it.
 
-## Reference (load only when the condition matches)
+## Read When
 
 | Document | Read it when |
 |----------|--------------|
+| [docs/runner.md](docs/runner.md) | debugging the harness or changing how steps execute |
+| [specs/flows.md](specs/flows.md) | adding a flow or asking what the suite already covers |
 | [README.md](README.md) | you need the flow format or the command reference |
-| [docs/](docs/) | deeper background on the runner |
 | [INSIGHTS.md](INSIGHTS.md) | before adding or debugging a flow |

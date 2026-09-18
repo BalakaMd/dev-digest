@@ -43,11 +43,11 @@ Note: this package uses **npm** (`package-lock.json`), not pnpm.
   lessons. When omitted, `assemblePrompt` simply leaves the section out.
 - The public surface is whatever `src/index.ts` exports — keep it explicit.
 
-## Reference (load only when the condition matches)
+## Read When
 
 | Document | Read it when |
 |----------|--------------|
+| [docs/pipeline.md](docs/pipeline.md) | changing prompt assembly, map-reduce, or structured output |
+| [specs/grounding.md](specs/grounding.md) | anything near the citation gate or scoring — read first |
 | [README.md](README.md) | you need the pipeline diagram or the public API list |
-| [docs/](docs/) | deeper background on prompt assembly or grounding |
-| [specs/](specs/) | you are adding an engine capability for a lesson |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change here |

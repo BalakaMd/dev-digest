@@ -12,14 +12,18 @@ time that it should not have.
 Newest first. One entry per finding:
 
 ```
-## YYYY-MM-DD — short title
-**Symptom** — what you observed.
+## YYYY-MM-DD — [category] Short, specific title
+**Symptom** — what was observed.
 **Cause** — what was actually going on.
-**Takeaway** — what to do differently next time.
+**Takeaway** — what to do differently, concretely.
 ```
 
-Promote an entry into `CLAUDE.md` only if it passes the line test: "if I remove
-this line, will Claude start making mistakes?"
+Categories: `gotcha` · `root-cause` · `convention` · `dead-end` · `perf-cost` ·
+`env-quirk`. The `engineering-insights` skill holds the full rubric, the quality
+bar, and the deduplication procedure — consult it before reading or writing.
+
+Promote an entry into `CLAUDE.md` only if it passes the line test there: "if I
+remove this line, will Claude start making mistakes?"
 
 ---
 

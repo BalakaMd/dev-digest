@@ -1,14 +1,15 @@
-/* Shared read-out for what a single agent run cost. Two variants because the
-   same number appears at two densities: bare in the PR list's COST column, and
-   alongside the token count in the PR-detail timeline. Keeping both here stops
-   the "$0.00 vs —" rule from being re-decided per call site. */
+/* Shared read-out for a USD amount the reviewer spent. Two variants because the
+   same figure appears at two densities: bare in the PR list's COST column (where
+   it is the PR's total across every run), and alongside the token count in the
+   PR-detail timeline (where it is one run). Keeping both here stops the
+   "$0.00 vs —" rule from being re-decided per call site. */
 "use client";
 
 import { useTranslations } from "next-intl";
 import { formatCostUsd, formatTokenCount } from "../../lib/format";
 
 interface RunCostBadgeProps {
-  /** USD for the run. Null when unpriced or the run never reached the model. */
+  /** USD to show. Null when unpriced, or when no run ever reached the model. */
   cost: number | null | undefined;
   /**
    * `compact` → "$0.014" (or "—"). `withTokens` → "9 119 tok · $0.0013".

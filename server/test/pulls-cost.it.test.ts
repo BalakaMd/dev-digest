@@ -1,13 +1,13 @@
 /**
  * COST column on GET /repos/:id/pulls.
  *
- * The value is the LATEST COMPLETED run's cost, not a sum over runs — a re-run
- * replaces the figure rather than adding to it. That ordering + status filter is
- * real SQL over agent_runs, so it gets a real Postgres rather than a mock DB.
+ * The value is the SUM of every run's cost — the column answers "what have I
+ * spent on this PR", so a re-run adds to the figure. That aggregation is real
+ * SQL over agent_runs, so it gets a real Postgres rather than a mock DB.
  *
- * The two edges worth pinning: a newer FAILED run must not blank out the last
- * successful cost, and a PR that has never completed a run must report null (the
- * UI renders "—") rather than 0.
+ * The two edges worth pinning: a run that recorded no cost (failed, or an
+ * unpriced model) must not disturb the total, and a PR with no costed run at all
+ * must report null (the UI renders "—") rather than 0.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
@@ -98,7 +98,7 @@ d('PR list cost column (Testcontainers pg)', () => {
     await pg?.stop();
   });
 
-  it('reports the latest completed run cost, not the sum of every run', async () => {
+  it('sums every run on the PR rather than reporting only the latest', async () => {
     const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
     await addRun(pg.handle.db, workspaceId, pr.id, {
       ranAt: new Date('2026-06-01T09:00:00Z'),
@@ -112,11 +112,11 @@ d('PR list cost column (Testcontainers pg)', () => {
     });
 
     const [row] = await listPulls(pg.handle.db, repo.id);
-    // 0.0043 would mean the column summed both runs.
-    expect(row!.cost_usd).toBeCloseTo(0.0031, 6);
+    // 0.0031 alone would mean the column still reported just the latest run.
+    expect(row!.cost_usd).toBeCloseTo(0.0043, 6);
   });
 
-  it('ignores a newer failed run so the last successful cost survives', async () => {
+  it('leaves the total untouched for a run that recorded no cost', async () => {
     const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
     await addRun(pg.handle.db, workspaceId, pr.id, {
       ranAt: new Date('2026-06-01T09:00:00Z'),
@@ -133,7 +133,7 @@ d('PR list cost column (Testcontainers pg)', () => {
     expect(row!.cost_usd).toBeCloseTo(0.0025, 6);
   });
 
-  it('reports null — never 0 — for a PR with no completed run', async () => {
+  it('reports null — never 0 — for a PR with no costed run', async () => {
     const { repo } = await setupRepoAndPr(pg.handle.db, workspaceId);
     const [row] = await listPulls(pg.handle.db, repo.id);
     expect(row!.cost_usd).toBeNull();

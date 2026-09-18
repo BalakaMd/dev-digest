@@ -27,4 +27,21 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
-_No entries yet._
+## 2026-09-19 — [gotcha] `borderColor` is itself a shorthand, so `FindingCard` still warns
+
+**Symptom** — anything that re-renders a `FindingCard` with a different `focused`
+value (j/k navigation, and now the severity filter in `FindingsPanel`) prints
+"Updating a style property during rerender (borderColor) when a conflicting
+property is set (borderLeftColor)" to the console and to the vitest output.
+**Cause** — `FindingCard/styles.ts` carries a comment stating it is "all-longhand
+(never mix `border` shorthand with `borderLeft`)", and it does avoid the `border`
+shorthand. But `borderColor` is *also* a shorthand — for the four per-side colour
+properties — so pairing it with `borderLeftColor` reproduces exactly the case the
+comment set out to avoid. The comment reads as a solved problem, which is why the
+warning survived.
+**Takeaway** — when a React inline style needs one side to differ, set all four
+sides explicitly (`borderTopColor` / `borderRightColor` / `borderBottomColor` /
+`borderLeftColor`); never reach for `borderColor` as the "longhand". The same
+applies to `borderWidth`, `borderStyle`, `margin`, `padding` and `background`,
+all of which React treats as shorthands. Do not trust the comment in
+`FindingCard/styles.ts` — it describes the intent, not the current behaviour.

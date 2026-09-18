@@ -111,39 +111,76 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // Latest-review SCORE + per-severity FINDINGS counts per PR for the list.
+    // Computed on read from reviews (no FK denorm); the list is small, so one
+    // IN-query + JS grouping is cheap.
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { score: number | null }>();
+    // FINDINGS counts cover each agent's latest review (a PR reviewed by several
+    // agents shows the union of their current findings) — the same rule the
+    // client's hover preview applies to `/pulls/:id/reviews`.
+    const countReviewToPr = new Map<string, string>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({
+          id: t.reviews.id,
+          prId: t.reviews.prId,
+          agentId: t.reviews.agentId,
+          score: t.reviews.score,
+        })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
-      // Rows are newest-first → first seen per PR is the latest review.
+      // Rows are newest-first → first seen per PR (resp. per PR+agent) wins.
+      const seenPrAgent = new Set<string>();
       for (const rv of reviewRows) {
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        const agentKey = `${rv.prId}|${rv.agentId ?? 'none'}`;
+        if (!seenPrAgent.has(agentKey)) {
+          seenPrAgent.add(agentKey);
+          countReviewToPr.set(rv.id, rv.prId);
+        }
       }
     }
 
-    // Latest-run COST per PR for the list's cost column. Same shape as the score
-    // block above: one IN-query, newest-first, first-seen-per-PR wins. This is
-    // deliberately the LATEST COMPLETED run's cost, not a sum over all runs —
-    // the column answers "what does reviewing this PR cost", not "what have I
-    // spent on it". Only status='done' rows count, so a later failed run cannot
-    // blank out the last successful one.
-    const latestCostByPr = new Map<string, number | null>();
+    // Findings of the selected reviews, counted by severity per PR. Counts match
+    // the detail page's per-run counter pills (dismissed findings included).
+    const findingCountsByPr = new Map<
+      string,
+      { CRITICAL: number; WARNING: number; SUGGESTION: number }
+    >();
+    if (countReviewToPr.size > 0) {
+      const findingRows = await container.db
+        .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
+        .from(t.findings)
+        .where(inArray(t.findings.reviewId, [...countReviewToPr.keys()]));
+      for (const f of findingRows) {
+        const prId = countReviewToPr.get(f.reviewId)!;
+        let counts = findingCountsByPr.get(prId);
+        if (!counts) {
+          counts = { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 };
+          findingCountsByPr.set(prId, counts);
+        }
+        if (f.severity in counts) counts[f.severity as keyof typeof counts] += 1;
+      }
+    }
+
+    // Total COST per PR for the list's cost column: every run this PR has ever
+    // had, summed. The column answers "what have I spent on this PR", so a
+    // re-run ADDS to the figure instead of replacing it. Status is deliberately
+    // not filtered — a run that burned tokens and then failed still cost money;
+    // it simply contributes nothing today because the failure path records no
+    // cost. A PR with no costed run at all stays null (the UI renders "—")
+    // rather than becoming a misleading $0.00.
+    const totalCostByPr = new Map<string, number>();
     if (prIds.length > 0) {
       const runRows = await container.db
         .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
         .from(t.agentRuns)
-        .where(and(inArray(t.agentRuns.prId, prIds), eq(t.agentRuns.status, 'done')))
-        .orderBy(desc(t.agentRuns.ranAt));
+        .where(inArray(t.agentRuns.prId, prIds));
       for (const run of runRows) {
-        if (run.prId && !latestCostByPr.has(run.prId)) latestCostByPr.set(run.prId, run.costUsd);
+        if (!run.prId || run.costUsd == null) continue;
+        totalCostByPr.set(run.prId, (totalCostByPr.get(run.prId) ?? 0) + run.costUsd);
       }
     }
 
@@ -171,7 +208,10 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
-        cost_usd: latestCostByPr.get(r.id) ?? null,
+        cost_usd: totalCostByPr.get(r.id) ?? null,
+        findings_counts: review
+          ? (findingCountsByPr.get(r.id) ?? { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 })
+          : null,
       };
     });
   });

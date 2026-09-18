@@ -49,12 +49,14 @@ describe("FindingCard (smoke, both themes)", () => {
     });
   });
 
+  // The button reads "Reject"; the action it fires is still `dismiss` — the API
+  // action name and the label deliberately differ.
   it("fires accept/dismiss actions", () => {
     const onAction = vi.fn();
     renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={onAction} />);
     fireEvent.click(screen.getByText("Accept"));
     expect(onAction).toHaveBeenCalledWith("accept");
-    fireEvent.click(screen.getByText("Dismiss"));
+    fireEvent.click(screen.getByText("Reject"));
     expect(onAction).toHaveBeenCalledWith("dismiss");
   });
 });

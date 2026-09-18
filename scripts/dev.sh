@@ -70,7 +70,7 @@ log "Postgres healthy"
 install_if_needed() {
   if [ ! -d "$1/node_modules" ]; then
     log "installing deps in $1"
-    (cd "$1" && pnpm install)
+    (cd "$1" && pnpm install && (pnpm approve-builds --all 2>/dev/null || true))
   fi
 }
 install_if_needed server

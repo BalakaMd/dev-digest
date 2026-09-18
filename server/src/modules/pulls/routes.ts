@@ -165,21 +165,22 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-run COST per PR for the list's cost column. Same shape as the score
-    // block above: one IN-query, newest-first, first-seen-per-PR wins. This is
-    // deliberately the LATEST COMPLETED run's cost, not a sum over all runs —
-    // the column answers "what does reviewing this PR cost", not "what have I
-    // spent on it". Only status='done' rows count, so a later failed run cannot
-    // blank out the last successful one.
-    const latestCostByPr = new Map<string, number | null>();
+    // Total COST per PR for the list's cost column: every run this PR has ever
+    // had, summed. The column answers "what have I spent on this PR", so a
+    // re-run ADDS to the figure instead of replacing it. Status is deliberately
+    // not filtered — a run that burned tokens and then failed still cost money;
+    // it simply contributes nothing today because the failure path records no
+    // cost. A PR with no costed run at all stays null (the UI renders "—")
+    // rather than becoming a misleading $0.00.
+    const totalCostByPr = new Map<string, number>();
     if (prIds.length > 0) {
       const runRows = await container.db
         .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
         .from(t.agentRuns)
-        .where(and(inArray(t.agentRuns.prId, prIds), eq(t.agentRuns.status, 'done')))
-        .orderBy(desc(t.agentRuns.ranAt));
+        .where(inArray(t.agentRuns.prId, prIds));
       for (const run of runRows) {
-        if (run.prId && !latestCostByPr.has(run.prId)) latestCostByPr.set(run.prId, run.costUsd);
+        if (!run.prId || run.costUsd == null) continue;
+        totalCostByPr.set(run.prId, (totalCostByPr.get(run.prId) ?? 0) + run.costUsd);
       }
     }
 
@@ -207,7 +208,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
-        cost_usd: latestCostByPr.get(r.id) ?? null,
+        cost_usd: totalCostByPr.get(r.id) ?? null,
         findings_counts: review
           ? (findingCountsByPr.get(r.id) ?? { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 })
           : null,

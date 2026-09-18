@@ -1,0 +1,1 @@
+# Cross-package specifications for lesson features. One file per feature, named after the lesson (e.g. L02-skills.md). Delete a spec once the feature ships and its behaviour is documented elsewhere.

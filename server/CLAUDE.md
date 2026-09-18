@@ -3,6 +3,13 @@
 Imports repos and PRs, indexes repos with `repo-intel`, stores agents, and runs
 the reviewer. Consumes `@devdigest/reviewer-core` as raw TypeScript source.
 
+## Stack
+
+Fastify 5 · Drizzle ORM + `postgres` (pgvector) · Zod 3 via
+`fastify-type-provider-zod` · Octokit · simple-git · `@ast-grep/napi` · ripgrep ·
+dependency-cruiser · js-tiktoken · p-queue · pino · `fastify-sse-v2` · vitest 2 +
+testcontainers. Package manager: **pnpm**.
+
 ## Commands
 
 ```sh
@@ -11,6 +18,7 @@ pnpm db:migrate                                   # required; never runs on boot
 pnpm db:seed                                      # idempotent demo data
 pnpm exec vitest run --exclude '**/*.it.test.ts'  # unit (hermetic, no Docker)
 pnpm exec vitest run .it.test                     # integration (testcontainers)
+pnpm typecheck                                    # tsc --noEmit
 ```
 
 ## Conventions

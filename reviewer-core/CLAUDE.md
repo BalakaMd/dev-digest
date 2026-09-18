@@ -3,6 +3,13 @@
 Pure review logic: **diff → prompt → LLM → grounded findings**. Consumed as raw
 TypeScript source by the server through a tsconfig path alias.
 
+## Stack
+
+Deliberately thin: TypeScript 5.7 · Zod 3 (contracts from `@devdigest/shared`) ·
+the OpenAI SDK only as an OpenRouter-compatible client · vitest 2. No database,
+HTTP server, or framework — adding one would break the no-I/O invariant below.
+Package manager: **npm**.
+
 ## Commands
 
 ```sh

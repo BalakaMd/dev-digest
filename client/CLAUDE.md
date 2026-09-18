@@ -3,6 +3,12 @@
 App Router + React 19. Imports repos, browses PRs, runs and reads reviews,
 authors agents.
 
+## Stack
+
+Next.js 15 (App Router) · React 19 · TanStack Query · next-intl · Tailwind 4 ·
+recharts · mermaid · react-markdown · Zod 3 · vitest 2 + Testing Library + jsdom.
+Package manager: **pnpm**.
+
 ## Commands
 
 ```sh

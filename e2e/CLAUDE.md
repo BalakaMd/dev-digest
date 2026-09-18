@@ -3,11 +3,18 @@
 Deterministic UI flows driven by Vercel **agent-browser** (Rust + CDP).
 No Playwright, no LLM, no API key.
 
+## Stack
+
+Vercel **agent-browser** (Rust + CDP) driven by a `run.ts` harness under tsx ·
+TypeScript 5.7. No test framework, no Playwright, no assertion library — the
+waits are the assertions. Package manager: **npm**.
+
 ## Commands
 
 ```sh
 npm test              # runs the flows against an already-running stack
 ../scripts/e2e.sh     # hermetic: isolated stack on alternate ports, then run
+npm run typecheck     # tsc --noEmit
 ```
 
 This package uses **npm** (`package-lock.json`), not pnpm.

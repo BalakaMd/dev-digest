@@ -1,8 +1,7 @@
 # DevDigest
 
 Local-first AI pull-request reviewer. This is the **course starter template**:
-`main` is intentionally minimal and homework lives on branches/forks. Empty
-placeholders are expected, not bugs.
+it is intentionally minimal, and empty placeholders are expected, not bugs.
 
 ## Stack
 
@@ -68,7 +67,7 @@ rubric, the bar, and the dedup procedure.
 ## Gotchas
 
 - Postgres listens on **5433**, not 5432. Parts of the READMEs still say 5432.
-- The DB schema already contains tables for future lessons. Empty ones are
+- The DB schema already contains tables nothing writes to yet. Empty ones are
   normal — do not "clean them up".
 - The app boots with no API key, but a review cannot run without one (the
   built-in agents use the `openrouter` provider).
@@ -90,8 +89,8 @@ rubric, the bar, and the dedup procedure.
 
 | Document | Read it when |
 |----------|--------------|
-| [README.md](README.md) | you need the architecture diagram or the course roadmap |
+| [README.md](README.md) | you need the architecture diagram or the package map |
 | [TESTING.md](TESTING.md) | the question is about test strategy or CI workflows |
 | [docs/](docs/) | you need agent system prompts or model-selection guidance |
-| [specs/](specs/) | you are picking up a cross-package lesson feature |
+| [specs/](specs/) | you are picking up a cross-package feature |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change — past traps are logged there |

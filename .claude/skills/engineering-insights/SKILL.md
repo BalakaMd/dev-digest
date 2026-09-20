@@ -76,7 +76,7 @@ arguing for a "yes", it is a no.
 4. **Not derivable** — reading the code, types, or tests would not have revealed
    it. If it is plainly visible in the source, the source is already saying it.
 5. **Not already known** — it is absent from this module's `INSIGHTS.md` *and*
-   from the applicable `CLAUDE.md`.
+   from the applicable `AGENTS.md`.
 
 ## Categories
 
@@ -126,19 +126,19 @@ the only part that gets read. "Migrations do not run on boot" earns its line;
   The log records what was *learned*, not what was done.
 - **Restating the code.** If a reader would learn it by opening the file, the
   file already documents it better than a summary will.
-- **Anything already in `CLAUDE.md`.** That file loads in every session and is
+- **Anything already in `AGENTS.md`.** That file loads in every session and is
   kept under a hard line budget; duplicating it here wastes the budget twice.
 - **Blame.** "I used the wrong port" helps nobody. Reframe toward what made the
   mistake easy — "the README still says 5432, the compose file says 5433" —
   because the second version is fixable and the first is not.
 
-## Promoting to CLAUDE.md
+## Promoting to AGENTS.md
 
 An insight that turns out to matter in *every* session in a module has outgrown
-the log. Move it into that module's `CLAUDE.md`, but only if it survives the
+the log. Move it into that module's `AGENTS.md`, but only if it survives the
 line test kept there: "if I remove this line, will Claude start making
 mistakes?" Then trim it from `INSIGHTS.md` down to a pointer, or drop it.
 
 This is the intended escalation path, and it is one-directional. `INSIGHTS.md`
-is the wide net; `CLAUDE.md` is the short list that everyone pays for on every
+is the wide net; `AGENTS.md` is the short list that everyone pays for on every
 turn. Keeping the gate between them tight is what keeps the eager file small.

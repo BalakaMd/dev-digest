@@ -60,6 +60,7 @@ pnpm typecheck                                    # tsc --noEmit
 | Document | Read it when |
 |----------|--------------|
 | [docs/architecture.md](docs/architecture.md) | adding a module, swapping an adapter, or tracing a request |
+| [onion-architecture skill](../.claude/skills/onion-architecture/SKILL.md) | adding a module, or moving logic between routes / service / repository |
 | [specs/review-flow.md](specs/review-flow.md) | touching anything between `POST /review` and persisted findings |
 | [README.md](README.md) | you need the API map, the DI flow diagram, or the env table |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change here |

@@ -191,6 +191,23 @@ d('skills module', () => {
     await app.close();
   });
 
+  it('keeps the agent list order when an agent is toggled or its skills change', async () => {
+    const app = await makeApp();
+    const ids = async () =>
+      ((await app.inject({ url: '/agents' })).json() as Array<{ id: string }>).map((a) => a.id);
+    const before = await ids();
+    const [first] = before;
+    const skill = await createSkill(app, `order-${Date.now()}`);
+
+    // Each of these rewrites the agent row; none may move it in the list.
+    await app.inject({ method: 'PUT', url: `/agents/${first}`, payload: { enabled: false } });
+    await app.inject({ method: 'POST', url: `/agents/${first}/skills`, payload: { skill_ids: [skill.id] } });
+    await app.inject({ method: 'PUT', url: `/agents/${first}`, payload: { enabled: true } });
+
+    expect(await ids()).toEqual(before);
+    await app.close();
+  });
+
   describe('agent links', () => {
     async function makeAgent(app: Awaited<ReturnType<typeof makeApp>>) {
       return (

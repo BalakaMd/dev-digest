@@ -36,8 +36,9 @@ is not sandboxed: the model reads it as guidance. Read a skill before you enable
 3. Check the preview: the rendered body, name, description, type, and any ignored
    entries.
 4. Confirm. The skill is saved with source **imported**.
-5. Go to **Agents → the agent → Skills**, and toggle the skill on. Drag the rows to
-   set the order of the blocks in the prompt.
+5. Go to **Agents → the agent → Skills**, and toggle the skill on. Enabled skills
+   reach the prompt top to bottom, as numbered; drag a row by its handle (or use
+   ↑/↓) to change the order.
 
 ## Control experiment 1 — Test Quality
 

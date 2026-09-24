@@ -51,15 +51,28 @@ export interface LinkedSkillRow {
 export class AgentsRepository {
   constructor(private db: Db) {}
 
+  /**
+   * Oldest first, with a name/id tie-break for rows created in one seed. The
+   * ORDER BY is load-bearing: without it Postgres returns heap order, and an
+   * UPDATE writes a new row version at the end — so toggling or editing an
+   * agent would move it to the bottom of every list.
+   */
+  private readonly listOrder = [asc(t.agents.createdAt), asc(t.agents.name), asc(t.agents.id)];
+
   async list(workspaceId: string): Promise<AgentRow[]> {
-    return this.db.select().from(t.agents).where(eq(t.agents.workspaceId, workspaceId));
+    return this.db
+      .select()
+      .from(t.agents)
+      .where(eq(t.agents.workspaceId, workspaceId))
+      .orderBy(...this.listOrder);
   }
 
   async listEnabled(workspaceId: string): Promise<AgentRow[]> {
     return this.db
       .select()
       .from(t.agents)
-      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)));
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)))
+      .orderBy(...this.listOrder);
   }
 
   /** Linked-skill count per agent in a workspace (agents with none are absent). */

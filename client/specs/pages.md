@@ -81,9 +81,12 @@ and the per-agent `repo_intel` toggle; `useProviderModels` lists models for the
 selected provider, so the model field is a choice, not free text.
 
 **Skills** lists every skill in the workspace. A skill is enabled for the agent
-when it is linked; enabled skills come first, in link order, and that order is
-the order of their blocks in the prompt. Only enabled skills can be dragged (or
-moved with ↑/↓); reordering is off while the name filter is active. Every change
+when it is linked. The list opens with enabled skills first, in link order, then
+the rest alphabetically; after that rows never move on their own. Toggling a
+skill flips it in place, and the enabled rows top to bottom (numbered #1, #2, …)
+are the order of their blocks in the prompt. Only enabled skills can be dragged
+by their handle (pointer events, not HTML5 DnD) or moved with ↑/↓, which step
+over disabled rows; reordering is off while the name filter is active. Every change
 posts the full ordered id list (`POST /agents/:id/skills`), which also bumps the
 agent's version. Agent delete goes through a confirmation dialog.
 

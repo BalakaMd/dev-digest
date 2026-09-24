@@ -27,19 +27,6 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
-## 2026-09-24 — [env-quirk] The browser pane's drag never fires HTML5 drag-and-drop
-**Symptom** — verifying the agent Skills tab in the built-in browser, a
-`left_click_drag` from one row to another did nothing: no reorder, no request,
-no error — although the rows are `draggable` and the unit tests pass.
-**Cause** — the pane synthesises mouse down/move/up; Chromium starts a native
-HTML5 drag (`dragstart`/`dragover`/`drop`) only from real OS input, so
-`draggable` elements never see a drag.
-**Takeaway** — to exercise native DnD in the pane, dispatch the events yourself:
-`new DragEvent('dragstart' | 'dragover' | 'drop', { bubbles: true, cancelable:
-true, dataTransfer: new DataTransfer() })` on the source and target elements via
-the JavaScript tool, then check the result. Do not conclude DnD is broken from a
-dead mouse drag.
-
 ## 2026-09-24 — [gotcha] A PreToolUse(Bash) matcher sees the whole command, heredocs included
 **Symptom** — the new PR gate denied a `cat > file <<EOF` call that was merely
 writing documentation, because the document mentioned the gated command.

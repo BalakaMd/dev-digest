@@ -50,6 +50,13 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** jsdom has no layout: give the rows tops 0 / 50 / 100, 40px tall each. */
+function placeRows() {
+  screen.getAllByTestId(/^skill-row-/).forEach((el, i) => {
+    vi.spyOn(el, "getBoundingClientRect").mockReturnValue({ top: i * 50, bottom: i * 50 + 40 } as DOMRect);
+  });
+}
+
 const rowNames = () => screen.getAllByTestId(/^skill-row-/).map((el) => el.getAttribute("data-testid"));
 
 describe("agent Skills tab", () => {
@@ -64,32 +71,50 @@ describe("agent Skills tab", () => {
     expect(within(screen.getByTestId("skill-row-no-then-chains")).getByText("convention")).toBeInTheDocument();
   });
 
-  it("makes only enabled skills draggable", () => {
+  it("numbers enabled skills by their place in the prompt", () => {
     renderTab();
-    expect(screen.getByTestId("skill-row-secret-leakage-gate")).toHaveAttribute("draggable", "true");
-    expect(screen.getByTestId("skill-row-no-then-chains")).toHaveAttribute("draggable", "false");
+    expect(within(screen.getByTestId("skill-row-secret-leakage-gate")).getByText("#1")).toBeInTheDocument();
+    expect(within(screen.getByTestId("skill-row-pr-quality-rubric")).getByText("#2")).toBeInTheDocument();
+    expect(within(screen.getByTestId("skill-row-no-then-chains")).queryByText(/^#/)).toBeNull();
   });
 
-  it("dragging an enabled skill onto another saves the new prompt order", () => {
+  it("makes only enabled skills draggable", () => {
     renderTab();
-    const from = screen.getByTestId("skill-row-pr-quality-rubric");
-    const to = screen.getByTestId("skill-row-secret-leakage-gate");
-    const dataTransfer = { setData: vi.fn(), effectAllowed: "" };
-    fireEvent.dragStart(from, { dataTransfer });
-    fireEvent.dragOver(to, { dataTransfer });
-    fireEvent.drop(to, { dataTransfer });
+    expect(screen.getByTestId("skill-row-secret-leakage-gate")).toHaveAttribute("data-draggable", "true");
+    expect(screen.getByTestId("skill-row-no-then-chains")).toHaveAttribute("data-draggable", "false");
+  });
+
+  it("dragging an enabled skill's handle onto another row saves the new prompt order", () => {
+    renderTab();
+    placeRows();
+    const handle = screen.getByTestId("skill-handle-pr-quality-rubric");
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientY: 70 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: 20 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 20 });
     expect(setSkills).toHaveBeenCalledWith(
       { agentId: "ag1", skillIds: ["id-pr-quality-rubric", "id-secret-leakage-gate"] },
       expect.anything(),
     );
   });
 
-  it("a disabled skill is not a drop target", () => {
+  it("a disabled skill's handle does not start a drag", () => {
     renderTab();
-    const dataTransfer = { setData: vi.fn(), effectAllowed: "" };
-    fireEvent.dragStart(screen.getByTestId("skill-row-secret-leakage-gate"), { dataTransfer });
-    fireEvent.drop(screen.getByTestId("skill-row-no-then-chains"), { dataTransfer });
+    placeRows();
+    const handle = screen.getByTestId("skill-handle-no-then-chains");
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientY: 120 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 20 });
     expect(setSkills).not.toHaveBeenCalled();
+  });
+
+  it("toggling a skill keeps its row where it is", () => {
+    renderTab();
+    fireEvent.click(within(screen.getByTestId("skill-row-secret-leakage-gate")).getByRole("switch"));
+    expect(rowNames()).toEqual([
+      "skill-row-secret-leakage-gate",
+      "skill-row-pr-quality-rubric",
+      "skill-row-no-then-chains",
+    ]);
+    expect(within(screen.getByTestId("skill-row-pr-quality-rubric")).getByText("#1")).toBeInTheDocument();
   });
 
   it("toggling a skill on links it at the end of the order", () => {
@@ -120,6 +145,6 @@ describe("agent Skills tab", () => {
     renderTab();
     fireEvent.change(screen.getByLabelText("Filter skills…"), { target: { value: "secret" } });
     expect(rowNames()).toEqual(["skill-row-secret-leakage-gate"]);
-    expect(screen.getByTestId("skill-row-secret-leakage-gate")).toHaveAttribute("draggable", "false");
+    expect(screen.getByTestId("skill-row-secret-leakage-gate")).toHaveAttribute("data-draggable", "false");
   });
 });

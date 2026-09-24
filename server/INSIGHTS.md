@@ -27,6 +27,16 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-24 — [root-cause] A list query without ORDER BY reshuffles after every UPDATE
+**Symptom** — toggling an agent, or changing its skills, made it jump to the
+bottom of the agents list in the UI.
+**Cause** — `AgentsRepository.list` had no `ORDER BY`, so Postgres returned heap
+order. An `UPDATE` writes a new row version at the end of the heap, so the row
+just edited came back last.
+**Takeaway** — any query whose result is shown as a list needs an explicit,
+total `ORDER BY` (add an id tie-break for rows created together, e.g. by the
+seed). `test/skills.it.test.ts` asserts the agents list order survives updates.
+
 ## 2026-09-24 — [gotcha] A run reaches `done` before its trace exists
 **Symptom** — an integration test that waited for `waitForPrRuns` and then read
 `GET /runs/:id/trace` failed intermittently with the trace body undefined, while

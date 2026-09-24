@@ -54,7 +54,8 @@ export class SkillsRepository {
       .leftJoin(t.agentSkills, eq(t.agentSkills.skillId, t.skills.id))
       .where(eq(t.skills.workspaceId, workspaceId))
       .groupBy(t.skills.id)
-      .orderBy(desc(t.skills.createdAt));
+      // The id tie-break keeps the grid stable for skills imported in one batch.
+      .orderBy(desc(t.skills.createdAt), asc(t.skills.id));
     return rows.map((r) => ({ skill: r.skill, agentCount: r.agentCount }));
   }
 

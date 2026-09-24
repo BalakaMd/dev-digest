@@ -27,6 +27,22 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-24 — [dead-end] HTML5 drag-and-drop for reordering did not work in real Chrome
+**Symptom** — the agent Skills tab reordered rows with `draggable` +
+`dragstart`/`dragover`/`drop`. Unit tests passed, but a real mouse drag did
+nothing, in the built-in browser pane and in the user's own Chrome alike: no
+reorder, no request, no console error.
+**Cause** — not pinned down. Native DnD only starts from real OS input (so
+synthesised input can never drive it) and is sensitive to re-renders of the
+dragged element; `fireEvent.drag*` in jsdom exercises none of that, which is
+why the tests stayed green.
+**Takeaway** — build reordering on pointer events instead: `pointerdown` on a
+handle with `setPointerCapture`, `pointermove` hit-testing row tops, `pointerup`
+committing (see `SkillsTab`). It works with mouse, touch and synthesised input,
+so a `left_click_drag` in the pane is a real check. jsdom has no `PointerEvent`;
+`src/test/setup.ts` polyfills it, otherwise `fireEvent.pointer*` drops
+`button`/`clientY`.
+
 ## 2026-09-19 — [gotcha] `borderColor` is itself a shorthand, so `FindingCard` still warns
 
 **Symptom** — anything that re-renders a `FindingCard` with a different `focused`

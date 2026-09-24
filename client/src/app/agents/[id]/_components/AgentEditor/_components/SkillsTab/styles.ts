@@ -25,7 +25,7 @@ export const s = {
     color: "var(--text-primary)",
   } satisfies CSSProperties,
   list: { display: "flex", flexDirection: "column", gap: 8 } satisfies CSSProperties,
-  row: (enabled: boolean, dropTarget: boolean): CSSProperties => ({
+  row: (enabled: boolean, dropTarget: boolean, dragging: boolean): CSSProperties => ({
     display: "flex",
     alignItems: "center",
     gap: 12,
@@ -33,13 +33,19 @@ export const s = {
     borderRadius: 8,
     border: "1px solid " + (dropTarget ? "var(--accent)" : "var(--border)"),
     background: enabled ? "var(--bg-hover)" : "var(--bg-elevated)",
+    opacity: dragging ? 0.55 : 1,
   }),
-  handle: (active: boolean): CSSProperties => ({
+  handle: (active: boolean, grabbing: boolean): CSSProperties => ({
     color: active ? "var(--text-muted)" : "var(--border-strong)",
-    cursor: active ? "grab" : "default",
+    cursor: active ? (grabbing ? "grabbing" : "grab") : "default",
     display: "inline-flex",
     flexShrink: 0,
     opacity: active ? 1 : 0.4,
+    // A bigger hit area than the 14px icon, without shifting the layout.
+    padding: 4,
+    margin: -4,
+    // Stop touch input from scrolling the page instead of dragging.
+    touchAction: active ? "none" : "auto",
   }),
   name: (struck: boolean): CSSProperties => ({
     fontSize: 14,
@@ -52,6 +58,15 @@ export const s = {
     textDecoration: struck ? "line-through" : "none",
     color: struck ? "var(--text-muted)" : "var(--text-primary)",
   }),
+  // Fixed width so names line up whether or not a row has a prompt slot.
+  position: {
+    width: 22,
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--accent)",
+    fontVariantNumeric: "tabular-nums",
+  } satisfies CSSProperties,
   globalOff: { fontSize: 11, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
   orderBtns: { display: "flex", gap: 2, flexShrink: 0 } satisfies CSSProperties,
   iconButton: (disabled: boolean): CSSProperties => ({

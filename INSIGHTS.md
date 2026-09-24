@@ -27,4 +27,23 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
-_No entries yet._
+## 2026-09-24 — [gotcha] A PreToolUse(Bash) matcher sees the whole command, heredocs included
+**Symptom** — the new PR gate denied a `cat > file <<EOF` call that was merely
+writing documentation, because the document mentioned the gated command.
+**Cause** — a `PreToolUse` hook receives the entire command string. A substring
+test (`*"gh pr create"*`) therefore matches the words wherever they appear: in a
+heredoc body, a `grep` pattern, a commit message, a comment.
+**Takeaway** — match at command position, not by substring: anchor to start of
+line or to a shell separator (`(^|[;&|(])[[:space:]]*cmd`). Over-matching is
+worse than it looks — the first thing a gate that blocks unrelated work gets is
+switched off, and then it protects nothing.
+
+## 2026-09-24 — [convention] `vendor/shared` is already out of sync on `main`
+**Symptom** — a "the two vendored copies must be identical" check reported five
+critical findings on a diff that touched neither copy.
+**Cause** — `server/src/vendor/shared` and `client/src/vendor/shared` differ on
+`main` in `adapters.ts` and four `contracts/*.ts` files. The drift is comment
+text only, so nothing fails and nobody has fixed it.
+**Takeaway** — compare only the shared files a diff actually touches. A standing
+false positive is worse than no check: it trains everyone to skim past the
+category, and the one real divergence goes past with it.

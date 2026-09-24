@@ -6,7 +6,7 @@ import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine } from './helpers.js';
+import { taskLine, toSkillPromptBlock, withSkillStats } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -183,6 +183,11 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Skills — the agent's linked guidance, in the order the user arranged it
+      // on the agent's Skills tab. An agent with none produces a prompt
+      // byte-identical to the pre-skills one (assemblePrompt omits the section).
+      const skills = await this.loadSkills(agent.id, runLog);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -195,6 +200,8 @@ export class ReviewRunExecutor {
         // Per-agent review strategy (configured in the Agent editor); falls back
         // to the studio default. single-pass = whole diff in one call.
         strategy: agent.strategy ?? REVIEW_STRATEGY,
+        // Rendered `### name` blocks, in link order; omitted when there are none.
+        ...(skills.length > 0 ? { skills: skills.map((s) => s.block) } : {}),
         // T1.3 — pass the callers digest only when we built one. assemblePrompt
         // omits the section when this is empty/undefined.
         ...(callersDigest ? { callers: callersDigest } : {}),
@@ -270,7 +277,9 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: outcome.assembly,
+        prompt_assembly: withSkillStats(outcome.assembly, skills, (text) =>
+          this.container.tokenizer.count(text),
+        ),
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
@@ -399,6 +408,38 @@ export class ReviewRunExecutor {
       return `\n\n${hot.length} of ${changedFiles.length} changed file(s) are in the top 5% most-depended-on (high blast risk) — prioritise their correctness.`;
     } catch {
       return '';
+    }
+  }
+
+  /**
+   * Resolve the agent's prompt skills (linked AND globally enabled) into
+   * rendered blocks, in link order, logging one line per skill so each enabled
+   * skill is its own entry in the run log — a disabled one leaves no trace.
+   *
+   * Best-effort: a DB hiccup here must not fail the review, so a failure is
+   * logged and the run proceeds with the no-skills prompt.
+   */
+  private async loadSkills(
+    agentId: string,
+    runLog: RunLogger,
+  ): Promise<Array<{ name: string; block: string }>> {
+    try {
+      // Through the container: `reviews` must not import another module's folder.
+      const links = await this.container.agentsRepo.enabledSkillsForPrompt(agentId);
+      if (links.length === 0) {
+        runLog.info('Skills: none attached');
+        return [];
+      }
+      const skills = links.map((l) => ({ name: l.skill.name, block: toSkillPromptBlock(l.skill) }));
+      const count = (text: string) => this.container.tokenizer.count(text);
+      skills.forEach((s, i) => runLog.info(`Skill ${i + 1}: ${s.name} (~${count(s.block)} tokens)`));
+      runLog.info(
+        `Skills: ${skills.length} attached (~${count(skills.map((s) => s.block).join('\n\n'))} tokens)`,
+      );
+      return skills;
+    } catch (err) {
+      runLog.error(`Skills: skipped — ${(err as Error).message}`);
+      return [];
     }
   }
 

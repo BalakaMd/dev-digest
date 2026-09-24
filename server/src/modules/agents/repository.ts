@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
@@ -51,15 +51,39 @@ export interface LinkedSkillRow {
 export class AgentsRepository {
   constructor(private db: Db) {}
 
+  /**
+   * Oldest first, with a name/id tie-break for rows created in one seed. The
+   * ORDER BY is load-bearing: without it Postgres returns heap order, and an
+   * UPDATE writes a new row version at the end — so toggling or editing an
+   * agent would move it to the bottom of every list.
+   */
+  private readonly listOrder = [asc(t.agents.createdAt), asc(t.agents.name), asc(t.agents.id)];
+
   async list(workspaceId: string): Promise<AgentRow[]> {
-    return this.db.select().from(t.agents).where(eq(t.agents.workspaceId, workspaceId));
+    return this.db
+      .select()
+      .from(t.agents)
+      .where(eq(t.agents.workspaceId, workspaceId))
+      .orderBy(...this.listOrder);
   }
 
   async listEnabled(workspaceId: string): Promise<AgentRow[]> {
     return this.db
       .select()
       .from(t.agents)
-      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)));
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)))
+      .orderBy(...this.listOrder);
+  }
+
+  /** Linked-skill count per agent in a workspace (agents with none are absent). */
+  async skillCounts(workspaceId: string): Promise<Map<string, number>> {
+    const rows = await this.db
+      .select({ agentId: t.agentSkills.agentId, count: sql<number>`count(*)::int` })
+      .from(t.agentSkills)
+      .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
+      .where(eq(t.agents.workspaceId, workspaceId))
+      .groupBy(t.agentSkills.agentId);
+    return new Map(rows.map((r) => [r.agentId, r.count]));
   }
 
   async getById(workspaceId: string, id: string): Promise<AgentRow | undefined> {
@@ -145,6 +169,21 @@ export class AgentsRepository {
     return row;
   }
 
+  /**
+   * Bump the agent's version and snapshot it, because its skill links changed.
+   * Linking, unlinking and reordering all change the assembled prompt, so they
+   * are config changes in the same sense as editing the system prompt — without
+   * this, two runs of "v3" could have used different skills.
+   */
+  private async bumpForSkillChange(agentId: string): Promise<void> {
+    const [row] = await this.db
+      .update(t.agents)
+      .set({ version: sql`${t.agents.version} + 1` })
+      .where(eq(t.agents.id, agentId))
+      .returning();
+    if (row) await this.snapshotVersion(row, row.version);
+  }
+
   private async snapshotVersion(row: AgentRow, version: number): Promise<void> {
     const skills = await this.skillIdsForAgent(row.id);
     await this.db
@@ -204,6 +243,30 @@ export class AgentsRepository {
     return links.map((l) => l.skill.id);
   }
 
+  /**
+   * The skills that shape this agent's prompt, in link order: linked AND the
+   * skill's own global `enabled` is on. The only query the review pipeline uses.
+   */
+  async enabledSkillsForPrompt(agentId: string): Promise<LinkedSkillRow[]> {
+    const rows = await this.db
+      .select({ skill: t.skills, order: t.agentSkills.order })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(and(eq(t.agentSkills.agentId, agentId), eq(t.skills.enabled, true)))
+      .orderBy(asc(t.agentSkills.order));
+    return rows.map((r) => ({ skill: r.skill, order: r.order }));
+  }
+
+  /** Of `skillIds`, the ones that exist in this workspace (link validation). */
+  async workspaceSkillIds(workspaceId: string, skillIds: string[]): Promise<Set<string>> {
+    if (skillIds.length === 0) return new Set();
+    const rows = await this.db
+      .select({ id: t.skills.id })
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, skillIds)));
+    return new Set(rows.map((r) => r.id));
+  }
+
   /** Link a skill to an agent at a given order (idempotent: upserts order). */
   async linkSkill(agentId: string, skillId: string, order: number): Promise<void> {
     await this.db
@@ -213,24 +276,30 @@ export class AgentsRepository {
         target: [t.agentSkills.agentId, t.agentSkills.skillId],
         set: { order },
       });
+    await this.bumpForSkillChange(agentId);
   }
 
   async unlinkSkill(agentId: string, skillId: string): Promise<void> {
     await this.db
       .delete(t.agentSkills)
       .where(and(eq(t.agentSkills.agentId, agentId), eq(t.agentSkills.skillId, skillId)));
+    await this.bumpForSkillChange(agentId);
   }
 
   /**
    * Replace the full set of linked skills for an agent with `skillIds`, assigning
    * order = index. Used by the "Skills" editor tab (attach/reorder). Skills not in
-   * the list are unlinked.
+   * the list are unlinked. Delete + insert run in one transaction, so a failure
+   * never leaves the agent with its links wiped.
    */
   async setSkills(agentId: string, skillIds: string[]): Promise<void> {
-    await this.db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
-    if (skillIds.length === 0) return;
-    await this.db
-      .insert(t.agentSkills)
-      .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
+      if (skillIds.length === 0) return;
+      await tx
+        .insert(t.agentSkills)
+        .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    });
+    await this.bumpForSkillChange(agentId);
   }
 }

@@ -1,0 +1,80 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for the agent editor's Skills tab. */
+export const s = {
+  header: { display: "flex", alignItems: "center", gap: 12 } satisfies CSSProperties,
+  title: { fontSize: 17, fontWeight: 700 } satisfies CSSProperties,
+  hint: { fontSize: 13, color: "var(--text-muted)", margin: "10px 0 16px", lineHeight: 1.5 } satisfies CSSProperties,
+  search: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "7px 11px",
+    borderRadius: 7,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    width: 240,
+    marginLeft: "auto",
+  } satisfies CSSProperties,
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    background: "transparent",
+    border: "none",
+    outline: "none",
+    color: "var(--text-primary)",
+  } satisfies CSSProperties,
+  list: { display: "flex", flexDirection: "column", gap: 8 } satisfies CSSProperties,
+  row: (enabled: boolean, dropTarget: boolean, dragging: boolean): CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid " + (dropTarget ? "var(--accent)" : "var(--border)"),
+    background: enabled ? "var(--bg-hover)" : "var(--bg-elevated)",
+    opacity: dragging ? 0.55 : 1,
+  }),
+  handle: (active: boolean, grabbing: boolean): CSSProperties => ({
+    color: active ? "var(--text-muted)" : "var(--border-strong)",
+    cursor: active ? (grabbing ? "grabbing" : "grab") : "default",
+    display: "inline-flex",
+    flexShrink: 0,
+    opacity: active ? 1 : 0.4,
+    // A bigger hit area than the 14px icon, without shifting the layout.
+    padding: 4,
+    margin: -4,
+    // Stop touch input from scrolling the page instead of dragging.
+    touchAction: active ? "none" : "auto",
+  }),
+  name: (struck: boolean): CSSProperties => ({
+    fontSize: 14,
+    fontWeight: 600,
+    flex: 1,
+    minWidth: 0,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    textDecoration: struck ? "line-through" : "none",
+    color: struck ? "var(--text-muted)" : "var(--text-primary)",
+  }),
+  // Fixed width so names line up whether or not a row has a prompt slot.
+  position: {
+    width: 22,
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--accent)",
+    fontVariantNumeric: "tabular-nums",
+  } satisfies CSSProperties,
+  globalOff: { fontSize: 11, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
+  orderBtns: { display: "flex", gap: 2, flexShrink: 0 } satisfies CSSProperties,
+  iconButton: (disabled: boolean): CSSProperties => ({
+    background: "none",
+    border: "none",
+    padding: 3,
+    display: "inline-flex",
+    color: disabled ? "var(--border-strong)" : "var(--text-muted)",
+    cursor: disabled ? "default" : "pointer",
+  }),
+} as const;

@@ -23,3 +23,6 @@ test-results/
 
 # emdash worktree config (local)
 .emdash.json
+
+# PR self-review reports (regenerated per branch by the pr-self-review skill)
+.claude/pr-self-review/

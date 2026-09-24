@@ -1,7 +1,7 @@
 # Insights — `@devdigest/e2e`
 
 Append-only log of traps, surprises and decisions discovered while working on
-`@devdigest/e2e`. This is the pressure valve for `CLAUDE.md`: anything worth
+`@devdigest/e2e`. This is the pressure valve for `AGENTS.md`: anything worth
 remembering but not worth its tokens in every session belongs here.
 
 Read this before a non-trivial change. Add an entry whenever something cost you
@@ -22,7 +22,7 @@ Categories: `gotcha` · `root-cause` · `convention` · `dead-end` · `perf-cost
 `env-quirk`. The `engineering-insights` skill holds the full rubric, the quality
 bar, and the deduplication procedure — consult it before reading or writing.
 
-Promote an entry into `CLAUDE.md` only if it passes the line test there: "if I
+Promote an entry into `AGENTS.md` only if it passes the line test there: "if I
 remove this line, will Claude start making mistakes?"
 
 ---

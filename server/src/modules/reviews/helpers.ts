@@ -2,12 +2,41 @@
  * Pure helpers for the review service (side-effect free; operate purely on
  * their arguments — no DB / network / `this`).
  */
-import type { Finding } from '@devdigest/shared';
+import type { Finding, PromptAssembly } from '@devdigest/shared';
 import type { FindingRow, PullRow, ReviewRow } from './repository.js';
 
 // reduceReviews + sliceDiff live in @devdigest/reviewer-core (pure engine logic
 // shared with the CI runner); re-exported here for backward-compatible imports.
 export { reduceReviews, sliceDiff } from '@devdigest/reviewer-core';
+
+/**
+ * Render one linked skill as a block of the prompt's `## Skills / rules`
+ * section. The `### name` header is added here rather than in reviewer-core:
+ * the engine takes already-resolved strings, and the header is what lets the
+ * trace split the section back into per-skill blocks.
+ */
+export function toSkillPromptBlock(skill: { name: string; body: string }): string {
+  return `### ${skill.name}\n${skill.body.trim()}`;
+}
+
+/**
+ * Attach the skills-block token weight to a prompt assembly. `skills_tokens`
+ * measures the `## Skills / rules` block ALONE (the joined text that actually
+ * reached the prompt), not the whole prompt; `skill_blocks` breaks it down per
+ * skill, in prompt order. No skills → the assembly is returned untouched.
+ */
+export function withSkillStats(
+  assembly: PromptAssembly,
+  skills: Array<{ name: string; block: string }>,
+  count: (text: string) => number,
+): PromptAssembly {
+  if (skills.length === 0 || !assembly.skills) return assembly;
+  return {
+    ...assembly,
+    skills_tokens: count(assembly.skills),
+    skill_blocks: skills.map((s) => ({ name: s.name, tokens: count(s.block) })),
+  };
+}
 
 export interface ReviewDtoFinding extends Finding {
   review_id: string;

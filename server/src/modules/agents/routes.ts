@@ -146,7 +146,8 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
     const { workspaceId } = await getContext(app.container, req);
     const agent = await service.get(workspaceId, req.params.id);
     if (!agent) throw new NotFoundError('Agent not found');
-    return service.skillLinks(req.params.id);
+    // Full skill fields (not just link ids), in prompt order.
+    return service.skillDetails(req.params.id);
   });
 
   app.post(

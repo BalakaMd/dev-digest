@@ -1,5 +1,5 @@
-/* /agents/:id — Agent Editor (A2, L03). Left agent list + Config editor
-   (model + system prompt). Tab state lives in ?tab=. Ported from
+/* /agents/:id — Agent Editor (A2, L03). Left agent list + the editor's two
+   tabs (Config, Skills). Tab state lives in ?tab=. Ported from
    screen_agents.jsx. */
 "use client";
 
@@ -9,10 +9,9 @@ import { Button, Dropdown, ErrorState, Skeleton, Icon, Badge } from "@devdigest/
 import { AppShell } from "../../../components/app-shell";
 import { AgentCard } from "../_components/AgentCard";
 import { AgentEditor } from "./_components/AgentEditor";
+import { VALID_TABS } from "./_components/AgentEditor/constants";
 import { useAgents, useAgent, useUpdateAgent } from "../../../lib/hooks/agents";
 import { ApiError } from "../../../lib/api";
-
-const VALID_TABS = ["config"];
 
 export default function AgentEditorPage() {
   const params = useParams<{ id: string }>();
@@ -85,6 +84,7 @@ export default function AgentEditorPage() {
                 key={a.id}
                 ag={a}
                 active={a.id === id}
+                skillCount={a.skill_count}
                 onClick={() => router.push(`/agents/${a.id}?tab=${tab}`)}
                 onToggle={(enabled) => update.mutate({ id: a.id, patch: { enabled } })}
               />

@@ -41,13 +41,20 @@ export const PromptAssembly = z.object({
   skills: z.string().nullish(),
   memory: z.string().nullish(),
   specs: z.string().nullish(),
-  /** Callers-of-changed-symbols digest (repo-intel); null when absent. */
+  /** Callers-of-changed-symbols digest (T1.3); null when absent. */
   callers: z.string().nullish(),
-  /** Repo skeleton / map (repo-intel); null when absent. */
+  /** Repo skeleton / map (T3); null when absent. Enables per-slot token
+      attribution in the run trace. */
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
   user: z.string(),
+  /** Token weight of the `skills` block alone (not the whole prompt). */
+  skills_tokens: z.number().int().nullish(),
+  /** One entry per injected skill, in prompt order. Absent skill → no entry. */
+  skill_blocks: z
+    .array(z.object({ name: z.string(), tokens: z.number().int() }))
+    .nullish(),
 });
 export type PromptAssembly = z.infer<typeof PromptAssembly>;
 

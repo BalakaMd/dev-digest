@@ -6,6 +6,8 @@ import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
+  TEST_QUALITY_REVIEWER_PROMPT,
+  API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
 
 /** Default provider/model for the built-in reviewer agents. */
@@ -18,8 +20,10 @@ const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
  *
  * Seeds: default workspace + system user + membership, default settings,
  * demo repo (acme/payments-api), PR #482 with files/commits, a sample review
- * with a few findings, and the three built-in agents (General + Security +
- * Performance), all on the default openrouter/deepseek-v4-flash provider+model.
+ * with a few findings, the three built-in agents (General + Security +
+ * Performance), and the two skills-experiment agents (Test Quality + API
+ * Contract, disabled, no skills linked), all on the default
+ * openrouter/deepseek-v4-flash provider+model.
  *
  * Course lessons populate the other tables (skills, conventions, memory, eval,
  * …) once their features are built — they start empty here.
@@ -208,6 +212,32 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       model: DEFAULT_MODEL,
       systemPrompt: PERFORMANCE_REVIEWER_PROMPT,
       enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
+    // Skills control-experiment agents. Disabled so "Run all" is unchanged on a
+    // fresh clone; run them individually from the PR page's Run Review menu.
+    // No skills are linked here — they are imported and linked through the UI
+    // (see docs/skill-examples/).
+    {
+      workspaceId,
+      name: 'Test Quality Reviewer',
+      description: 'Reviews the test code in a PR; linked skills extend what it checks.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: TEST_QUALITY_REVIEWER_PROMPT,
+      enabled: false,
+      version: 1,
+      createdBy: userId,
+    },
+    {
+      workspaceId,
+      name: 'API Contract Reviewer',
+      description: 'Reviews HTTP route handlers; linked skills add contract checks.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
+      enabled: false,
       version: 1,
       createdBy: userId,
     },

@@ -6,7 +6,8 @@
     "close": "Close",
     "import": "Import",
     "export": "Export",
-    "run": "Run"
+    "run": "Run",
+    "confirm": "Confirm"
   },
   "states": {
     "loading": "Loading…",

@@ -55,12 +55,23 @@ resolves context and passes it in:
 - `systemPrompt`, `model`, `diff`, `llm` — always
 - `callers`, `repoMap`, `rankNote` — only when repo-intel is on for that agent
 - `prDescription` — only when the PR has a body; untrusted, wrapped downstream
+- `skills` — only when the agent has linked skills that are globally enabled
 
 Repo-intel has **two independent gates**: the global `REPO_INTEL_ENABLED` and the
 per-agent `repo_intel` toggle. When an agent opts out, enrichment is skipped
 entirely so its prompt is byte-identical to the repo-intel-off baseline. When the
 repo is simply not indexed, the facade returns empty and the sections are
 omitted — the run degrades silently to diff-only rather than failing.
+
+Skills come from `agentsRepo.enabledSkillsForPrompt`: the agent's links, in link
+order, filtered to skills whose own `enabled` is on. Each is rendered as
+`### <name>\n<body>` and they land, in that order, in the user message's
+`## Skills / rules` section. The skill text is not delimiter-wrapped — a skill is
+instructions by design, which is why import shows a trust warning. Loading them
+is best-effort: a failure is logged and the run proceeds without skills. The run
+log gets one `Skill N: <name> (~T tokens)` line per injected skill plus a total;
+the trace's `prompt_assembly` gets `skills_tokens` (the skills block alone,
+counted by the tokenizer adapter) and `skill_blocks` (per-skill names + tokens).
 
 Optional sections follow an **omit-when-empty** contract: `assemblePrompt` leaves
 the section out entirely rather than emitting an empty heading.

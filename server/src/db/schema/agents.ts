@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, jsonb, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, boolean, jsonb, primaryKey, index } from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces, users } from './core';
 import { skills } from './skills';
@@ -57,7 +57,12 @@ export const agentSkills = pgTable(
     skillId: uuid('skill_id')
       .notNull()
       .references(() => skills.id, { onDelete: 'cascade' }),
+    // Position of the skill's block in the prompt's `## Skills / rules` section.
     order: integer('order').notNull().default(0),
   },
-  (t) => ({ pk: primaryKey({ columns: [t.agentId, t.skillId] }) }),
+  (t) => ({
+    pk: primaryKey({ columns: [t.agentId, t.skillId] }),
+    // Reverse lookup ("used by N agents"); the PK only covers agent_id first.
+    skillIdx: index('agent_skills_skill_idx').on(t.skillId),
+  }),
 );

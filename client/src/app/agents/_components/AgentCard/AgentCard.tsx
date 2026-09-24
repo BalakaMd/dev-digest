@@ -7,6 +7,8 @@ import { useTranslations } from "next-intl";
 import { Icon, Badge, Toggle } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
 import { useDeleteAgent } from "../../../../lib/hooks/agents";
+import { useToast } from "../../../../lib/toast";
+import { ConfirmDialog } from "../../../../components/confirm-dialog";
 import { modelColor } from "./helpers";
 import { s } from "./styles";
 
@@ -25,9 +27,35 @@ export function AgentCard({
 }) {
   const t = useTranslations("agents");
   const del = useDeleteAgent();
+  const toast = useToast();
+  const [confirming, setConfirming] = React.useState(false);
   const color = modelColor(ag.model);
+
+  const confirmDelete = async () => {
+    try {
+      await del.mutateAsync(ag.id);
+      toast.success(t("delete.deleted"));
+      setConfirming(false);
+    } catch {
+      // Surfaced by the global mutation-error toast (lib/providers.tsx).
+    }
+  };
+
   return (
     <div onClick={onClick} style={s.card(!!active, ag.enabled)}>
+      {confirming && (
+        // The dialog renders inside the card; stop its clicks from opening the agent.
+        <div onClick={(e) => e.stopPropagation()}>
+          <ConfirmDialog
+            title={t("delete.title")}
+            body={t("delete.body", { name: ag.name })}
+            confirmLabel={t("delete.confirm")}
+            pending={del.isPending}
+            onConfirm={() => void confirmDelete()}
+            onCancel={() => setConfirming(false)}
+          />
+        </div>
+      )}
       <div style={s.headerRow}>
         <div style={s.iconBox}>
           <Icon.Cpu size={15} />
@@ -41,11 +69,11 @@ export function AgentCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (window.confirm(`Delete agent "${ag.name}"? This cannot be undone.`)) del.mutate(ag.id);
+            setConfirming(true);
           }}
           disabled={del.isPending}
-          title="Delete agent"
-          aria-label="Delete agent"
+          title={t("card.delete", { name: ag.name })}
+          aria-label={t("card.delete", { name: ag.name })}
           style={{
             background: "none",
             border: "none",

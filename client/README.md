@@ -3,7 +3,7 @@
 The DevDigest UI: import repos, browse pull requests, run and read AI reviews,
 and author agents. App Router + React Server/Client components, data via
 **TanStack Query** hooks over the Fastify API. (This is the starter surface;
-course lessons add the Skills, Memory, Eval, Blast/Brief, multi-agent, CI, and
+course lessons add the Memory, Eval, Blast/Brief, multi-agent, CI, and
 dashboard screens.)
 
 - **Stack:** Next.js 15 (App Router), React 19, TanStack Query, `next-intl`
@@ -27,12 +27,14 @@ flowchart TD
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config)"]
+  SKILLS["/skills<br/>grid · preview drawer"] --> SKILL["/skills/:id<br/>config · preview · versioning"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills)"]
   SETTINGS["/settings/:section<br/>API keys · models"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
-  AGENTS -->|"/agents · /agents/:id"| API
+  SKILLS -->|"/skills · /skills/import · /skills/:id/versions"| API
+  AGENTS -->|"/agents · /agents/:id · /agents/:id/skills"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
 

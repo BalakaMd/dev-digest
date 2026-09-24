@@ -27,6 +27,19 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-24 — [env-quirk] The browser pane's drag never fires HTML5 drag-and-drop
+**Symptom** — verifying the agent Skills tab in the built-in browser, a
+`left_click_drag` from one row to another did nothing: no reorder, no request,
+no error — although the rows are `draggable` and the unit tests pass.
+**Cause** — the pane synthesises mouse down/move/up; Chromium starts a native
+HTML5 drag (`dragstart`/`dragover`/`drop`) only from real OS input, so
+`draggable` elements never see a drag.
+**Takeaway** — to exercise native DnD in the pane, dispatch the events yourself:
+`new DragEvent('dragstart' | 'dragover' | 'drop', { bubbles: true, cancelable:
+true, dataTransfer: new DataTransfer() })` on the source and target elements via
+the JavaScript tool, then check the result. Do not conclude DnD is broken from a
+dead mouse drag.
+
 ## 2026-09-24 — [gotcha] A PreToolUse(Bash) matcher sees the whole command, heredocs included
 **Symptom** — the new PR gate denied a `cat > file <<EOF` call that was merely
 writing documentation, because the document mentioned the gated command.
@@ -42,8 +55,11 @@ switched off, and then it protects nothing.
 **Symptom** — a "the two vendored copies must be identical" check reported five
 critical findings on a diff that touched neither copy.
 **Cause** — `server/src/vendor/shared` and `client/src/vendor/shared` differ on
-`main` in `adapters.ts` and four `contracts/*.ts` files. The drift is comment
-text only, so nothing fails and nobody has fixed it.
+`main` in `adapters.ts` and several `contracts/*.ts` files. Mostly comment text,
+so nothing fails and nobody has fixed it — but not only: the client
+`knowledge.ts` was also missing `AgentVersionConfig` / `AgentVersion`. It and
+`trace.ts` were re-synced by the skills work (copy the canonical file whole);
+the remaining drift is still comment-only.
 **Takeaway** — compare only the shared files a diff actually touches. A standing
 false positive is worse than no check: it trains everyone to skim past the
 category, and the one real divergence goes past with it.

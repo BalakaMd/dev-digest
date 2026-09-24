@@ -27,4 +27,14 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
-_No entries yet._
+## 2026-09-24 — [gotcha] A run reaches `done` before its trace exists
+**Symptom** — an integration test that waited for `waitForPrRuns` and then read
+`GET /runs/:id/trace` failed intermittently with the trace body undefined, while
+the same test passed on the next run.
+**Cause** — `ReviewRunExecutor.runOneAgent` calls `completeAgentRun` (status
+`done`) first and `saveRunTrace` afterwards. `waitForPrRuns` polls `agent_runs`
+status only, so it can return in the gap between the two writes.
+**Takeaway** — a test that asserts on the trace must poll the trace endpoint
+until it returns a document (see `traceFor` in `test/skills-prompt.it.test.ts`),
+not just wait for a terminal run status. The same gap exists for any UI that
+opens the trace the instant a run turns `done`.

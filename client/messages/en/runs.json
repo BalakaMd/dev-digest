@@ -47,7 +47,7 @@
     },
     "prompt": {
       "system": "System",
-      "skills": "Skills (dynamic)",
+      "skills": "Skills",
       "memory": "Memory (dynamic)",
       "repoMap": "Repo skeleton — repo-intel (dynamic)",
       "specs": "Project context (dynamic)",
@@ -56,7 +56,10 @@
       "copy": "Copy",
       "fullscreen": "Open fullscreen",
       "search": "Search in this block…",
-      "noMatches": "No matches for “{q}”."
+      "noMatches": "No matches for “{q}”.",
+      "skillsTokens": "~{count} tokens · skills block only",
+      "skillCount": "{count, plural, one {# skill} other {# skills}}",
+      "skillTokens": "~{count} tokens"
     },
     "tools": {
       "args": "args",
@@ -71,7 +74,7 @@
     "running": "running",
     "completed": "completed",
     "copyRawOutput": "Copy raw output",
-  "copied": "Copied!",
+    "copied": "Copied!",
     "tracePending": "Trace is written when the run completes — see the Live log tab.",
     "loadingTrace": "Loading trace…",
     "noTrace": "No trace available yet."

@@ -12,8 +12,10 @@ the same commit.
 | `/onboarding` | add a repository by URL | `useAddRepo` → `POST /repos` |
 | `/repos/[repoId]/pulls` | PR list | `usePulls` → `GET /repos/:id/pulls`; `useRefreshRepo` → `POST /repos/:id/refresh` |
 | `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace` |
-| `/agents` | agent list | `useAgents` → `GET /agents` |
-| `/agents/[id]` | agent editor (model, system prompt, toggles) | `useAgent`, `useUpdateAgent`, `useProviderModels` |
+| `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
+| `/skills/[id]` | skill editor — Config, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion` |
+| `/agents` | agent grid | `useAgents` → `GET /agents` |
+| `/agents/[id]` | agent editor — Config, Skills | `useAgent`, `useUpdateAgent`, `useProviderModels`, `useSkills`, `useAgentSkills`, `useSetAgentSkills` |
 | `/settings/[section]` | API keys, models | `useSettings`, `useUpdateSettings`, `useSecretsStatus`, `useTestConnection` |
 
 ## PR list
@@ -54,12 +56,36 @@ Findings can be accepted or dismissed (`useFindingAction`). A finding always
 cites a file and line range that exist in the diff — the server drops the rest
 before they ever reach the client.
 
+## Skills
+
+A skill is text and configuration only (name, directive description, type,
+markdown body) and is shared across agents. Clicking a card opens a read-only
+preview in a **side drawer**; its Open button leads to `/skills/[id]`. Create
+happens in a modal. Import takes a `.md` or `.zip`, shows the server's preview
+(the extracted markdown core plus the archive members that were *not* imported)
+and persists nothing until the user confirms — the skill is then saved with
+source `imported`. Delete always goes through a confirmation dialog.
+
+The card toggle is the skill's **global** switch: a disabled skill reaches no
+agent's prompt. Any content edit bumps the version and snapshots the body;
+toggling does not. Restore writes an old body forward as a new version — history
+is append-only. The version diff is computed client-side against the current
+body.
+
 ## Agents
 
-Two agents ship seeded (General and Security; this tree also carries a
-Performance one). The editor owns `model`, `system_prompt`, and the per-agent
-`repo_intel` toggle. `useProviderModels` lists models for the selected provider,
-so the model field is a choice, not free text.
+Five agents ship seeded: General, Security, Performance, and the two
+skills-experiment agents (Test Quality, API Contract — disabled, no skills). The
+editor has exactly two tabs. **Config** owns `model`, `system_prompt`, strategy
+and the per-agent `repo_intel` toggle; `useProviderModels` lists models for the
+selected provider, so the model field is a choice, not free text.
+
+**Skills** lists every skill in the workspace. A skill is enabled for the agent
+when it is linked; enabled skills come first, in link order, and that order is
+the order of their blocks in the prompt. Only enabled skills can be dragged (or
+moved with ↑/↓); reordering is off while the name filter is active. Every change
+posts the full ordered id list (`POST /agents/:id/skills`), which also bumps the
+agent's version. Agent delete goes through a confirmation dialog.
 
 ## Settings
 
@@ -78,6 +104,5 @@ All visible text resolves through `next-intl` — no literal strings in componen
 
 ## Not here yet
 
-Skills, memory, eval, blast/brief, multi-agent and the dashboards are later
-lessons. Their message namespaces already exist in `messages/en/`, which is why
+Memory, eval, blast/brief, multi-agent and the dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
 you will see `eval.json` or `memory.json` with no screen behind them.

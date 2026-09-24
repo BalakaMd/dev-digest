@@ -22,3 +22,66 @@
     transform: translateY(0);
   }
 }
+
+/* Block-level markdown typography for the vendored <Markdown> (.dd-md).
+   Tailwind's preflight resets headings, lists and quotes to plain text, and
+   the vendored renderer only styles inline elements — so a skill body with
+   `##` headings and bullet lists would otherwise render indistinguishable from
+   raw prose. Scoped to .dd-md so nothing else is affected. */
+.dd-md h1,
+.dd-md h2,
+.dd-md h3,
+.dd-md h4 {
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin: 18px 0 8px;
+}
+.dd-md h1 { font-size: 1.45em; }
+.dd-md h2 { font-size: 1.25em; }
+.dd-md h3 { font-size: 1.1em; }
+.dd-md h4 { font-size: 1em; }
+.dd-md > :first-child { margin-top: 0; }
+.dd-md ul,
+.dd-md ol {
+  margin: 0 0 10px;
+  padding-left: 1.4em;
+}
+.dd-md ul { list-style: disc; }
+.dd-md ol { list-style: decimal; }
+.dd-md li { margin: 2px 0; }
+.dd-md li > p { margin: 0; }
+.dd-md blockquote {
+  margin: 0 0 10px;
+  padding: 2px 12px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.dd-md pre {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  overflow-x: auto;
+}
+/* !important: the vendored renderer puts inline-code padding/background on
+   every <code> via an inline style, which would indent a fenced block's
+   first line. */
+.dd-md pre code {
+  padding: 0 !important;
+  background: none !important;
+}
+.dd-md hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
+}
+.dd-md table {
+  border-collapse: collapse;
+  margin: 0 0 12px;
+}
+.dd-md th,
+.dd-md td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+}

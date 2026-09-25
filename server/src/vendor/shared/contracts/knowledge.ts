@@ -173,15 +173,118 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+/** Fixed taxonomy the extractor classifies every rule into (UI filter + per-category skills). */
+export const ConventionCategory = z.enum([
+  'naming',
+  'error-handling',
+  'async',
+  'imports',
+  'module-structure',
+  'typing',
+  'testing',
+  'formatting',
+  'api',
+  'data-access',
+  'other',
+]);
+export type ConventionCategory = z.infer<typeof ConventionCategory>;
+
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
+/** A line range in a sampled file that code verified really contains the quoted code. */
+export const ConventionEvidence = z.object({
+  path: z.string(),
+  line_start: z.number().int(),
+  line_end: z.number().int(),
+  snippet: z.string(),
+});
+export type ConventionEvidence = z.infer<typeof ConventionEvidence>;
+
+/**
+ * A convention candidate. `evidence_path` / `evidence_snippet` / `line_*` mirror
+ * the primary (first) entry of `evidence`. `confidence` is after verification;
+ * `model_confidence` is what the model claimed.
+ */
 export const ConventionCandidate = z.object({
   id: z.string(),
+  category: ConventionCategory,
   rule: z.string(),
   evidence_path: z.string(),
   evidence_snippet: z.string(),
+  line_start: z.number().int(),
+  line_end: z.number().int(),
+  evidence: z.array(ConventionEvidence),
   confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  model_confidence: z.number().min(0).max(1).nullish(),
+  status: ConventionStatus,
+  created_at: z.string(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+export const ConventionScan = z.object({
+  id: z.string(),
+  provider: z.string(),
+  model: z.string(),
+  sample_files: z.array(z.string()),
+  proposed: z.number().int(),
+  kept: z.number().int(),
+  dropped_unverified: z.number().int(),
+  merged_duplicates: z.number().int(),
+  created_at: z.string(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+/**
+ * `GET /repos/:id/conventions`. `candidates` holds pending + accepted only —
+ * the working set that counts, filters and skill drafts use. Rejected ones are
+ * listed apart so the page can offer to restore them.
+ */
+export const ConventionsState = z.object({
+  scan: ConventionScan.nullable(),
+  candidates: z.array(ConventionCandidate),
+  rejected: z.array(ConventionCandidate),
+});
+export type ConventionsState = z.infer<typeof ConventionsState>;
+
+export const UpdateConventionInput = z.object({
+  status: ConventionStatus.optional(),
+  rule: z.string().trim().min(1).max(500).optional(),
+  category: ConventionCategory.optional(),
+});
+export type UpdateConventionInput = z.infer<typeof UpdateConventionInput>;
+
+export const ConventionSkillSplit = z.enum(['single', 'category']);
+export type ConventionSkillSplit = z.infer<typeof ConventionSkillSplit>;
+
+/** A skill pre-built from accepted conventions; every field is editable before saving. */
+export const ConventionSkillDraft = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  enabled: z.boolean(),
+  body: z.string(),
+  category: ConventionCategory.nullable(),
+  convention_ids: z.array(z.string()),
+});
+export type ConventionSkillDraft = z.infer<typeof ConventionSkillDraft>;
+
+export const CreateConventionSkillsInput = z.object({
+  skills: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        description: z.string().max(500),
+        type: SkillType,
+        enabled: z.boolean(),
+        body: z.string().trim().min(1),
+        convention_ids: z.array(z.string().uuid()).min(1),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+export type CreateConventionSkillsInput = z.infer<typeof CreateConventionSkillsInput>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a

@@ -85,6 +85,13 @@
       "when": 1790227248198,
       "tag": "0011_dark_doomsday",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790333320146,
+      "tag": "0012_mushy_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

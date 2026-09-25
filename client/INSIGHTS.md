@@ -27,6 +27,14 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-25 — [gotcha] `format.relativeTime(date)` without a `now` logs ENVIRONMENT_FALLBACK errors
+**Symptom** — Tests for a page showing "last scan 2 minutes ago" passed, but every render printed an
+`IntlError: ENVIRONMENT_FALLBACK` stack trace. The dev console did the same.
+**Cause** — next-intl wants a reference time for relative formatting; the app configures no global
+`now`, so every call without one falls back and complains.
+**Takeaway** — Pass one explicitly from `useNow({ updateInterval: 60_000 })`. That silences the error
+and keeps the label current (see `ConventionsView`).
+
 ## 2026-09-24 — [dead-end] HTML5 drag-and-drop for reordering did not work in real Chrome
 **Symptom** — the agent Skills tab reordered rows with `draggable` +
 `dragstart`/`dragover`/`drop`. Unit tests passed, but a real mouse drag did

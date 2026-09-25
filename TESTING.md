@@ -85,7 +85,11 @@ cd e2e && npm install && npm test
   `pnpm exec vitest run …` rather than relying on committed `test:unit` /
   `test:integration` scripts.
 - **Hermetic by default.** Reach for `src/adapters/mocks.ts` (MockLLMProvider,
-  MockGitClient) rather than real network/keys.
+  MockGitClient) rather than real network/keys. The server suite enforces it:
+  `server/test/setup/hermetic.ts` (vitest `setupFiles`) blanks every provider
+  key and points `DEVDIGEST_SECRETS_PATH` at an empty temp dir, so a developer's
+  real `~/.devdigest/secrets.json` or env keys never reach a test. A test that
+  needs a key injects `MockSecretsProvider` or an `llm`/`github` override.
 - **E2E specs are deterministic batch JSON** (`e2e/specs/*.flow.json`) using
   only `--url` / `--text` / `find` locators — never the AI `chat` command.
 - **CI is path-filtered per package.** Cross-package source aliases are encoded

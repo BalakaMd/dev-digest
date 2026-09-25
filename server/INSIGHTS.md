@@ -43,12 +43,17 @@ timing out. The same risk exists for `GITHUB_TOKEN`: an unmocked
 `container.github()` will construct a real Octokit client whenever a PR body
 happens to reference an issue or a doc link.
 **Takeaway** — never assume "no override supplied" means "no real key configured
-on this machine". Any it-test whose code path can reach an unmocked provider or
-`GitHubClient` — directly or through a feature that resolves one by default,
-like the intent classifier — must inject `secrets: new MockSecretsProvider({})`
-(or explicit `llm`/`github` overrides for every id the path can reach), not rely
-on the ambient environment being key-less. `git diff`-ing test timings after a
-new best-effort background call is a fast way to notice this class of bug: a
+on this machine". The server suite is now hermetic by default:
+`test/setup/hermetic.ts` (vitest `setupFiles`) blanks the provider keys in
+`process.env` and points `DEVDIGEST_SECRETS_PATH` at an empty temp dir, so an
+unmocked `container.llm(...)` / `container.github()` throws `ConfigError`
+instead of going to the network; `test/hermetic-setup.test.ts` guards it.
+Blanking env alone would NOT have been enough — the key in this incident came
+from `~/.devdigest/secrets.json`, and the keys are set to `''` rather than
+deleted because `dotenv` would refill deleted ones from `.env`. A test that
+needs a key still injects `secrets: new MockSecretsProvider({ ... })` or
+explicit `llm`/`github` overrides. `git diff`-ing test timings after a new
+best-effort background call is a fast way to notice this class of bug: a
 mocked call is single-digit-ms, a live one is seconds.
 
 ## 2026-09-25 — [gotcha] A system LLM prompt that does not pin the output language gets answers in a random one

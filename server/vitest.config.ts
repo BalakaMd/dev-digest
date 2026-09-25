@@ -12,6 +12,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts', 'src/**/*.test.ts'],
+    // Blanks provider keys and points the secrets store at an empty temp dir,
+    // so no test can reach a real LLM or GitHub with the developer's keys.
+    setupFiles: ['test/setup/hermetic.ts'],
     // Testcontainers integration tests can be slow to spin up Postgres.
     testTimeout: 120_000,
     hookTimeout: 120_000,

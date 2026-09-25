@@ -63,7 +63,7 @@ Build a recommendation from this table, then adjust it to the task:
 
 | Task | Recommended |
 |------|-------------|
-| Feature | planner, implementer, architecture-reviewer, plan-verifier (add test-writer when the plan has no test plan or the touched code lacks tests; add doc-writer when docs or specs describe the changed behaviour; add researcher only for an external library or practice question) |
+| Feature | planner, implementer, architecture-reviewer, plan-verifier (add test-writer when the new tests should be written by a separate agent rather than the implementer — independent eyes for one more instance; add doc-writer when docs or specs describe the changed behaviour; add researcher only for an external library or practice question) |
 | Bug fix | planner (skip for a one-line fix), implementer, test-writer (regression test), plan-verifier (add researcher when the root cause is unknown, and architecture-reviewer when the fix crosses layers) |
 | Refactor | planner, implementer, architecture-reviewer, plan-verifier (add test-writer when the touched code lacks tests) |
 | Tests only | test-writer (add plan-verifier when there is a plan to check against) |
@@ -91,7 +91,8 @@ Apply these rules and then show the user the resulting pipeline on one line (for
 again, since the user has already chosen.
 
 - **Implementer without planner:** write a short inline plan yourself (goal, acceptance
-  criteria, files to change, steps, verification commands) from the description and the code
+  criteria, files to change, steps, a test plan with an owner for each new test, verification
+  commands) from the description and the code
   it names. It goes through checkpoint A like a planner's plan.
 - **plan-verifier without any plan:** it verifies against the task description, which is
   passed as the list of requirements.
@@ -127,7 +128,9 @@ Tell the planner to:
 - **make each step self-contained** — its files, the contracts it relies on and the user's
   decisions that affect it — so an implementer can read only its own steps plus the shared
   sections;
-- **leave out steps for agents the user did not select** (see "Not selected means not done").
+- **leave out steps for agents the user did not select** (see "Not selected means not done");
+- **assign the new tests** — `owner: test-writer` when the user selected test-writer, so they
+  stay out of the implementation steps; otherwise the implementer owns them.
 The planner returns a plan path, or clarifying questions, or says the task is too small.
 Relay questions to the user and resume the planner with the answers. If the task is too
 small, switch to the inline plan from Step 2.
@@ -142,7 +145,8 @@ the implementer without an explicit approval.
 
 ### 3.3 implementer
 Pass the plan path (or the inline plan), the step ids the instance owns, the user's answers
-to open questions, and the reminder that nothing is committed. Tell it to read only its own
+to open questions, and the reminder that nothing is committed and that tests marked
+`owner: test-writer` are not its job. Tell it to read only its own
 steps plus the plan's shared sections, and to run targeted tests for its steps; the full
 suites run once in this session at the end. Respect the instance size limit in "Token
 budget". With an approved split, run each group as described in "Parallel instances". If an
@@ -151,7 +155,10 @@ the blocker and ask the user. If an instance stops at its turn limit, resume it 
 `SendMessage` instead of starting a new one.
 
 ### 3.4 test-writer
-Run it in **gap mode** after an implementer: first compare the plan's test plan with the
+Pass the plan path, its test plan entries marked `owner: test-writer`, the step ids they
+cover and the files the implementer changed; those entries are its work list.
+Fall back to **gap mode** when the plan gave the new tests to the implementer anyway (for
+example a plan reused from an earlier run): first compare the plan's test plan with the
 tests the implementer reports. If every item is covered, tell the user and skip the
 test-writer unless they still want it. Otherwise pass only the uncovered items, the tests
 that already exist for them, and the instruction to stop with "No gaps" rather than add

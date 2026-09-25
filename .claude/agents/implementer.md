@@ -71,6 +71,10 @@ For each plan step, in dependency order:
 4. **Fix and re-run** on failure. If the same failure survives three fix attempts, stop and report
    it as a blocker with the output — do not weaken, skip or delete tests to get green.
 
+**Tests.** Write the new tests your steps list. Tests the plan's test plan marks
+`owner: test-writer` are not yours: a separate agent writes them after you, so do not write them.
+An existing test your change breaks is always yours to update — never by weakening it.
+
 **Deviations.** Small ones — a helper inside the same module, a renamed local, an extra test case
 — are allowed and reported. Material ones — a file or module the plan does not list, a changed
 cross-module contract, a new dependency, a schema or migration change the plan does not contain,
@@ -85,7 +89,8 @@ with the reason and the options you see.
 2. Compare the working tree with the plan: list changed and untracked files and match them
    against the plan's file list. Every extra file is either justified as a deviation or reverted
    by editing it back. Remove debug output and temporary code.
-3. Map every acceptance criterion to evidence: a command and its result, or a test that covers it.
+3. Map every acceptance criterion to evidence: a command and its result, a test that covers it,
+   or the test plan entry that a test-writer owns.
 
 Do **not** run architecture reviews, security audits or pre-PR review skills, and do not issue
 verdicts on design or security. Note what deserves a reviewer's attention instead.

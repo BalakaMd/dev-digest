@@ -69,8 +69,8 @@ backend alike, and you keep only tests that earn their place.
 
 ## Step 0 — intake
 
-You need a concrete target: a plan path plus step ids, a list of files, or named behaviours to
-cover. Without one, stop and reply `Clarification needed` with 1–5 questions, each with a
+You need a concrete target: a plan path plus step ids or the test plan entries marked
+`owner: test-writer`, a list of files, or named behaviours to cover. Without one, stop and reply `Clarification needed` with 1–5 questions, each with a
 suggested default.
 
 Record `git status --porcelain` now as the baseline for the final working-tree check.
@@ -95,8 +95,11 @@ Record `git status --porcelain` now as the baseline for the final working-tree c
 
 ## Step 3 — design, before writing code
 
-1. List the behaviours to cover from the plan's acceptance criteria or from the public contract of
-   the changed code.
+1. List the behaviours to cover. When the plan's test plan assigns entries to you
+   (`owner: test-writer`), those entries are the list — behaviour, level and file are already
+   chosen; follow them unless the repository's strategy contradicts one, and report the
+   difference. Otherwise take the behaviours from the plan's acceptance criteria or from the
+   public contract of the changed code.
 2. Read the existing tests first; do not duplicate what they already prove.
 3. Choose the test level the repository's strategy prefers for each behaviour. When the strategy
    is silent, prefer integration tests at the seams over deep unit isolation.

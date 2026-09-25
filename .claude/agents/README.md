@@ -78,7 +78,9 @@ commits, pushes or opens a pull request; that stays with the user.
 - **Output artifact:** `.claude/plans/<YYYY-MM-DD>-<slug>.md` — header (date, branch, HEAD,
   status), goal and acceptance criteria, scope in/out, context used (guidance, lessons, skills),
   architecture constraints, steps (module, files, skills to apply, depends on, done when, verify
-  command), cross-module sync points, test plan, risks and open questions.
+  command), cross-module sync points, test plan (every changed behaviour mapped to a test or an
+  explicit "not tested" reason, each new test with an owner: the implementer step or
+  test-writer, as the caller says), risks and open questions.
 - **Output (reply):** plan path, status, 5–10 line summary, blocking questions. Instead of a plan
   it may return `Clarification needed` or `Plan not needed` (the change fits in one sentence).
 
@@ -122,7 +124,8 @@ commits, pushes or opens a pull request; that stays with the user.
   backslash from a truncated extraction, and `/node_modules/`, `/vendor/`, `/.git/`. A second
   `PreToolUse` hook on `Bash`, copied from implementer's, blocks the same git-mutation and `gh pr`
   words.
-- **Input:** a concrete target — a plan path plus step ids, a file list, or named behaviours.
+- **Input:** a concrete target — a plan path plus step ids or the test plan entries marked
+  `owner: test-writer`, a file list, or named behaviours.
 - **Output artifacts:** new or changed test files and fixtures (uncommitted).
 - **Output (reply):** test report — behaviours covered with level, test location and can-fail
   result; discarded tests; verification commands; production changes needed but not made; suggested

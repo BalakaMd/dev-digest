@@ -27,8 +27,10 @@ Note: this package uses **npm** (`package-lock.json`), not pnpm.
 - **Grounding is mandatory.** A finding whose `[start_line, end_line]` does not
   intersect a real hunk for that file is dropped. The gate is mechanical, not
   advisory; do not add a bypass.
-- **The score is recomputed** from the findings that survive grounding. The
-  model's self-reported score is deliberately ignored.
+- **The score is recomputed** from the findings that survive grounding and,
+  when an `intent` was supplied, the scope filter (`filterOutOfScope`) that
+  runs right after it. The model's self-reported score is deliberately
+  ignored.
 - **Prompt-injection defense is one shared trusted rule**, `INJECTION_GUARD`,
   appended to every agent's system prompt by `assemblePrompt`. We deliberately
   do **not** keyword-scan untrusted text — a denylist only catches one phrasing.
@@ -39,8 +41,9 @@ Note: this package uses **npm** (`package-lock.json`), not pnpm.
 
 - Skill bodies, memory and specs arrive as **resolved strings**, never as slugs
   or ids — resolution belongs to the caller.
-- Optional prompt slots (`skills`, `memory`, `specs`, `callers`) are fed by later
-  lessons. When omitted, `assemblePrompt` simply leaves the section out.
+- Optional prompt slots (`skills`, `memory`, `specs`, `callers`, `intent`) are
+  fed by later lessons. When omitted, `assemblePrompt` simply leaves the
+  section out.
 - The public surface is whatever `src/index.ts` exports — keep it explicit.
 
 ## Read When

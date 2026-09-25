@@ -43,15 +43,38 @@ export const findings = pgTable('findings', {
   trifectaComponents: jsonb('trifecta_components').$type<string[]>(),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
+  /** 'in' | 'out' | null — set only when a PR intent was available. A label
+   *  only: it never changes whether a finding is reported or its severity. */
+  scope: text('scope'),
 });
 
 export const prIntent = pgTable('pr_intent', {
   prId: uuid('pr_id')
     .primaryKey()
     .references(() => pullRequests.id, { onDelete: 'cascade' }),
+  // Column name kept as `intent`; the contract field is `summary` (mapped in
+  // IntentRepository) to avoid the drizzle-kit rename prompt on an otherwise
+  // additive migration (see server/INSIGHTS.md § drizzle-kit rename prompt).
   intent: text('intent').notNull(),
   inScope: jsonb('in_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   outOfScope: jsonb('out_of_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  confidence: text('confidence').notNull().default('low'),
+  /** IntentSource[] — one entry per source considered (used/truncated/unreachable/…). */
+  sources: jsonb('sources').$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
+  /** PR head SHA this intent was derived against; null means unknown (reported
+   *  as stale by the service). */
+  headSha: text('head_sha'),
+  provider: text('provider'),
+  model: text('model'),
+  tokensIn: integer('tokens_in'),
+  tokensOut: integer('tokens_out'),
+  /** USD billed for the derivation call; null — never 0 — when unpriced. */
+  costUsd: doublePrecision('cost_usd'),
+  /** Tokenizer estimate of the classifier prompt. */
+  promptTokensEst: integer('prompt_tokens_est'),
+  // Not `now()` from `_shared.ts`: that helper hard-codes the column name
+  // `created_at`, and this column is `derived_at`.
+  derivedAt: timestamp('derived_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const prBrief = pgTable('pr_brief', {

@@ -1,12 +1,12 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import type { PrIntentRecord, Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine, toSkillPromptBlock, withSkillStats } from './helpers.js';
+import { taskLine, toPromptIntent, toSkillPromptBlock, withIntentStats, withSkillStats } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -104,6 +104,11 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // Shared pre-work, once per batch: the stored intent, or a best-effort
+    // derive when none exists. NEVER fails the run — `getForReview` swallows
+    // and logs any failure (missing key, LLM error, …) and returns undefined.
+    const intent = await this.container.intent.getForReview(workspaceId, pull.id, runLog);
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -111,7 +116,7 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, intent, agent, runId, runLog);
         logger?.info(
           {
             runId,
@@ -140,6 +145,7 @@ export class ReviewRunExecutor {
     pull: PullRow,
     repo: typeof schema.repos.$inferSelect,
     diff: UnifiedDiff,
+    intent: PrIntentRecord | undefined,
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
@@ -210,6 +216,10 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // The PR's derived intent/scope (best-effort — undefined when none was
+        // stored and deriving one failed). assemblePrompt omits the section and
+        // `scope` is normalised to null on every finding when absent.
+        ...(intent ? { intent: toPromptIntent(intent) } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -277,8 +287,9 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: withSkillStats(outcome.assembly, skills, (text) =>
-          this.container.tokenizer.count(text),
+        prompt_assembly: withIntentStats(
+          withSkillStats(outcome.assembly, skills, (text) => this.container.tokenizer.count(text)),
+          (text) => this.container.tokenizer.count(text),
         ),
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',

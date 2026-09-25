@@ -14,6 +14,7 @@ import { PrDetailHeader } from "./_components/PrDetailHeader";
 import { OverviewTab } from "./_components/OverviewTab";
 import { FindingsTab } from "./_components/FindingsTab";
 import { DiffTab } from "./_components/DiffTab";
+import { IntentCard } from "./_components/IntentCard";
 import RunTraceDrawer from "./_components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
@@ -55,6 +56,11 @@ export default function PRDetailPage() {
   // just-failed run shows up in "Run history" immediately — no page reload.
   const invalidateRunHistory = () => {
     if (prId) qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
+  };
+  // A review derives its own intent when none is stored yet (best-effort) — once
+  // a run finishes, refresh the card so that auto-derived intent shows up.
+  const invalidateIntent = () => {
+    if (prId) qc.invalidateQueries({ queryKey: ["pr-intent", prId] });
   };
 
   const tab = search.get("tab") ?? "overview";
@@ -134,6 +140,8 @@ export default function PRDetailPage() {
       />
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
+        {(tab === "overview" || tab === "findings") && <IntentCard prId={prId} />}
+
         {tab === "overview" && <OverviewTab prBody={pr.body} />}
 
         {tab === "findings" && (
@@ -156,6 +164,7 @@ export default function PRDetailPage() {
             onRunDone={() => {
               invalidateActiveRuns();
               invalidateRunHistory();
+              invalidateIntent();
               refetchReviews();
             }}
           />

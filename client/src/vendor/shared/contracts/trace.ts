@@ -48,7 +48,11 @@ export const PromptAssembly = z.object({
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
+  /** Rendered "## PR intent" section; null when no intent was available. */
+  intent: z.string().nullish(),
   user: z.string(),
+  /** Tokenizer estimate of the `intent` block alone; null when absent. */
+  intent_tokens: z.number().int().nullish(),
   /** Token weight of the `skills` block alone (not the whole prompt). */
   skills_tokens: z.number().int().nullish(),
   /** One entry per injected skill, in prompt order. Absent skill → no entry. */

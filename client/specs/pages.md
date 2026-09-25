@@ -11,7 +11,7 @@ the same commit.
 | `/` | entry; redirects to the active repo's PR list | `useRepos` → `GET /repos` |
 | `/onboarding` | add a repository by URL | `useAddRepo` → `POST /repos` |
 | `/repos/[repoId]/pulls` | PR list | `usePulls` → `GET /repos/:id/pulls`; `useRefreshRepo` → `POST /repos/:id/refresh` |
-| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace` |
+| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent` |
 | `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
 | `/skills/[id]` | skill editor — Config, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion` |
@@ -55,7 +55,23 @@ trace via `useRunTrace`.
 
 Findings can be accepted or dismissed (`useFindingAction`). A finding always
 cites a file and line range that exist in the diff — the server drops the rest
-before they ever reach the client.
+before they ever reach the client. A finding with `scope: "out"` (kept as the
+one out-of-scope signal the server allows through) carries an "Outside PR
+scope" tag next to its accept/dismiss state.
+
+`IntentCard` (`usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` →
+`POST /pulls/:id/intent`) renders above the tab body on both **Overview** and
+**Findings** — it precedes the review results wherever they appear, and
+starting a run switches the tab to Findings so it still sits above them. States:
+`none` (a **Derive intent** button) · `derived` (quoted summary, IN SCOPE / OUT
+OF SCOPE columns, a confidence badge, and a Sources row — unreachable/
+unsupported sources are shown visibly as unavailable) · `stale` (the PR head
+moved since this intent was derived — a warning line plus an emphasised
+**Re-derive**; the card still shows the stale intent, it is never hidden) ·
+`error` (inline message with a retry). Intent is never re-derived
+automatically; after a review run finishes, `page.tsx` invalidates
+`["pr-intent", prId]` so an intent the run auto-derived (see
+`server/specs/review-flow.md`) appears without a manual refresh.
 
 ## Skills
 

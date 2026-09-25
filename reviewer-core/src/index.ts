@@ -17,10 +17,15 @@ export {
   wrapUntrusted,
   type PromptParts,
   type AssembledPrompt,
+  type PromptIntent,
 } from './prompt.js';
 
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
+
+// Scope filter — drops out-of-PR-scope findings after grounding (one CRITICAL
+// signal kept), only when a PR intent was supplied to reviewPullRequest.
+export { filterOutOfScope, type ScopeFilterResult } from './scope.js';
 
 // Structured-output helpers (Zod → JSON Schema + parse-with-repair).
 export {

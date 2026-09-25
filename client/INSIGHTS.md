@@ -27,6 +27,17 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-26 — [env-quirk] `@testing-library/user-event` is not installed — every test here uses `fireEvent`
+**Symptom** — a new test written with `userEvent.setup()` fails `pnpm typecheck` with
+`Cannot find module '@testing-library/user-event'`, even though the general RTL guidance (and the
+`react-testing-library` skill) says to always prefer it over `fireEvent`.
+**Cause** — the package was never added to `client/package.json`; every existing `*.test.tsx` in this repo
+(`FindingCard`, `RunReviewDropdown`, `ConventionsView`, …) uses `fireEvent` + synchronous assertions instead.
+Adding the dependency to fix this is itself off-limits without a plan step naming it (`CLAUDE.md` § no new
+dependencies).
+**Takeaway** — write new component tests with `fireEvent.click(...)` here, not `userEvent`, until a plan step
+explicitly adds `@testing-library/user-event` via `pnpm add -D` in `client/`.
+
 ## 2026-09-25 — [gotcha] `format.relativeTime(date)` without a `now` logs ENVIRONMENT_FALLBACK errors
 **Symptom** — Tests for a page showing "last scan 2 minutes ago" passed, but every render printed an
 `IntlError: ENVIRONMENT_FALLBACK` stack trace. The dev console did the same.

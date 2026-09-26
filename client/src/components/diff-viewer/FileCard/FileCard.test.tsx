@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { PrFile } from "@/lib/types";
 import type { FileAnnotations } from "../annotations";
@@ -100,5 +100,43 @@ describe("FileCard annotation slots", () => {
     const row = screen.getByText("const b = 2;").parentElement as HTMLElement;
     expect(row.style.borderLeftColor).toBe("");
     expect(screen.queryByText("BLOCKER")).not.toBeInTheDocument();
+  });
+});
+
+describe("FileCard openCommand", () => {
+  function renderWith(openCommand: { open: boolean } | null) {
+    return (
+      <NextIntlClientProvider locale="en" messages={{ shell: shellMessages }}>
+        <FileCard file={FILE} openCommand={openCommand} />
+      </NextIntlClientProvider>
+    );
+  }
+
+  it("keeps the auto-expand default while there is no command", () => {
+    render(renderWith(null));
+    expect(screen.getByText("const b = 2;")).toBeInTheDocument();
+  });
+
+  it("closes on { open: false } and reopens on a later { open: true }", () => {
+    const { rerender } = render(renderWith(null));
+    rerender(renderWith({ open: false }));
+    expect(screen.queryByText("const b = 2;")).not.toBeInTheDocument();
+    expect(screen.getByText("src/foo.ts")).toBeInTheDocument();
+
+    rerender(renderWith({ open: true }));
+    expect(screen.getByText("const b = 2;")).toBeInTheDocument();
+  });
+
+  it("still lets the user toggle by hand, and a new command re-applies", () => {
+    const collapse = { open: false };
+    const { rerender } = render(renderWith(collapse));
+    expect(screen.queryByText("const b = 2;")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("src/foo.ts"));
+    rerender(renderWith(collapse)); // same command object — not re-applied
+    expect(screen.getByText("const b = 2;")).toBeInTheDocument();
+
+    rerender(renderWith({ open: false })); // a new request closes it again
+    expect(screen.queryByText("const b = 2;")).not.toBeInTheDocument();
   });
 });

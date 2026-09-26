@@ -439,3 +439,28 @@ describe("DiffTab — before any review", () => {
     expect(screen.getByText("3 files")).toBeInTheDocument();
   });
 });
+
+describe("DiffTab — Collapse all per group", () => {
+  it("collapses every file of one group to its path, leaving other groups alone, and Expand all restores them", () => {
+    renderTab();
+    // core files start expanded (small patches) — their code is visible
+    expect(screen.getByText("line5")).toBeInTheDocument();
+    expect(screen.getByText("line3")).toBeInTheDocument();
+
+    // one button per group, in group order — the first belongs to Core
+    fireEvent.click(screen.getAllByRole("button", { name: /Collapse all/ })[0]!);
+
+    expect(screen.queryByText("line5")).not.toBeInTheDocument();
+    expect(screen.queryByText("line3")).not.toBeInTheDocument();
+    // the file list stays: paths of the core files are still shown
+    expect(screen.getByText("src/app.ts")).toBeInTheDocument();
+    expect(screen.getByText("src/other.ts")).toBeInTheDocument();
+    expect(screen.getByText("src/third.ts")).toBeInTheDocument();
+    // other groups keep their own state
+    expect(screen.getByText("src/foo.test.ts")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Expand all/ }));
+    expect(screen.getByText("line5")).toBeInTheDocument();
+    expect(screen.getByText("line3")).toBeInTheDocument();
+  });
+});

@@ -1,13 +1,15 @@
 /* SmartDiffGroup — one role group's header (role label, hint, file count, and
    once a review exists, a dot + count of files with findings) plus its
    collapsible body. The children are the group's FileCards (composition —
-   this component knows nothing about how a file is rendered). */
+   this component knows nothing about how a file is rendered); it only hands
+   them the group's "collapse / expand all files" command. */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Icon } from "@devdigest/ui";
+import { Button, Icon } from "@devdigest/ui";
 import type { SmartDiffRole } from "@devdigest/shared";
+import type { FileOpenCommand } from "@/components/diff-viewer";
 import { ROLE_I18N } from "../../constants";
 import { s, chevronFor } from "./styles";
 
@@ -23,10 +25,20 @@ export function SmartDiffGroup({
   /** Files (not findings) in this group with >=1 finding; null before any review. */
   filesWithFindings: number | null;
   defaultCollapsed: boolean;
-  children: React.ReactNode;
+  /** Renders the group's files; `openCommand` is null until the user asks. */
+  children: (openCommand: FileOpenCommand | null) => React.ReactNode;
 }) {
   const t = useTranslations("prReview");
   const [open, setOpen] = React.useState(!defaultCollapsed);
+  const [openCommand, setOpenCommand] = React.useState<FileOpenCommand | null>(null);
+  // Offer "Expand all" only right after "Collapse all"; otherwise collapse.
+  const filesCollapsed = openCommand?.open === false;
+
+  function toggleAllFiles(e: React.MouseEvent) {
+    e.stopPropagation(); // the header itself toggles the group
+    setOpen(true); // collapsing files should leave the file list visible
+    setOpenCommand({ open: filesCollapsed });
+  }
   const roleI18n = ROLE_I18N[role];
 
   return (
@@ -45,9 +57,18 @@ export function SmartDiffGroup({
             </>
           )}
           <span>{t("smartDiff.filesCount", { count: filesCount })}</span>
+          <Button
+            kind="ghost"
+            size="sm"
+            icon="ChevronsUpDown"
+            aria-pressed={filesCollapsed}
+            onClick={toggleAllFiles}
+          >
+            {filesCollapsed ? t("smartDiff.expandAll") : t("smartDiff.collapseAll")}
+          </Button>
         </span>
       </div>
-      {open && <div style={s.body}>{children}</div>}
+      {open && <div style={s.body}>{children(openCommand)}</div>}
     </div>
   );
 }

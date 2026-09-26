@@ -181,9 +181,17 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
               filesWithFindings={hasReview ? countFilesWithFindings(g.files, byFile) : null}
               defaultCollapsed={COLLAPSED_ROLES.has(g.role)}
             >
-              {g.files.map((file) => (
-                <FileCard key={file.path} file={file} commenting={commenting} annotations={annotationsFor(file)} />
-              ))}
+              {(openCommand) =>
+                g.files.map((file) => (
+                  <FileCard
+                    key={file.path}
+                    file={file}
+                    commenting={commenting}
+                    annotations={annotationsFor(file)}
+                    openCommand={openCommand}
+                  />
+                ))
+              }
             </SmartDiffGroup>
           ))}
         </div>

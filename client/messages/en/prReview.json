@@ -88,7 +88,9 @@
       "suggestion": "suggestion"
     },
     "expandFinding": "Expand finding",
-    "collapseFinding": "Collapse finding"
+    "collapseFinding": "Collapse finding",
+    "collapseAll": "Collapse all",
+    "expandAll": "Expand all"
   },
   "list": {
     "breadcrumb": "Pull Requests",

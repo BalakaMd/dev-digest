@@ -58,19 +58,34 @@ function decorForLine(
   return undefined;
 }
 
+/** A caller's "open/close every file" request. A new object is a new request,
+    so issuing the same `open` twice still re-applies it after manual toggles. */
+export interface FileOpenCommand {
+  open: boolean;
+}
+
 export function FileCard({
   file,
   commenting,
   annotations,
+  openCommand,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   annotations?: FileAnnotations;
+  openCommand?: FileOpenCommand | null;
 }) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    openCommand?.open ?? (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
+  // Apply a new command during render (no effect); the user can still toggle
+  // the file by hand until the next command arrives.
+  const [appliedCommand, setAppliedCommand] = React.useState(openCommand);
+  if (openCommand !== appliedCommand) {
+    setAppliedCommand(openCommand);
+    if (openCommand) setOpen(openCommand.open);
+  }
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
 
   // Keys every rendered line can host a thread/annotation on, shared by both.

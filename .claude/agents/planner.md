@@ -128,13 +128,19 @@ in unless the task says otherwise; never translate code, paths, identifiers or c
 The plan must be self-contained: a fresh session with no access to this conversation will execute
 it. Keep it compact — reference code by `path:line` instead of pasting it.
 
+Copy every acceptance criterion from the task **verbatim** into "Goal & acceptance criteria" and
+map each one to the steps that satisfy it. Where a step realises a criterion differently from its
+wording (a different element, place, trigger or behaviour), mark the criterion `deviates:` with the
+reason and raise it as an open question — never reinterpret a criterion silently. A plan that
+drifts from the task passes its own verification and fails the user's.
+
 ```
 # Development Plan: <title>
 
 Created: <YYYY-MM-DD> · Branch: <branch> · HEAD: <short commit hash> · Status: ready | blocked
 
 ## Goal & acceptance criteria
-- <observable outcome>
+- "<criterion, verbatim from the task>" → S<n>[, S<m>] [· deviates: <how and why>]
 
 ## Scope
 In: <...>

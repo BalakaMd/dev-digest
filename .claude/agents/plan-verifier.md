@@ -70,7 +70,10 @@ evidence.
   are usually git-ignored; then Read just the header line — `Created` / `Branch` / `HEAD` — of each) so the caller can choose.
   Never pick one yourself.
 
-Verify any requirements given alongside the plan too, using the same method.
+Verify any requirements given alongside the plan too, using the same method. A requirement is
+checked against **its own wording**, never through the plan: when the plan realises it differently
+(a different element, place or behaviour), the requirement is `Partially met` or `Not met` even if
+the matching plan item is `Met`, and the gap names the plan item that drifted.
 
 The scope of "finished code" is `git diff <HEAD recorded in the plan>` plus
 `git ls-files --others --exclude-standard`. If that commit is unknown or unreachable, use the

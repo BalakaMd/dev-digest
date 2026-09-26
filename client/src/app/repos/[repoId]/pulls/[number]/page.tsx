@@ -157,7 +157,10 @@ export default function PRDetailPage() {
       />
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
-        {(tab === "overview" || tab === "findings") && <IntentCard prId={prId} />}
+        {(tab === "overview" || tab === "findings") && (
+          // Keyed by tab so the Agent runs tab always opens folded.
+          <IntentCard key={tab} prId={prId} collapsible={tab === "findings"} />
+        )}
 
         {tab === "overview" && <OverviewTab prBody={pr.body} />}
 

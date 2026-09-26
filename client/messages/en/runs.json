@@ -52,6 +52,7 @@
       "repoMap": "Repo skeleton — repo-intel (dynamic)",
       "specs": "Project context (dynamic)",
       "callers": "Callers of changed symbols — repo-intel (dynamic)",
+      "intent": "PR intent (dynamic)",
       "user": "User / diff (dynamic)",
       "copy": "Copy",
       "fullscreen": "Open fullscreen",
@@ -59,7 +60,8 @@
       "noMatches": "No matches for “{q}”.",
       "skillsTokens": "~{count} tokens · skills block only",
       "skillCount": "{count, plural, one {# skill} other {# skills}}",
-      "skillTokens": "~{count} tokens"
+      "skillTokens": "~{count} tokens",
+      "intentTokens": "~{count} tokens"
     },
     "tools": {
       "args": "args",

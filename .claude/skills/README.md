@@ -18,6 +18,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [pr-self-review](pr-self-review/SKILL.md) | Workflow | Pre-PR pass: routes the diff to the skills that govern it, blocks the PR on a critical finding |
+| [dev-flow](dev-flow/SKILL.md) | Workflow | `/dev-flow <task>`: lets you pick which subagents run on a feature or fix, then drives them in order with pauses after the plan and the review |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 
 ## What Are Skills?

@@ -3,6 +3,7 @@ import {
   Review,
   Finding,
   Intent,
+  PrIntentRecord,
   BlastRadius,
   Risks,
   PrHistory,
@@ -65,9 +66,26 @@ describe('AI contracts parse fixtures', () => {
     expect(f.trifecta_components).toContain('exfil_path');
   });
 
+  it('Finding with and without scope', () => {
+    const base = {
+      id: 'f3',
+      severity: 'WARNING' as const,
+      category: 'bug' as const,
+      title: 'Out of scope tweak',
+      file: 'src/a.ts',
+      start_line: 1,
+      end_line: 1,
+      rationale: 'r',
+      confidence: 0.5,
+    };
+    expect(Finding.parse(base).scope).toBeUndefined();
+    expect(Finding.parse({ ...base, scope: 'out' }).scope).toBe('out');
+    expect(Finding.parse({ ...base, scope: null }).scope).toBeNull();
+  });
+
   it('Intent / BlastRadius / Risks / PrHistory', () => {
     expect(() =>
-      Intent.parse({ intent: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
+      Intent.parse({ summary: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
     ).not.toThrow();
     expect(() =>
       BlastRadius.parse({
@@ -102,6 +120,30 @@ describe('AI contracts parse fixtures', () => {
         ],
       }),
     ).not.toThrow();
+  });
+
+  it('PrIntentRecord round-trip', () => {
+    const record = PrIntentRecord.parse({
+      summary: 'Adds rate limiting to public endpoints.',
+      in_scope: ['Add a token-bucket limiter'],
+      out_of_scope: ['Auth changes'],
+      pr_id: 'pr1',
+      confidence: 'medium',
+      sources: [
+        { kind: 'title', ref: 'pr-title', status: 'used', bytes: 42, detail: null },
+        { kind: 'plan', ref: 'docs/plan.md', status: 'unreachable', bytes: null, detail: '404' },
+      ],
+      head_sha: 'a1b2c3d4',
+      stale: false,
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+      tokens_in: 500,
+      tokens_out: 80,
+      cost_usd: null,
+      derived_at: '2026-09-25T00:00:00Z',
+    });
+    expect(record.sources).toHaveLength(2);
+    expect(record.cost_usd).toBeNull();
   });
 
   it('SmartDiff (data.jsx DIFF)', () => {

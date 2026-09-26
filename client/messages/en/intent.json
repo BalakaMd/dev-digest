@@ -1,0 +1,42 @@
+{
+  "title": "Intent",
+  "confidenceLabel": "Confidence",
+  "confidence": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "inScope": "In scope",
+  "outOfScope": "Out of scope",
+  "emptyList": "None derived.",
+  "sources": {
+    "title": "Sources",
+    "kind": {
+      "title": "PR title",
+      "description": "PR description",
+      "files": "Changed files",
+      "issue": "Linked issue",
+      "plan": "Plan doc",
+      "spec": "Spec doc",
+      "link": "Link"
+    },
+    "status": {
+      "used": "used",
+      "truncated": "truncated",
+      "unreachable": "unreachable",
+      "unsupported": "unsupported",
+      "skipped": "skipped"
+    }
+  },
+  "missingContext": "Some referenced context could not be read — the intent may be incomplete.",
+  "stale": "PR changed since this intent was derived.",
+  "empty": "No intent derived yet for this PR.",
+  "emptyHint": "Derive one to see what this PR is meant to do and what it deliberately leaves out.",
+  "derive": "Derive intent",
+  "rederive": "Re-derive",
+  "deriving": "Deriving…",
+  "loadError": "Could not load the intent.",
+  "deriveError": "Could not derive the intent.",
+  "retry": "Retry",
+  "derivedBy": "{model} · derived {when}"
+}

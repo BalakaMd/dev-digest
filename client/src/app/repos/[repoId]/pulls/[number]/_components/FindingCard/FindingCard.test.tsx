@@ -59,4 +59,13 @@ describe("FindingCard (smoke, both themes)", () => {
     fireEvent.click(screen.getByText("Reject"));
     expect(onAction).toHaveBeenCalledWith("dismiss");
   });
+
+  it('shows the "Outside PR scope" tag only when scope is "out"', () => {
+    renderWithIntl(<FindingCard f={{ ...FINDING, scope: "out" }} defaultExpanded onAction={() => {}} />);
+    expect(screen.getByText("Outside PR scope")).toBeInTheDocument();
+    cleanup();
+
+    renderWithIntl(<FindingCard f={{ ...FINDING, scope: "in" }} defaultExpanded onAction={() => {}} />);
+    expect(screen.queryByText("Outside PR scope")).not.toBeInTheDocument();
+  });
 });

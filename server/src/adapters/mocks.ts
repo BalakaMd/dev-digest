@@ -125,6 +125,10 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /** Files readable via getFileContent, keyed by path. Unknown paths throw. */
+  files?: Record<string, string>;
+  /** Issue numbers for which getIssue throws (simulates 404 / no permission). */
+  missingIssues?: number[];
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -231,7 +235,18 @@ export class MockGitHubClient implements GitHubClient {
   }
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
+    if (this.opts.missingIssues?.includes(n)) {
+      throw new Error(`Issue #${n} not found`);
+    }
     return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+  }
+
+  async getFileContent(_repo: RepoRef, path: string, _ref: string): Promise<string> {
+    const content = this.opts.files?.[path];
+    if (content === undefined) {
+      throw new Error(`${path} not found`);
+    }
+    return content;
   }
 
   async currentLogin(): Promise<string> {

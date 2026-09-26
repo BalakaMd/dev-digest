@@ -27,6 +27,35 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-26 — [env-quirk] A dev machine with a real `OPENROUTER_API_KEY` turns an unmocked provider path into a real network call in it-tests
+**Symptom** — after wiring the intent classifier's best-effort derivation into
+`ReviewRunExecutor.executeRuns` (it resolves `openrouter` by default whenever no
+`llm.openrouter` override is injected), `reviews.it.test.ts` and
+`skills-prompt.it.test.ts` — which only inject `llm.openai` — went from
+sub-second to 6–13s per test, and one assertion failed outright because
+`waitForPrRuns`'s default 10s timeout elapsed before the run even started (the
+executor awaits the shared intent derivation before the per-agent loop).
+**Cause** — this sandbox has a real `OPENROUTER_API_KEY` resolvable through
+`LocalSecretsProvider` (env or `~/.devdigest/secrets.json`), so
+`container.llm('openrouter')` built a REAL `OpenRouterProvider` instead of
+throwing `ConfigError`, and the classifier call went out over the network before
+timing out. The same risk exists for `GITHUB_TOKEN`: an unmocked
+`container.github()` will construct a real Octokit client whenever a PR body
+happens to reference an issue or a doc link.
+**Takeaway** — never assume "no override supplied" means "no real key configured
+on this machine". The server suite is now hermetic by default:
+`test/setup/hermetic.ts` (vitest `setupFiles`) blanks the provider keys in
+`process.env` and points `DEVDIGEST_SECRETS_PATH` at an empty temp dir, so an
+unmocked `container.llm(...)` / `container.github()` throws `ConfigError`
+instead of going to the network; `test/hermetic-setup.test.ts` guards it.
+Blanking env alone would NOT have been enough — the key in this incident came
+from `~/.devdigest/secrets.json`, and the keys are set to `''` rather than
+deleted because `dotenv` would refill deleted ones from `.env`. A test that
+needs a key still injects `secrets: new MockSecretsProvider({ ... })` or
+explicit `llm`/`github` overrides. `git diff`-ing test timings after a new
+best-effort background call is a fast way to notice this class of bug: a
+mocked call is single-digit-ms, a live one is seconds.
+
 ## 2026-09-25 — [gotcha] A system LLM prompt that does not pin the output language gets answers in a random one
 **Symptom** — A real conventions re-scan through `openrouter / deepseek/deepseek-v4-flash` returned
 most rules in Chinese, although the prompt and the sampled code were English. The previous scan

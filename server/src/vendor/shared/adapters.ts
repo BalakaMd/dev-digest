@@ -162,6 +162,12 @@ export interface GitHubClient {
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
   findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
+  /**
+   * Read one file's content at `ref` (repos.getContent, decoded as UTF-8).
+   * Throws when the path is missing, is not a regular file (e.g. a
+   * directory), or is over 1 MB.
+   */
+  getFileContent(repo: RepoRef, path: string, ref: string): Promise<string>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
 }

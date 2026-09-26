@@ -6,8 +6,46 @@ import { z } from 'zod';
  */
 
 // ---- Intent ----
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentSourceKind = z.enum([
+  'title',
+  'description',
+  'files',
+  'issue',
+  'plan',
+  'spec',
+  'link',
+]);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+export const IntentSourceStatus = z.enum([
+  'used',
+  'truncated',
+  'unreachable',
+  'unsupported',
+  'skipped',
+]);
+export type IntentSourceStatus = z.infer<typeof IntentSourceStatus>;
+
+/**
+ * One source considered while deriving an Intent. `ref` is a sanitized
+ * reference (e.g. `#471`, `acme/api#12`, `docs/plan.md`,
+ * `acme.atlassian.net/browse/X-1`) — never a query string. `bytes` is the
+ * size of the content actually used (null when nothing was read).
+ */
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  ref: z.string(),
+  status: IntentSourceStatus,
+  bytes: z.number().int().nullable(),
+  detail: z.string().nullable(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
 export const Intent = z.object({
-  intent: z.string(),
+  summary: z.string(),
   in_scope: z.array(z.string()),
   out_of_scope: z.array(z.string()),
 });

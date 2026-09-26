@@ -4,7 +4,7 @@ description: Read-only architecture reviewer. Use proactively after code changes
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Agent, Write, Edit, NotebookEdit, WebFetch, WebSearch
 model: opus
-effort: high
+effort: medium
 maxTurns: 80
 color: purple
 hooks:

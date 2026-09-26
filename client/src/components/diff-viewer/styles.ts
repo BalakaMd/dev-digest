@@ -75,11 +75,30 @@ export function chevronFor(open: boolean): CSSProperties {
   };
 }
 
-/** Row background per line kind (add/del tinted, others transparent). */
-export function lineRowFor(kind: Line["kind"]): CSSProperties {
+/**
+ * Row background per line kind (add/del tinted, others transparent), plus an
+ * optional left bar in `decorColor` (e.g. a finding's severity colour) — set
+ * as fresh longhand border properties, never mixed with a `border` shorthand
+ * on this object (client/INSIGHTS.md:65-82).
+ */
+export function lineRowFor(kind: Line["kind"], decorColor?: string): CSSProperties {
   const background = kind === "add" ? "var(--code-add)" : kind === "del" ? "var(--code-del)" : "transparent";
-  return { display: "flex", alignItems: "stretch", fontSize: 13, lineHeight: "20px", background };
+  const base: CSSProperties = { display: "flex", alignItems: "stretch", fontSize: 13, lineHeight: "20px", background };
+  if (!decorColor) return base;
+  return {
+    ...base,
+    borderLeftWidth: 3,
+    borderLeftStyle: "solid",
+    borderLeftColor: decorColor,
+  };
 }
+
+/** Wrapper for the severity-label pill at a decorated line's right edge. */
+export const lineDecorLabel: CSSProperties = {
+  flexShrink: 0,
+  alignSelf: "center",
+  paddingRight: 10,
+};
 
 /** Gutter sign colour per line kind. */
 export function lineSignFor(kind: Line["kind"]): CSSProperties {

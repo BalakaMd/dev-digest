@@ -63,6 +63,23 @@ export default function PRDetailPage() {
     if (prId) qc.invalidateQueries({ queryKey: ["pr-intent", prId] });
   };
 
+  // `RunStatus`'s onDone already refreshes reviews/runs, but it only exists
+  // inside FindingsTab — a user sitting on the Files tab while a run finishes
+  // would otherwise see stale Smart Diff counters until reload. Mirror the
+  // same "flips from running to not" transition here, at the page level,
+  // driven by the server-sourced `reviewRunning` (which polls regardless of tab).
+  const wasRunningRef = React.useRef(false);
+  React.useEffect(() => {
+    if (reviewRunning) wasRunningRef.current = true;
+    else if (wasRunningRef.current) {
+      wasRunningRef.current = false;
+      if (prId) {
+        qc.invalidateQueries({ queryKey: ["reviews", prId] });
+        qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
+      }
+    }
+  }, [reviewRunning, prId, qc]);
+
   const tab = search.get("tab") ?? "overview";
   const traceRunId = search.get("trace");
   const setParam = (key: string, val: string | null) => {

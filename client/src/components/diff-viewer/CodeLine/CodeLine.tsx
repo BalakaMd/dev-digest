@@ -5,7 +5,7 @@
 import React from "react";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { type Line } from "../helpers";
-import { s, lineRowFor, lineSignFor } from "../styles";
+import { s, lineRowFor, lineSignFor, lineDecorLabel } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
 
@@ -14,11 +14,17 @@ export function CodeLine({
   path,
   threads,
   commenting,
+  annotation,
+  decor,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
+  /** Caller-supplied node (e.g. an inline finding) anchored to this line. */
+  annotation?: React.ReactNode;
+  /** Colours the line itself (left bar) and shows `label` at its right edge. */
+  decor?: { color: string; label: React.ReactNode };
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -41,7 +47,7 @@ export function CodeLine({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={lineRowFor(ln.kind)}>
+      <div style={lineRowFor(ln.kind, decor?.color)}>
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button
@@ -62,6 +68,7 @@ export function CodeLine({
         <span className="mono" style={s.lineText}>
           {ln.text || " "}
         </span>
+        {decor && <span style={lineDecorLabel}>{decor.label}</span>}
       </div>
 
       {commenting &&
@@ -69,6 +76,8 @@ export function CodeLine({
         threads.map((th) => (
           <CommentThreadView key={th.rootId} thread={th} commenting={commenting} path={path} />
         ))}
+
+      {annotation}
 
       {commenting && composing && target && (
         <InlineComposer

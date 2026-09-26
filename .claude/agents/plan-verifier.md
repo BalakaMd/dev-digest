@@ -3,7 +3,7 @@ name: plan-verifier
 description: Read-only plan verifier. Use proactively after the implementer reports done — in a fresh context, in parallel with architecture-reviewer — to check the finished code against every item of a Development Plan (a file under `.claude/plans/` or an inline plan) and of any requirements passed with it. It extracts a numbered checklist first, then verifies each item independently with file:line, read-only git output or verbatim quotes, and marks it Met, Partially met, Not met, Not verifiable or Not verified; it never runs tests, type checks or the plan's verify commands and lists them for the caller instead. Changes no item accounts for are reported as untraced. It gives no generic advice and no architecture or quality verdicts, never modifies files, and returns `Plan needed` when no plan is given.
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Agent, Write, Edit, NotebookEdit, WebFetch, WebSearch
-model: opus
+model: sonnet
 effort: high
 maxTurns: 100
 color: orange

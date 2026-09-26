@@ -37,6 +37,8 @@ export interface CreateSkillInput {
   body: string;
   source?: Skill['source'];
   enabled?: boolean;
+  /** Files the skill was derived from (extracted skills). Not part of the HTTP body. */
+  evidenceFiles?: string[];
 }
 
 export interface UpdateSkillInput {
@@ -73,6 +75,7 @@ export class SkillsService {
       body: input.body,
       ...(input.source !== undefined ? { source: input.source } : {}),
       ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+      ...(input.evidenceFiles !== undefined ? { evidenceFiles: input.evidenceFiles } : {}),
     });
     return toSkillDto(row);
   }

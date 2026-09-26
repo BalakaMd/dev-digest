@@ -12,6 +12,7 @@ the same commit.
 | `/onboarding` | add a repository by URL | `useAddRepo` → `POST /repos` |
 | `/repos/[repoId]/pulls` | PR list | `usePulls` → `GET /repos/:id/pulls`; `useRefreshRepo` → `POST /repos/:id/refresh` |
 | `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace` |
+| `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
 | `/skills/[id]` | skill editor — Config, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion` |
 | `/agents` | agent grid | `useAgents` → `GET /agents` |
@@ -71,6 +72,33 @@ agent's prompt. Any content edit bumps the version and snapshots the body;
 toggling does not. Restore writes an old body forward as a new version — history
 is append-only. The version diff is computed client-side against the current
 body.
+
+## Conventions
+
+Per repo, under **SKILLS LAB** in the sidebar (`g c`). Before the first scan the
+page shows only **Run Scan**; once a scan exists the header shows **ReScan** and
+the line "Detected from N sample files · last scan X ago". A scan is one
+synchronous request — the button spins until the server answers with the new
+state.
+
+Each card shows the category, the rule, the verified evidence (`file:line` plus
+the file's own code, extra files behind "+N more"), and the post-verification
+confidence. **Accept** toggles (Accepted → back to pending), **Reject** removes
+the card at once (optimistic) and the server never returns it again, and
+**Edit** turns the card into an inline form for rule and category. ReScan
+replaces only pending cards nobody touched; accepted and edited ones stay,
+rejected ones stay gone.
+
+Rejected cards are not deleted. Once anything is rejected, a **Rejected (N)**
+chip appears after the category filters; it lists the rejected cards dimmed,
+with a single **Restore** button that puts the card back to pending. A restored
+card counts as touched, so the next ReScan keeps it.
+
+**Create skill** appears once at least one card is accepted. The modal loads
+server-built drafts (one skill, or one per category) and every field is editable,
+including the markdown body in a line-numbered editor. Edits survive switching
+between the two modes. Every Create makes **new** skills (type `convention`,
+source `extracted`) and then navigates to `/skills`.
 
 ## Agents
 

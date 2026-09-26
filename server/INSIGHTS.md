@@ -27,6 +27,27 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-25 — [gotcha] A system LLM prompt that does not pin the output language gets answers in a random one
+**Symptom** — A real conventions re-scan through `openrouter / deepseek/deepseek-v4-flash` returned
+most rules in Chinese, although the prompt and the sampled code were English. The previous scan
+on the same repo had answered in English.
+**Cause** — Nothing in the system prompt fixed the output language, and cheap models drift. The
+drift also broke de-duplication: a Chinese restatement of an already-accepted English rule shares
+no tokens with it, so it came back as a "new" candidate.
+**Takeaway** — Any system-feature prompt whose output is shown or compared as text should state the
+language explicitly ("Write every `rule` in English, whatever language the code comments use" in
+`prompts/conventions-extraction.system.md`). Mock-LLM tests never catch this; run one real call.
+
+## 2026-09-25 — [env-quirk] `drizzle-kit generate` hangs on an interactive rename prompt when stdin is not a TTY
+**Symptom** — `pnpm db:generate` after dropping one column and adding others to the same table
+printed "Is scan_id column … created or renamed from another column?" and then waited forever;
+in an agent shell there is no way to answer it.
+**Cause** — drizzle-kit asks, for each added column, whether it renames a dropped one. The prompt
+needs a TTY and ignores piped stdin.
+**Takeaway** — Give it a pseudo-terminal and accept the default ("create column") for every prompt:
+`(for i in $(seq 1 20); do sleep 2; printf '\r'; done) | script -q /dev/null pnpm db:generate`.
+Then read the generated SQL before trusting it: a wrong answer turns a drop+add into a RENAME.
+
 ## 2026-09-24 — [root-cause] A list query without ORDER BY reshuffles after every UPDATE
 **Symptom** — toggling an agent, or changing its skills, made it jump to the
 bottom of the agents list in the UI.

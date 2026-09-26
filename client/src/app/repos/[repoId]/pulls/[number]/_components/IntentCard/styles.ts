@@ -3,6 +3,39 @@ import type { CSSProperties } from "react";
 /** Co-located styles for IntentCard. */
 export const s = {
   card: { marginBottom: 4 } satisfies CSSProperties,
+  /* Collapsible header — mirrors SectionLabel's look, but is a button and
+     drops the bottom margin while folded. */
+  toggle: (open: boolean): CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    padding: 0,
+    marginBottom: open ? 14 : 0,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    textAlign: "left",
+  }),
+  toggleIcon: { color: "var(--text-muted)" } satisfies CSSProperties,
+  toggleTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  toggleRight: {
+    marginLeft: "auto",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  } satisfies CSSProperties,
+  chevron: (open: boolean): CSSProperties => ({
+    color: "var(--text-muted)",
+    transform: open ? "rotate(180deg)" : "none",
+    transition: "transform 0.15s",
+  }),
   summary: {
     fontSize: 15,
     fontStyle: "italic",

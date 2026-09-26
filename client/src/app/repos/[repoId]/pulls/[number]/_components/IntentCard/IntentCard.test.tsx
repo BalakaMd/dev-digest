@@ -32,10 +32,10 @@ vi.mock("@/lib/hooks/intent", () => ({
 
 import { IntentCard } from "./IntentCard";
 
-function renderCard() {
+function renderCard(props: { collapsible?: boolean } = {}) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ intent: messages }}>
-      <IntentCard prId="pr1" />
+      <IntentCard prId="pr1" {...props} />
     </NextIntlClientProvider>,
   );
 }
@@ -194,5 +194,39 @@ describe("IntentCard", () => {
     renderCard();
     const button = screen.getByRole("button", { name: "Deriving…" });
     expect(button).toBeDisabled();
+  });
+
+  describe("collapsible (Agent runs tab)", () => {
+    it("starts folded: header with confidence and stale marker, body hidden", () => {
+      queryData = { intent: { ...RECORD, stale: true } };
+      renderCard({ collapsible: true });
+      const toggle = screen.getByRole("button", { name: /intent/i });
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.getByText("Confidence: High")).toBeInTheDocument();
+      expect(screen.getByText("Stale")).toBeInTheDocument();
+      expect(screen.queryByText(/Add pagination/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /re-derive/i })).not.toBeInTheDocument();
+    });
+
+    it("opens the body on click and folds it again", () => {
+      queryData = { intent: RECORD };
+      renderCard({ collapsible: true });
+      const toggle = screen.getByRole("button", { name: /intent/i });
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByText(/Add pagination/)).toBeInTheDocument();
+      expect(screen.getByText("Changing the list's sort order")).toBeInTheDocument();
+      fireEvent.click(toggle);
+      expect(screen.queryByText(/Add pagination/)).not.toBeInTheDocument();
+    });
+
+    it("keeps the Derive action behind the fold when no intent exists yet", () => {
+      queryData = { intent: null };
+      renderCard({ collapsible: true });
+      expect(screen.queryByRole("button", { name: /derive intent/i })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /intent/i }));
+      fireEvent.click(screen.getByRole("button", { name: /derive intent/i }));
+      expect(derive).toHaveBeenCalledTimes(1);
+    });
   });
 });

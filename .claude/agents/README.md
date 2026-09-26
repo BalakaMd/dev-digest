@@ -22,6 +22,8 @@ flowchart LR
   P -->|writes| F[(.claude/plans/*.md)]
   F --> I[implementer]
   I -->|edits| W[(working tree)]
+  W -.->|user-visible change| HC[hands-on check<br/>main session]
+  HC -.->|fixes| I
   W -->|optional| TW[test-writer]
   TW -->|writes tests| W
   W -->|diff| AR[architecture-reviewer]
@@ -36,6 +38,8 @@ flowchart LR
   W -.->|separate pass| SEC[security review<br/>separate]
 ```
 
+When the change is visible to a user, the main session runs the app and checks it against the
+task before tests and review, so a wrong layout is fixed once instead of after the review.
 `architecture-reviewer` and `plan-verifier` run in parallel, each in a fresh context, after the
 implementer reports done; `plan-verifier` additionally reads the plan file. Nothing in this set
 commits, pushes or opens a pull request; that stays with the user.
@@ -46,10 +50,10 @@ commits, pushes or opens a pull request; that stays with the user.
 |-------|----------------|-------|--------|------------|
 | [researcher](researcher.md) | Answers one concrete question about the repository or external docs, with evidence | `sonnet` | nothing | prompt (read-only Bash) |
 | [planner](planner.md) | Turns a task into a structured Development Plan that complies with the project's skills and lessons | `opus` · effort `high` | one plan file under `.claude/plans/` | tool list + `PreToolUse` hook |
-| [implementer](implementer.md) | Executes a plan across frontend and backend, runs existing checks, verifies its own changes | `sonnet` · effort `high` | code in the working tree, lessons-learned log entries | tool list + `PreToolUse` hook |
+| [implementer](implementer.md) | Executes a plan across frontend and backend, runs existing checks, verifies its own changes | `sonnet` · effort `medium` | code in the working tree, lessons-learned log entries | tool list + `PreToolUse` hook |
 | [test-writer](test-writer.md) | Writes behaviour-focused tests for changed or uncovered code, keeping only tests that type-check, pass repeatedly and can fail | `sonnet` · effort `high` | test files and fixtures | tool list + `PreToolUse` hook |
-| [architecture-reviewer](architecture-reviewer.md) | Checks changed code against the repository's own documented architecture rules | `opus` · effort `high` | nothing | tool list + read-only Bash guard |
-| [plan-verifier](plan-verifier.md) | Checks finished code against every item of a Development Plan, item by item | `opus` · effort `high` | nothing | tool list + read-only Bash guard |
+| [architecture-reviewer](architecture-reviewer.md) | Checks changed code against the repository's own documented architecture rules | `opus` · effort `medium` | nothing | tool list + read-only Bash guard |
+| [plan-verifier](plan-verifier.md) | Checks finished code against every item of a Development Plan, item by item | `sonnet` · effort `high` | nothing | tool list + read-only Bash guard |
 | [doc-writer](doc-writer.md) | Turns an implemented, verified feature into placed, verified-against-code documentation | `sonnet` · effort `high` | Markdown files under documentation folders | tool list + read-only Bash guard |
 
 ## researcher
@@ -68,7 +72,9 @@ commits, pushes or opens a pull request; that stays with the user.
 - **Does:** reads project guidance and lessons-learned logs for every touched module, discovers
   the project skills (and a path-to-skill routing map, if the repository has one), maps the task
   onto files and cross-module contracts, checks every step against architecture rules and
-  do-not-touch zones, and assigns to each step the skills the implementer must apply.
+  do-not-touch zones, and assigns to each step the skills the implementer must apply. Copies
+  every acceptance criterion from the task verbatim, maps it to steps, and marks a step that
+  realises a criterion differently as `deviates:` with an open question.
 - **Does not:** write code, run commands, research outside the repository (external facts become
   open questions for `researcher`), assign review or audit skills to implementation steps.
 - **Tools:** `Read, Grep, Glob, Skill, Write`; denied `Edit, NotebookEdit, Bash, Agent`.
@@ -111,8 +117,9 @@ commits, pushes or opens a pull request; that stays with the user.
 
 - **Does:** discovers the repository's test strategy, conventions, and testing/framework/
   architecture skills; writes behaviour-focused tests at the level the project prefers; keeps only
-  tests that type-check, pass three runs in a row, and are shown able to fail by breaking their own
-  assertion and restoring it.
+  tests that type-check, pass three runs in a row (only the new or changed test files; the full
+  suite runs once at the end), and are shown able to fail by breaking their own assertion and
+  restoring it.
 - **Does not:** touch production code, test-runner configuration, package manifests or lockfiles;
   add a new dependency; commit, push or switch branches; mutate production code for a
   behaviour-level red check (it lists one as a suggestion instead).
@@ -163,6 +170,8 @@ commits, pushes or opens a pull request; that stays with the user.
   step, scope-out entry, architecture-constraint compliance claim, sync point and test-plan item
   into an atomic, quoted checklist before reading any code, then verifies each item independently
   against `path:line` or read-only git output, and traces every changed file back to an item.
+  Requirements passed alongside the plan are checked against their own wording, not through the
+  plan, so a plan that drifted from the task shows up as a gap.
 - **Does not:** run tests, type checks, builds or the plan's own `Verify` commands (it lists them
   under "Not verified — commands for the caller" instead); give generic advice, or an architecture
   or quality verdict; treat the implementer's own report as evidence; modify files.
@@ -259,7 +268,7 @@ Architecture/verification (architecture-reviewer, plan-verifier):
 | [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html), [Palermo, layered architecture part 1](https://jeffreypalermo.com/2008/07/the-onion-architecture-part-1/), [Hexagonal architecture](https://alistair.cockburn.us/hexagonal-architecture) | dependency rule, DI at boundaries, ports and adapters | architecture-reviewer rule inventory |
 | [Software verification and validation](https://en.wikipedia.org/wiki/Software_verification_and_validation), [IEEE 1012](https://standards.ieee.org/ieee/1012/7324) | verification (does it meet the spec?) is distinct from validation (is it the right spec?) | plan-verifier's scope statement |
 | [ISO/IEC/IEEE 29148 overview](https://www.modernrequirements.com/blogs/iso-29148-explained/), [NASA SWE-047 traceability](https://swehb.nasa.gov/spaces/7150/pages/16449982/SWE-047+-+Traceability+Data), [Requirements traceability matrix](https://www.perforce.com/resources/alm/requirements-traceability-matrix) | vague items → `Not verifiable`; every item traced; the status vocabulary; inverse trace | plan-verifier Step 1, Step 4, status vocabulary |
-| [Chain-of-Verification](https://arxiv.org/abs/2309.11495), [Judging LLM-as-a-Judge](https://arxiv.org/abs/2306.05685), [LLM hallucination detection](https://www.datadoghq.com/blog/ai/llm-hallucination-detection/) | extract the checklist before reading the code; answer independently; a different model from the implementer reduces self-preference bias | plan-verifier Steps 1–3; `opus` for both judges |
+| [Chain-of-Verification](https://arxiv.org/abs/2309.11495), [Judging LLM-as-a-Judge](https://arxiv.org/abs/2306.05685), [LLM hallucination detection](https://www.datadoghq.com/blog/ai/llm-hallucination-detection/) | extract the checklist before reading the code; answer independently; a different model from the implementer reduces self-preference bias | plan-verifier Steps 1–3; a different model from the implementer for architecture-reviewer |
 
 Documentation (doc-writer):
 
@@ -275,12 +284,16 @@ Documentation (doc-writer):
 Report formats, severity words and `file:line` evidence are community conventions, not official
 rules; they follow the pattern the first three agents already set.
 
-Model choice follows no official rule; it is a judgement. `opus` for planning and for the two
-judges (architecture-reviewer, plan-verifier): their work is reasoning-heavy comparison against
-rules or a plan, and using a different model from the `sonnet` implementer reduces self-preference
-bias when judging that implementer's own output. `sonnet` for implementation and for the two
+Model choice follows no official rule; it is a judgement. `opus` for planning and for
+architecture-reviewer: their work is reasoning-heavy comparison against rules, and using a
+different model from the `sonnet` implementer reduces self-preference bias when judging that
+implementer's own output. plan-verifier runs on `sonnet` to save tokens: its checklist is
+extracted before it reads any code and every item is answered from quoted evidence, which keeps
+the check mechanical rather than a judgement call. `sonnet` for implementation and for the two
 writers (test-writer, doc-writer): their work is tool-call-heavy, and its output is checked by
-tests or by plan-verifier rather than by the writer's own judgement.
+tests or by plan-verifier rather than by the writer's own judgement. Effort is `medium` for the
+implementer and architecture-reviewer, whose work is bounded by a plan or a written rule set,
+and `high` elsewhere.
 
 ## Maintaining this set
 

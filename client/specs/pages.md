@@ -62,7 +62,10 @@ scope" tag next to its accept/dismiss state.
 `IntentCard` (`usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` →
 `POST /pulls/:id/intent`) renders above the tab body on both **Overview** and
 **Findings** — it precedes the review results wherever they appear, and
-starting a run switches the tab to Findings so it still sits above them. States:
+starting a run switches the tab to Findings so it still sits above them. On
+Overview it is always expanded; on Findings (the **Agent runs** tab) it starts
+collapsed to its header — title, confidence badge and a **Stale** badge when
+the intent is stale — and the body opens on click. States:
 `none` (a **Derive intent** button) · `derived` (quoted summary, IN SCOPE / OUT
 OF SCOPE columns, a confidence badge, and a Sources row — unreachable/
 unsupported sources are shown visibly as unavailable) · `stale` (the PR head

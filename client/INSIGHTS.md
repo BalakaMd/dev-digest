@@ -27,6 +27,37 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-26 — [gotcha] A page's own sticky header already claims `top: 0` in AppShell's scroll container
+
+**Symptom** — a second `position: sticky; top: 0` element added further down the same page (Smart Diff's
+per-role group headers) rendered, but was never visible while scrolling — it just vanished behind
+the page's existing header instead of stacking below it. No console error, no layout crash; only
+caught by scrolling the real page in a browser (`/repos/<id>/pulls/<n>?tab=diff`), not by any test.
+**Cause** — `AppShell`'s `<main>` is the scroll container for the whole page, and route-level headers
+(here, `PrDetailHeader`) are themselves already `position: sticky; top: 0` inside it, with a height
+that varies (title wrap, banners). A second sticky element also pinned at `top: 0` sticks at the same
+spot, underneath the first one in paint order, not below it.
+**Takeaway** — before adding another sticky element anywhere under a route that already has a sticky
+header, offset its `top` by that header's live height instead of assuming `top: 0` is free. There is
+no static height to hard-code (it changes with content), so the header needs to publish it — e.g. via
+a `ResizeObserver` writing a CSS custom property (`--pr-header-h`) — and the nested sticky element reads
+`top: var(--pr-header-h, 0px)`. Grep for existing `position: "sticky"` under the route's component tree
+first; a plain `top: 0` there is a strong hint this trap is about to repeat.
+
+## 2026-09-26 — [gotcha] `react-markdown` splits `**bold**` into its own text node, so one `getByText` never spans it
+
+**Symptom** — a test asserting on `Markdown`-rendered text with `screen.getByText(/some regex spanning a
+**bold** word and the text around it/)` fails to find anything, even though the rendered text is visibly
+correct.
+**Cause** — `react-markdown` renders `**word**` as a separate `<strong>word</strong>` element. RTL's
+`getByText` matches against one element's own text content by default, so a regex that spans across the
+bold boundary (bold text + surrounding plain text) never matches a single node — the "sentence" is split
+across siblings, not one text run.
+**Takeaway** — assert the bold part and the surrounding text as separate `getByText` calls (e.g.
+`getByText("live")` for the bold word, `getByText(/is committed in source\./)` for the rest), rather than
+one query spanning the boundary. This applies to any component that renders user-authored markdown
+(`FindingCard`, `InlineFinding`, …).
+
 ## 2026-09-26 — [env-quirk] `@testing-library/user-event` is not installed — every test here uses `fireEvent`
 **Symptom** — a new test written with `userEvent.setup()` fails `pnpm typecheck` with
 `Cannot find module '@testing-library/user-event'`, even though the general RTL guidance (and the

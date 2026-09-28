@@ -48,17 +48,27 @@ export function RunReviewDropdown({
     }
   };
 
-  // List EVERY agent (not just enabled) so they're always visible; a specific
-  // agent can be run regardless of its enabled flag. "Run all" still targets
-  // only enabled agents.
-  const agentItems: DropdownItemDef[] = all.length
-    ? all.map((a) => ({
+  // Only enabled agents can be picked individually; a disabled one is not a
+  // valid target for a review run.
+  const enabledAgents = all.filter((a) => a.enabled);
+  const allDisabled = all.length > 0 && enabledAgents.length === 0;
+  const agentItems: DropdownItemDef[] = enabledAgents.length
+    ? enabledAgents.map((a) => ({
         label: a.name,
         icon: "Cpu" as const,
-        hint: a.enabled ? a.model : `${a.model} · disabled`,
+        hint: a.model,
         onClick: () => kick({ agentId: a.id }),
       }))
-    : [{ label: "No agents yet — create one", icon: "Plus", muted: true, onClick: () => router.push("/agents") }];
+    : all.length
+      ? [
+          {
+            label: t("runReview.noEnabledAgents"),
+            icon: "Settings",
+            muted: true,
+            onClick: () => router.push("/agents"),
+          },
+        ]
+      : [{ label: "No agents yet — create one", icon: "Plus", muted: true, onClick: () => router.push("/agents") }];
 
   const items: DropdownItemDef[] = [
     // Merged/closed PRs can still be reviewed (informational only); lead with a
@@ -72,13 +82,25 @@ export function RunReviewDropdown({
     {
       label: t("runReview.runAll"),
       icon: "Play",
-      ...(hasEnabled ? {} : { muted: true }),
-      onClick: () => kick({ all: true }),
+      // No enabled agent to run — render inactive rather than kicking off a
+      // review with nothing to review.
+      ...(hasEnabled ? { onClick: () => kick({ all: true }) } : { muted: true }),
     },
     { divider: true },
     ...agentItems,
-    { divider: true },
-    { label: t("runReview.configureAgents"), icon: "Settings", muted: true, onClick: () => router.push("/agents") },
+    // The "no enabled agents" placeholder above already links to /agents, so
+    // showing "Configure agents…" right after it would be a duplicate.
+    ...(allDisabled
+      ? []
+      : [
+          { divider: true } as DropdownItemDef,
+          {
+            label: t("runReview.configureAgents"),
+            icon: "Settings",
+            muted: true,
+            onClick: () => router.push("/agents"),
+          } as DropdownItemDef,
+        ]),
   ];
 
   return (

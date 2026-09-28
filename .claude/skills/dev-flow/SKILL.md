@@ -151,8 +151,19 @@ steps plus the plan's shared sections, and to run targeted tests for its steps; 
 suites run once in this session at the end. Respect the instance size limit in "Token
 budget". With an approved split, run each group as described in "Parallel instances". If an
 instance stops with a blocker, let the other instances in the same wave finish, then relay
-the blocker and ask the user. If an instance stops at its turn limit, resume it with
-`SendMessage` instead of starting a new one.
+the blocker and ask the user. If an instance stops at its turn limit mid-step, resume it with
+`SendMessage`; for its remaining steps follow "Fresh instance or resume" in "Token budget".
+
+### 3.3b Hands-on check
+When the change is visible to a user (UI, a page, a CLI output, an API response) and the
+repository offers a way to run the app (a launch configuration, a run skill, a dev script),
+run it yourself right after the implementer and before the test-writer and the reviewers.
+This check is yours, not an agent's. Exercise the task's acceptance criteria and compare with
+any reference the user gave (screenshots, a prototype, example output), criterion by
+criterion. Tests and reviewers do not catch a layout that renders wrong, so finding it here
+saves a fix round, a test round and a re-review later. If something is off, list it with the
+evidence and ask the user whether to send it to the implementer now; the test-writer then
+starts on the fixed code.
 
 ### 3.4 test-writer
 Pass the plan path, its test plan entries marked `owner: test-writer`, the step ids they
@@ -171,7 +182,10 @@ it and ask the user whether to send it to the implementer.
 
 ### 3.5 architecture-reviewer ∥ plan-verifier
 Launch both in one message. Pass each the base commit from Step 0 and the plan path (or the
-inline plan, or the description as requirements). They are read-only.
+inline plan, or the description as requirements). They are read-only. Always pass the
+plan-verifier the acceptance criteria from the user's original task **verbatim** as separate
+requirements, even when a plan exists: a plan can drift from the task, and a verifier that
+checks only the plan confirms the drift.
 
 Then run in this session the commands plan-verifier lists under "commands for the caller"
 (tests, type checks, verify steps), since it does not run them itself. Report each
@@ -180,10 +194,12 @@ command's exit code.
 ### Checkpoint B — review results
 Summarise the findings: architecture findings by severity, plan items Not met or Partially
 met, untraced changes, and the results of the caller commands. Then ask the user what to do:
-send all or some of the findings to the implementer, or accept them as they are. Send a fix
-to the implementer instance that wrote those files by resuming it with `SendMessage` when it
-is still available; start a new one only when it is not. After a fix, re-run only the
-reviewers that reported the fixed items, scoped to those items only and with
+send all or some of the findings to the implementer, or accept them as they are. Choose
+between resuming the instance that wrote those files and starting a fresh one by "Fresh
+instance or resume" in "Token budget"; a fresh instance gets the plan path, the findings and
+the list of files it may touch. After a fix, re-run only the reviewers that reported the
+fixed items, scoped to those items only and with `model: "sonnet"`. Tests for the fixed
+behaviour follow the same rule: a fresh test-writer scoped to the named cases, with
 `model: "sonnet"`. Allow at most two fix rounds, then hand the decision back to the user.
 
 ### 3.6 doc-writer
@@ -242,8 +258,17 @@ against a shared database still do: those areas run one after another.
 - **Instance count.** Before launching a stage, check whether it earns its cold start: a
   researcher whose question the planner will answer anyway, a test-writer with no gaps to
   fill, or a second parallel instance with only a few files each do not.
-- **Model choice.** Narrow, mechanical tasks (re-checking named findings, a small targeted
-  lookup) run with `model: "sonnet"` even when the agent's definition says otherwise.
+- **Fresh instance or resume.** A resumed instance re-reads its whole history on every turn,
+  so its cost grows with each resume. Resume (`SendMessage`) only to answer the instance's own
+  question, to let it finish a step it stopped in, or for a small fix in files it just wrote
+  while its history is still short (roughly under forty turns). Start a fresh instance for a
+  new phase — the next group of plan steps, a fix round after review, tests for a fix — and
+  hand it only what the phase needs: the plan path, its step ids or findings, the files
+  changed so far, and the files it may touch.
+- **Model choice.** Every narrow task runs with `model: "sonnet"` even when the agent's
+  definition says otherwise: a second run of a reviewer or verifier, re-checking named
+  findings or plan items, tests for a few named cases, and a small targeted lookup. Keep the
+  agent's own model for planning, for first reviews and for implementing plan steps.
 - **Reports.** Ask every agent for a compact report: results, `file:line` evidence,
   commands with exit codes, and open items. You relay it; long reports cost you context.
 

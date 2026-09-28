@@ -4,7 +4,7 @@ description: Implementation agent that executes an approved Development Plan acr
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 disallowedTools: Agent, WebFetch, WebSearch, NotebookEdit
 model: sonnet
-effort: high
+effort: medium
 permissionMode: acceptEdits
 maxTurns: 150
 color: green

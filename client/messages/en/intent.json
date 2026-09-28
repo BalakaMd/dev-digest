@@ -30,6 +30,7 @@
   },
   "missingContext": "Some referenced context could not be read — the intent may be incomplete.",
   "stale": "PR changed since this intent was derived.",
+  "staleBadge": "Stale",
   "empty": "No intent derived yet for this PR.",
   "emptyHint": "Derive one to see what this PR is meant to do and what it deliberately leaves out.",
   "derive": "Derive intent",

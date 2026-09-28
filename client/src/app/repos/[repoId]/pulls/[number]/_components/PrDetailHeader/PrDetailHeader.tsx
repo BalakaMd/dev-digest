@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { Icon, Avatar, Badge, Button, Tabs } from "@devdigest/ui";
 import { RunReviewDropdown } from "../RunReviewDropdown";
 import { s } from "./styles";
@@ -36,6 +36,28 @@ export function PrDetailHeader({
     onRunsStarted();
   }, [onRunsStarted]);
 
+  // This header is itself `position: sticky; top: 0` in AppShell's scroll
+  // container. Publish its live height as a generic CSS variable so any
+  // sticky element further down the same page (e.g. Smart Diff's group
+  // headers) can offset its own `top` by it, instead of sticking underneath
+  // this header. Kept generic: a descendant only needs `var(--pr-header-h,
+  // 0px)` — it doesn't need to know this component exists.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const publish = () => {
+      document.documentElement.style.setProperty("--pr-header-h", `${el.offsetHeight}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--pr-header-h");
+    };
+  }, []);
+
   const statusColor =
     pr.status === "merged"
       ? "var(--ok)"
@@ -44,7 +66,7 @@ export function PrDetailHeader({
         : "var(--warn)";
 
   return (
-    <div style={s.root}>
+    <div style={s.root} ref={rootRef}>
       <div style={s.titleRow}>
         <div style={s.titleCol}>
           <h1 style={s.h1}>

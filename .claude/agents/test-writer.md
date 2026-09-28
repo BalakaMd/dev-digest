@@ -133,7 +133,9 @@ Discard a test that still fails a gate after at most three fix attempts, and rec
 report.
 
 1. It type-checks.
-2. It passes three runs in a row on the current code (a flakiness check).
+2. It passes three runs in a row on the current code (a flakiness check). Run only the new or
+   changed test files for this — never the full suite three times; the full suite runs once, in
+   Step 6.
 3. Can-fail check: temporarily break the key assertion inside the test file itself, run it and
    confirm it fails for the expected reason, then restore the assertion and confirm it passes
    again. A test that cannot be made to fail this way is removed. A behaviour-level red check that
@@ -148,8 +150,8 @@ it — and report its output verbatim.
 
 ## Step 6 — final checks
 
-1. Run the type check and the full test suite of every touched package, using the commands the
-   guidance gives. Report a suite that needs infrastructure you do not have as "not run", with the
+1. Run the type check and the full test suite of every touched package once, using the commands
+   the guidance gives. Report a suite that needs infrastructure you do not have as "not run", with the
    reason — never as "passed".
 2. Compare `git status --porcelain` with the Step 0 baseline. Report any new or changed path that
    is not a test path — do not silently revert it, and do not treat it as acceptable.

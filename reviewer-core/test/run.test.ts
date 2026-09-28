@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { LLMProvider, StructuredResult } from '@devdigest/shared';
 import { MockLLMProvider, MockGitClient } from '../../server/src/adapters/mocks.js';
 import { reviewPullRequest } from '../src/index.js';
+import type { PromptIntent } from '../src/prompt.js';
 
 /**
  * Engine-level test for reviewPullRequest (the core lifted out of the server's
@@ -134,5 +135,116 @@ describe('reviewPullRequest (engine)', () => {
     await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: recorder, sessionId: 'sess-abc' });
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
+  });
+});
+
+describe('reviewPullRequest (engine) — scope filter', () => {
+  // Both findings cite line 11, which IS in the MockGitClient diff hunk, so
+  // grounding keeps them both; the scope filter then acts on what grounding
+  // kept.
+  const scopeFixture = {
+    verdict: 'request_changes',
+    summary: 'two grounded findings, one out of scope',
+    score: 40,
+    findings: [
+      {
+        id: 'in-scope',
+        severity: 'WARNING',
+        category: 'bug',
+        title: 'in-scope finding',
+        file: 'src/config.ts',
+        start_line: 11,
+        end_line: 11,
+        rationale: 'relevant to the stated intent',
+        confidence: 0.9,
+        kind: 'finding',
+        scope: 'in',
+      },
+      {
+        id: 'out-of-scope-critical',
+        severity: 'CRITICAL',
+        category: 'security',
+        title: 'out-of-scope critical finding',
+        file: 'src/config.ts',
+        start_line: 11,
+        end_line: 11,
+        rationale: 'a real defect, but outside the stated scope',
+        confidence: 0.95,
+        kind: 'finding',
+        scope: 'out',
+      },
+      {
+        id: 'out-of-scope-warning',
+        severity: 'WARNING',
+        category: 'style',
+        title: 'out-of-scope warning finding',
+        file: 'src/config.ts',
+        start_line: 11,
+        end_line: 11,
+        rationale: 'stylistic, outside the stated scope',
+        confidence: 0.5,
+        kind: 'finding',
+        scope: 'out',
+      },
+    ],
+  };
+
+  const intent: PromptIntent = {
+    summary: 'Adds rate limiting.',
+    in_scope: ['Rate limiter'],
+    out_of_scope: ['Secret rotation'],
+    confidence: 'medium',
+    unavailable: [],
+  };
+
+  it('with an intent: filters out-of-scope findings after grounding, keeps one CRITICAL signal', async () => {
+    const llm = new MockLLMProvider('openai', { structured: scopeFixture });
+    const diff = await new MockGitClient().diff();
+    const events: string[] = [];
+
+    const outcome = await reviewPullRequest({
+      systemPrompt: 'security reviewer',
+      model: 'gpt-4.1',
+      diff,
+      llm,
+      intent,
+      onEvent: (e) => events.push(e.msg),
+    });
+
+    // Grounding: all three findings cite a real line (11), none dropped by grounding.
+    expect(outcome.dropped).toHaveLength(0);
+    // Scope: in-scope + the CRITICAL out-of-scope signal survive; the WARNING is dropped.
+    expect(outcome.review.findings.map((f) => f.id).sort()).toEqual(
+      ['in-scope', 'out-of-scope-critical'].sort(),
+    );
+    expect(outcome.scopeSignal?.id).toBe('out-of-scope-critical');
+    expect(outcome.scopeDropped).toHaveLength(1);
+    expect(outcome.scopeDropped[0]!.finding.id).toBe('out-of-scope-warning');
+    expect(outcome.scopeDropped[0]!.reason).toBe('out of PR scope — one signal already kept');
+    // Score recomputed from the FINAL set (in-scope WARNING + the CRITICAL signal),
+    // not from the pre-scope-filter three findings: 100 - 35 (CRITICAL) - 12 (WARNING) = 53.
+    expect(outcome.review.score).toBe(53);
+    expect(events.some((m) => m.includes('Scope filter: kept 2, dropped 1'))).toBe(true);
+    // The prompt actually carried the intent section.
+    expect(outcome.assembly.intent).toContain('## PR intent');
+  });
+
+  it('without an intent: scope is normalised to null on every kept finding, no scope filtering happens', async () => {
+    const llm = new MockLLMProvider('openai', { structured: scopeFixture });
+    const diff = await new MockGitClient().diff();
+
+    const outcome = await reviewPullRequest({
+      systemPrompt: 'security reviewer',
+      model: 'gpt-4.1',
+      diff,
+      llm,
+    });
+
+    // No scope filtering ran: all three grounded findings are kept.
+    expect(outcome.review.findings).toHaveLength(3);
+    expect(outcome.review.findings.every((f) => f.scope === null)).toBe(true);
+    expect(outcome.scopeDropped).toHaveLength(0);
+    expect(outcome.scopeSignal).toBeNull();
+    expect(outcome.assembly.intent ?? null).toBeNull();
   });
 });

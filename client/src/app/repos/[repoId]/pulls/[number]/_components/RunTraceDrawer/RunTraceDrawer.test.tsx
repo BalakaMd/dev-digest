@@ -1,11 +1,11 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunTrace } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/runs.json"; // apps/web/messages/en/runs.json
 
 // Mock the trace hooks so the drawer renders without a query client / SSE.
-const TRACE: RunTrace = {
+const BASE_TRACE: RunTrace = {
   config: { agent: "Security", version: "1", provider: "openai", model: "gpt-4.1", pr: 482, source: "local" },
   stats: { duration_ms: 8200, tokens_in: 12000, tokens_out: 1500, cost_usd: 0.06, findings: 2, grounding: "2/2 passed" },
   prompt_assembly: { system: "You are a reviewer.", skills: "### skill", memory: null, specs: null, user: "Review PR #482" },
@@ -19,8 +19,12 @@ const TRACE: RunTrace = {
   ],
 };
 
+// Mutable so individual tests can swap in a trace whose prompt_assembly
+// carries an `intent` block, without re-declaring the whole mock.
+let currentTrace: RunTrace = BASE_TRACE;
+
 vi.mock("../../../../../../../lib/hooks/trace", () => ({
-  useRunTrace: () => ({ data: TRACE, isLoading: false }),
+  useRunTrace: () => ({ data: currentTrace, isLoading: false }),
 }));
 vi.mock("../../../../../../../lib/hooks/reviews", () => ({
   useRunEvents: () => ({ events: [], running: false }),
@@ -28,6 +32,9 @@ vi.mock("../../../../../../../lib/hooks/reviews", () => ({
 
 import RunTraceDrawer from "./RunTraceDrawer";
 
+beforeEach(() => {
+  currentTrace = BASE_TRACE;
+});
 afterEach(cleanup);
 
 function renderWithIntl(ui: React.ReactElement) {
@@ -52,5 +59,26 @@ describe("A5 Run Trace drawer (smoke)", () => {
     fireEvent.click(screen.getByText("log"));
     // LiveLogStream renders its filter input
     expect(screen.getByPlaceholderText("Filter log…")).toBeInTheDocument();
+  });
+
+  it("shows the PR intent prompt block only when the trace carries one", () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    // Prompt assembly starts collapsed — open it to reach the per-slot blocks.
+    fireEvent.click(screen.getByText("Prompt assembly"));
+    expect(screen.queryByText("PR intent (dynamic)")).not.toBeInTheDocument();
+  });
+
+  it("renders the PR intent prompt block when prompt_assembly.intent is present", () => {
+    currentTrace = {
+      ...BASE_TRACE,
+      prompt_assembly: {
+        ...BASE_TRACE.prompt_assembly,
+        intent: "## PR intent (derived — verify against the diff)\nSummary: add pagination.",
+        intent_tokens: 42,
+      },
+    };
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    fireEvent.click(screen.getByText("Prompt assembly"));
+    expect(screen.getByText("PR intent (dynamic)")).toBeInTheDocument();
   });
 });

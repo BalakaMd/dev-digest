@@ -11,11 +11,21 @@ visibly changes what the agent reports.
 | `corner-case-checklist.md` | `.md` | Test Quality Reviewer |
 | `contract-breaking-change.zip` | `.zip` | API Contract Reviewer |
 | `response-shape-guard.md` | `.md` | API Contract Reviewer |
+| `breaking-change.md` | `.md` | API Contract Reviewer |
+| `response-schema.md` | `.md` | API Contract Reviewer |
+| `semver-discipline.md` | `.md` | API Contract Reviewer |
+| `deprecation-policy.md` | `.md` | API Contract Reviewer |
 
 `contract-breaking-change.zip` contains `SKILL.md` (the core), a `README.md`, and
 an executable `scripts/check.sh`. The import preview lists the last two as
 **ignored**, and warns about the script. Nothing but the markdown core is ever
 stored, and nothing in the archive is ever run.
+
+The four standalone API Contract skills each cover one question a contract review
+has to answer: `breaking-change` (does an unchanged caller still work?),
+`response-schema` (is every response declared and honoured?), `semver-discipline`
+(does the version bump match the change?) and `deprecation-policy` (was a removed
+surface deprecated first?). Each has a directive description and Bad/Good examples.
 
 The folder `contract-breaking-change/` holds the zip's sources. To rebuild the zip:
 

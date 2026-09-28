@@ -4,7 +4,7 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import { MockLLMProvider, MockEmbedder, MockGitClient, MockSecretsProvider } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -25,6 +25,18 @@ const DIFF = `diff --git a/src/config.ts b/src/config.ts
    port: 3000,
 +  stripeKey: "sk_live_xxx",
    redisUrl: x,`;
+
+/**
+ * Intent classifier fixture. Injected as `llm.openrouter` on EVERY app built
+ * below so the review path's best-effort intent derivation (S5) never makes a
+ * real OpenRouter call — hermetic even when a real key is configured on the
+ * host machine (`server/INSIGHTS.md` § hermetic intent tests).
+ */
+const INTENT_FIXTURE = {
+  summary: 'Adds rate limiting to public API endpoints.',
+  in_scope: ['A rate limiter'],
+  out_of_scope: [],
+};
 
 /** A Review fixture: one valid finding (line 11), one hallucinated (line 999). */
 const REVIEW_FIXTURE: Review = {
@@ -117,8 +129,15 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       overrides: {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
+        // Empty — GITHUB_TOKEN in particular MUST resolve to undefined here:
+        // the PR body below references an issue, and without this the intent
+        // classifier's link parsing would try a REAL GitHub call.
+        secrets: new MockSecretsProvider({}),
         llm: {
           [provider]: new MockLLMProvider(provider, { structured }),
+          openrouter: new MockLLMProvider('openai', {
+            structuredBySchema: { IntentClassification: INTENT_FIXTURE },
+          }),
         },
       },
     });

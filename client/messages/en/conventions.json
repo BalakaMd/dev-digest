@@ -5,22 +5,76 @@
     "headingPrefix": "Conventions in ",
     "repoFallback": "repo",
     "subtitle": "Scan the cloned repo to surface house-rules — each backed by evidence you can turn into a Skill.",
+    "scanSummary": "Detected from {files, plural, one {# sample file} other {# sample files}} · last scan {when}",
+    "scanDropped": "{dropped, plural, =0 {all evidence verified} one {# unverified candidate dropped} other {# unverified candidates dropped}}",
     "scanning": "Scanning…",
-    "rescan": "Re-scan",
-    "runExtraction": "Run extraction",
+    "runScan": "Run Scan",
+    "rescan": "ReScan",
     "extractionFailed": "Extraction failed",
     "loadError": "Could not load conventions.",
     "empty": {
       "title": "No conventions extracted yet",
       "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
-      "cta": "Run extraction"
+      "cta": "Run Scan"
     },
-    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
+    "noCandidates": {
+      "title": "Nothing new found",
+      "body": "The last scan found no new conventions with verifiable evidence. Rules you already accepted or rejected are not proposed again."
+    },
+    "acceptedCount": "{accepted} of {total} accepted",
+    "createSkill": "Create skill",
+    "filterAll": "All",
+    "filterRejected": "Rejected",
+    "rejectedHint": "Rejected conventions never reach a skill, and ReScan does not propose them again. Restore one to review it again."
+  },
+  "category": {
+    "naming": "Naming",
+    "error-handling": "Error handling",
+    "async": "Async",
+    "imports": "Imports",
+    "module-structure": "Module structure",
+    "typing": "Typing",
+    "testing": "Testing",
+    "formatting": "Formatting",
+    "api": "API",
+    "data-access": "Data access",
+    "other": "Other"
   },
   "card": {
     "confidence": "Confidence",
+    "accept": "Accept",
     "accepted": "Accepted",
-    "accepting": "Accepting…",
-    "acceptAsSkill": "Accept as Skill"
+    "reject": "Reject",
+    "restore": "Restore",
+    "rejected": "Rejected",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "rule": "Rule",
+    "category": "Category",
+    "copy": "Copy code",
+    "copied": "Copied",
+    "moreEvidence": "{count, plural, one {+# more file} other {+# more files}}"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "banner": "Merged from <b>{count, plural, one {# accepted convention} other {# accepted conventions}}</b> in <hl>{repo}</hl>. Everything below is editable before you save.",
+    "splitSingle": "One skill",
+    "splitCategory": "One skill per category",
+    "name": "Name",
+    "description": "Description",
+    "type": "Type",
+    "enabled": "Enabled",
+    "enabledHint": "Whether this block is added to agents' prompts.",
+    "body": "Skill body",
+    "unsaved": "unsaved",
+    "tokens": "~{count} tokens",
+    "footer": "Saved as v1 · added to Skills Lab",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "createMany": "Create {count} skills",
+    "creating": "Creating…",
+    "created": "{count, plural, one {Skill created} other {# skills created}}",
+    "loadError": "Could not build the skill drafts."
   }
 }

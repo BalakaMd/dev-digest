@@ -4,7 +4,7 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import { MockLLMProvider, MockEmbedder, MockGitClient, MockSecretsProvider } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import type { Review } from '@devdigest/shared';
 
@@ -31,6 +31,13 @@ const REVIEW_FIXTURE: Review = {
   score: 80,
   findings: [],
 };
+
+/**
+ * Injected as `llm.openrouter` on every app below so the review path's
+ * best-effort intent derivation (S5) never makes a real OpenRouter call —
+ * hermetic even when a real key is configured on the host machine.
+ */
+const INTENT_FIXTURE = { summary: 'Adds rate limiting.', in_scope: [], out_of_scope: [] };
 
 /**
  * What actually reaches the model.
@@ -62,7 +69,15 @@ d('skills in the assembled prompt', () => {
       overrides: {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
-        llm: { openai: new MockLLMProvider('openai', { structured: REVIEW_FIXTURE }) },
+        // Empty — keeps the intent classifier's GitHub port from ever
+        // resolving to a real client, whatever key is configured on the host.
+        secrets: new MockSecretsProvider({}),
+        llm: {
+          openai: new MockLLMProvider('openai', { structured: REVIEW_FIXTURE }),
+          openrouter: new MockLLMProvider('openai', {
+            structuredBySchema: { IntentClassification: INTENT_FIXTURE },
+          }),
+        },
       },
     });
   }

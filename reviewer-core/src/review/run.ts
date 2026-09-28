@@ -7,8 +7,9 @@ import type {
   UnifiedDiff,
 } from '@devdigest/shared';
 import { Review as ReviewSchema } from '@devdigest/shared';
-import { assemblePrompt } from '../prompt.js';
+import { assemblePrompt, type PromptIntent } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
+import { filterOutOfScope } from '../scope.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
 
 /**
@@ -71,6 +72,14 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /**
+   * The PR's derived intent/scope (untrusted; rendered as `## PR intent` in the
+   * prompt). When present, `filterOutOfScope` runs after grounding and the
+   * score is recomputed from the findings that survive it. When absent, `scope`
+   * is normalised to `null` on every kept finding and the prompt stays
+   * byte-identical to the no-intent case.
+   */
+  intent?: PromptIntent;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -99,6 +108,10 @@ export interface ReviewOutcome {
   grounding: string;
   /** Findings dropped by grounding, with reasons (for logs / "never go silent"). */
   dropped: { finding: Finding; reason: string }[];
+  /** Findings dropped by the scope filter (only runs when `intent` was given). */
+  scopeDropped: { finding: Finding; reason: string }[];
+  /** The single CRITICAL out-of-scope finding kept as a signal, or null. */
+  scopeSignal: Finding | null;
   /** Which path ran. */
   mode: ReviewMode;
   /** Prompt assembly (for the run trace). Single-pass: the one call; map-reduce: the whole-diff assembly. */
@@ -135,6 +148,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    intent: input.intent,
     task: input.task,
   };
 
@@ -201,13 +215,40 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   }
   emit('result', `Citation grounding: ${grounding}`);
 
-  // Score is derived from the findings that SURVIVED grounding (not the model's
-  // self-reported number, and not the pre-grounding set) so the score, the
-  // findings list, and the deterministic event always agree.
+  // Scope filter runs AFTER grounding, and only when an intent was supplied.
+  // Without one, `scope` is normalised to null so the field never carries a
+  // stale label from a prior run's Finding shape, and the prompt/behavior stay
+  // byte-identical to the no-intent case.
+  let finalFindings: Finding[];
+  let scopeDropped: { finding: Finding; reason: string }[] = [];
+  let scopeSignal: Finding | null = null;
+  if (input.intent) {
+    const scopeResult = filterOutOfScope(ground.kept);
+    finalFindings = scopeResult.kept;
+    scopeDropped = scopeResult.dropped;
+    scopeSignal = scopeResult.signal;
+    emit(
+      'result',
+      `Scope filter: kept ${finalFindings.length}, dropped ${scopeDropped.length} out-of-scope, signal ${
+        scopeSignal ? `"${scopeSignal.title}"` : 'none'
+      }`,
+    );
+    for (const d of scopeDropped) {
+      emit('info', `scope filter dropped "${d.finding.title}": ${d.reason}`);
+    }
+  } else {
+    finalFindings = ground.kept.map((f) => ({ ...f, scope: null }));
+  }
+
+  // Score is derived from the findings that SURVIVED grounding AND the scope
+  // filter (not the model's self-reported number, and not an earlier set) so
+  // the score, the findings list, and the deterministic events always agree.
   return {
-    review: { ...merged, findings: ground.kept, score: scoreFromFindings(ground.kept) },
+    review: { ...merged, findings: finalFindings, score: scoreFromFindings(finalFindings) },
     grounding,
     dropped: ground.dropped,
+    scopeDropped,
+    scopeSignal,
     mode,
     assembly,
     chunks: chunks.map((c) => ({ label: c.label })),

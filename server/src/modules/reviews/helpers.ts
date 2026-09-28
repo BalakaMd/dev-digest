@@ -2,12 +2,44 @@
  * Pure helpers for the review service (side-effect free; operate purely on
  * their arguments — no DB / network / `this`).
  */
-import type { Finding, PromptAssembly } from '@devdigest/shared';
+import type { Finding, PrIntentRecord, PromptAssembly } from '@devdigest/shared';
+import type { PromptIntent } from '@devdigest/reviewer-core';
 import type { FindingRow, PullRow, ReviewRow } from './repository.js';
 
 // reduceReviews + sliceDiff live in @devdigest/reviewer-core (pure engine logic
 // shared with the CI runner); re-exported here for backward-compatible imports.
 export { reduceReviews, sliceDiff } from '@devdigest/reviewer-core';
+
+/**
+ * `PrIntentRecord` (the persisted/contract shape) → `PromptIntent` (the slot
+ * `reviewer-core`'s `assemblePrompt` renders). `unavailable` lists the
+ * sanitized refs of sources that could not be read, pre-formatted exactly as
+ * the prompt renders them (`"docs/plan.md (unreachable)"`).
+ */
+export function toPromptIntent(record: PrIntentRecord): PromptIntent {
+  return {
+    summary: record.summary,
+    in_scope: record.in_scope,
+    out_of_scope: record.out_of_scope,
+    confidence: record.confidence,
+    unavailable: record.sources
+      .filter((s) => s.status === 'unreachable' || s.status === 'unsupported')
+      .map((s) => `${s.ref} (${s.status})`),
+  };
+}
+
+/**
+ * Attach the intent-block token weight to a prompt assembly. `intent_tokens`
+ * measures the `## PR intent` block ALONE. No intent section → the assembly
+ * is returned untouched.
+ */
+export function withIntentStats(
+  assembly: PromptAssembly,
+  count: (text: string) => number,
+): PromptAssembly {
+  if (!assembly.intent) return assembly;
+  return { ...assembly, intent_tokens: count(assembly.intent) };
+}
 
 /**
  * Render one linked skill as a block of the prompt's `## Skills / rules`
@@ -75,6 +107,7 @@ export function findingRowToDto(row: FindingRow): ReviewDtoFinding {
     kind: (row.kind as Finding['kind']) ?? 'finding',
     trifecta_components: (row.trifectaComponents as Finding['trifecta_components']) ?? null,
     evidence: null,
+    scope: (row.scope as Finding['scope']) ?? null,
     review_id: row.reviewId,
     accepted_at: row.acceptedAt?.toISOString() ?? null,
     dismissed_at: row.dismissedAt?.toISOString() ?? null,

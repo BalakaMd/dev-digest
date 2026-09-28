@@ -56,6 +56,16 @@ resolves context and passes it in:
 - `callers`, `repoMap`, `rankNote` — only when repo-intel is on for that agent
 - `prDescription` — only when the PR has a body; untrusted, wrapped downstream
 - `skills` — only when the agent has linked skills that are globally enabled
+- `intent` — only when a PR intent is available (see below)
+
+The intent is resolved **once per batch**, before the per-agent loop, through
+`container.intent.getForReview` (`modules/intent`): the stored intent if one
+exists (even if stale — a stale intent is still used, logged, never
+auto-re-derived), otherwise a best-effort derive. `getForReview` never throws —
+a missing provider key, a failed classifier call, or any other error is caught,
+logged (`Intent: skipped — <reason>`), and the review proceeds with no intent,
+exactly as if the PR had none. `run-executor.ts` reaches it only through the
+`container.intent` facade, never by importing `modules/intent` directly.
 
 Repo-intel has **two independent gates**: the global `REPO_INTEL_ENABLED` and the
 per-agent `repo_intel` toggle. When an agent opts out, enrichment is skipped
@@ -78,9 +88,14 @@ the section out entirely rather than emitting an empty heading.
 
 ## Grounding and scoring
 
-Every finding must cite a line that exists in the diff or it is dropped. The
-score is recomputed from the findings that survived. **The model's self-reported
-score is ignored.** This is mechanical, not advisory — see
+Every finding must cite a line that exists in the diff or it is dropped. When an
+intent was available, a second, mechanical filter then runs: `scope: 'out'`
+findings are dropped, except the single most severe CRITICAL one, kept as a
+signal (still labelled `scope: 'out'`). Scanner kinds (`secret_leak`,
+`lethal_trifecta`, `phantom`, `hook`) are never dropped by it, and every drop is
+logged with a reason — nothing disappears silently. The score is recomputed from
+the findings that survive **both** gates. **The model's self-reported score is
+ignored.** This is mechanical, not advisory — see
 [`../../reviewer-core/specs/grounding.md`](../../reviewer-core/specs/grounding.md).
 
 ## Observability

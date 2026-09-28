@@ -27,6 +27,40 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-25 — [gotcha] A subagent's `description:` breaks YAML if it contains ": " mid-sentence
+**Symptom** — a new agent file's frontmatter failed to parse ("mapping values are
+not allowed here") even though it looked identical in shape to the three
+existing agents.
+**Cause** — the `description` field is written as an unquoted YAML plain
+scalar. A colon followed by a space anywhere in that scalar — for example
+"...architecture skills: dependency direction, layer violations..." — is
+itself valid YAML mapping syntax, so the parser tries to start a nested
+mapping right there and fails. `path:line`-style colons (no space after) are
+fine; the trap is specifically a colon used as prose punctuation.
+**Takeaway** — before shipping a new agent's `description`, either avoid a
+bare "word: word" construction (use an em dash or semicolon instead) or quote
+the whole field. Verify with an actual YAML parser (`python3 -c "import
+yaml; yaml.safe_load(...)"`), not just by eye — the existing three agents'
+descriptions happen to avoid this construction, so nothing in the repo
+demonstrates the failure until it is hit.
+
+## 2026-09-25 — [gotcha] `$(cmd) $?` inside one line reads the wrong exit status
+**Symptom** — a test-matrix loop (`sh guard.sh < "$f" 2>/dev/null; echo
+"$(basename "$f") $?"`) printed exit code `0` for every fixture, including
+ones that should have been denied with exit `2`.
+**Cause** — `$?` is expanded as part of assembling the `echo` command's
+arguments, and the command substitution `$(basename "$f")` runs first as part
+of that same assembly. Whatever the substituted command's own exit status is
+(here, `basename`'s success) is what `$?` reports — the prior command's status
+is already gone by the time `$?` is read, even though it appears earlier in
+the source line.
+**Takeaway** — capture `$?` into a variable on the line immediately after the
+command whose status you need, before running anything else — including a
+command substitution — on the same or a later line: `sh script < "$f"; rc=$?;
+echo "$(basename "$f") $rc"`. A one-liner that mixes a status check with a
+command substitution silently reports the substitution's status instead, and
+will mask every failure as success.
+
 ## 2026-09-24 — [gotcha] A PreToolUse(Bash) matcher sees the whole command, heredocs included
 **Symptom** — the new PR gate denied a `cat > file <<EOF` call that was merely
 writing documentation, because the document mentioned the gated command.

@@ -2,23 +2,13 @@
    list, the import flow and the skill editor. */
 import type { Skill, SkillType } from "@devdigest/shared";
 
-/** Selectable types, in the order the editor offers them. */
-export const SKILL_TYPES: readonly SkillType[] = ["rubric", "convention", "security", "custom"];
+export { SKILL_TYPES, approxTokens } from "../../lib/skill";
 
 /** Sources whose text was written outside this editor — badged as imported. */
 const IMPORTED_SOURCES: readonly Skill["source"][] = ["imported", "imported_url", "community"];
 
 export function isImported(skill: Pick<Skill, "source">): boolean {
   return IMPORTED_SOURCES.includes(skill.source);
-}
-
-/**
- * Rough token count for the body-size hint. The server counts with tiktoken;
- * the client has no tokenizer, so this is the `chars / 4` heuristic the server
- * itself falls back to — always rendered with a `~` for that reason.
- */
-export function approxTokens(text: string): number {
-  return Math.ceil(text.length / 4);
 }
 
 /** Case-insensitive match over name, description and type. */

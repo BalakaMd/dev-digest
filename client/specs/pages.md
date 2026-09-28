@@ -11,7 +11,8 @@ the same commit.
 | `/` | entry; redirects to the active repo's PR list | `useRepos` → `GET /repos` |
 | `/onboarding` | add a repository by URL | `useAddRepo` → `POST /repos` |
 | `/repos/[repoId]/pulls` | PR list | `usePulls` → `GET /repos/:id/pulls`; `useRefreshRepo` → `POST /repos/:id/refresh` |
-| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace` |
+| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent` |
+| `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
 | `/skills/[id]` | skill editor — Config, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion` |
 | `/agents` | agent grid | `useAgents` → `GET /agents` |
@@ -54,7 +55,26 @@ trace via `useRunTrace`.
 
 Findings can be accepted or dismissed (`useFindingAction`). A finding always
 cites a file and line range that exist in the diff — the server drops the rest
-before they ever reach the client.
+before they ever reach the client. A finding with `scope: "out"` (kept as the
+one out-of-scope signal the server allows through) carries an "Outside PR
+scope" tag next to its accept/dismiss state.
+
+`IntentCard` (`usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` →
+`POST /pulls/:id/intent`) renders above the tab body on both **Overview** and
+**Findings** — it precedes the review results wherever they appear, and
+starting a run switches the tab to Findings so it still sits above them. On
+Overview it is always expanded; on Findings (the **Agent runs** tab) it starts
+collapsed to its header — title, confidence badge and a **Stale** badge when
+the intent is stale — and the body opens on click. States:
+`none` (a **Derive intent** button) · `derived` (quoted summary, IN SCOPE / OUT
+OF SCOPE columns, a confidence badge, and a Sources row — unreachable/
+unsupported sources are shown visibly as unavailable) · `stale` (the PR head
+moved since this intent was derived — a warning line plus an emphasised
+**Re-derive**; the card still shows the stale intent, it is never hidden) ·
+`error` (inline message with a retry). Intent is never re-derived
+automatically; after a review run finishes, `page.tsx` invalidates
+`["pr-intent", prId]` so an intent the run auto-derived (see
+`server/specs/review-flow.md`) appears without a manual refresh.
 
 ## Skills
 
@@ -71,6 +91,33 @@ agent's prompt. Any content edit bumps the version and snapshots the body;
 toggling does not. Restore writes an old body forward as a new version — history
 is append-only. The version diff is computed client-side against the current
 body.
+
+## Conventions
+
+Per repo, under **SKILLS LAB** in the sidebar (`g c`). Before the first scan the
+page shows only **Run Scan**; once a scan exists the header shows **ReScan** and
+the line "Detected from N sample files · last scan X ago". A scan is one
+synchronous request — the button spins until the server answers with the new
+state.
+
+Each card shows the category, the rule, the verified evidence (`file:line` plus
+the file's own code, extra files behind "+N more"), and the post-verification
+confidence. **Accept** toggles (Accepted → back to pending), **Reject** removes
+the card at once (optimistic) and the server never returns it again, and
+**Edit** turns the card into an inline form for rule and category. ReScan
+replaces only pending cards nobody touched; accepted and edited ones stay,
+rejected ones stay gone.
+
+Rejected cards are not deleted. Once anything is rejected, a **Rejected (N)**
+chip appears after the category filters; it lists the rejected cards dimmed,
+with a single **Restore** button that puts the card back to pending. A restored
+card counts as touched, so the next ReScan keeps it.
+
+**Create skill** appears once at least one card is accepted. The modal loads
+server-built drafts (one skill, or one per category) and every field is editable,
+including the markdown body in a line-numbered editor. Edits survive switching
+between the two modes. Every Create makes **new** skills (type `convention`,
+source `extracted`) and then navigates to `/skills`.
 
 ## Agents
 

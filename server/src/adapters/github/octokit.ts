@@ -15,6 +15,7 @@ import type {
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 
 const TIMEOUT = 30_000;
+const MAX_FILE_BYTES = 1_000_000;
 
 function mapStatus(state: string, merged: boolean | undefined): PrStatus {
   if (merged) return 'merged';
@@ -361,6 +362,33 @@ export class OctokitGitHubClient implements GitHubClient {
       body: res.data.body,
       state: res.data.state,
     };
+  }
+
+  async getFileContent(repo: RepoRef, path: string, ref: string): Promise<string> {
+    return withRetry(() =>
+      withTimeout(
+        (async () => {
+          const res = await this.octokit.rest.repos.getContent({
+            owner: repo.owner,
+            repo: repo.name,
+            path,
+            ref,
+          });
+          const data = res.data;
+          if (Array.isArray(data) || data.type !== 'file') {
+            throw new Error(`${path} is not a regular file at ${ref}`);
+          }
+          if (data.size > MAX_FILE_BYTES) {
+            throw new Error(`${path} is over ${MAX_FILE_BYTES} bytes at ${ref}`);
+          }
+          if (!data.content) {
+            throw new Error(`${path} has no content at ${ref}`);
+          }
+          return Buffer.from(data.content, 'base64').toString('utf-8');
+        })(),
+        TIMEOUT,
+      ),
+    );
   }
 
   async currentLogin(): Promise<string> {

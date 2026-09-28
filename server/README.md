@@ -70,6 +70,7 @@ flowchart TB
   end
   subgraph Review["Review & runs"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
+    intent["intent<br/>GET/POST /pulls/:id/intent"]
   end
   subgraph Agents["Agents"]
     agents["agents<br/>/agents · /agents/:id"]
@@ -131,6 +132,14 @@ What the reviewer actually sends to the model is assembled in
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.
+- **The PR intent is best-effort and never blocks a review.** Before the
+  per-agent loop, the executor asks `container.intent.getForReview(...)`
+  (`modules/intent`) for the PR's stored intent, deriving one on demand when
+  none exists. Any failure (no provider key, a failed classifier call) is
+  caught and logged — the review runs with no `## PR intent` section, exactly
+  as if the PR had none. When an intent IS present, findings the model marks
+  `scope: "out"` are dropped after grounding, except the single most severe
+  CRITICAL one, kept as a signal.
 
 ## Testing
 

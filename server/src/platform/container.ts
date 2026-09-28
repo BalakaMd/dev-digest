@@ -29,6 +29,10 @@ import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import type { IntentFacade } from '../modules/intent/types.js';
+import { IntentRepository } from '../modules/intent/repository.js';
+import { IntentService } from '../modules/intent/service.js';
+import { resolveFeatureModel } from '../modules/settings/feature-models.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -51,6 +55,8 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  /** Intent facade (S4) — tests inject a fake to skip DB/LLM/GitHub entirely. */
+  intent?: IntentFacade;
 }
 
 export class Container {
@@ -76,6 +82,7 @@ export class Container {
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
+  private _intent?: IntentFacade;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -129,6 +136,24 @@ export class Container {
     if (this.overrides.tokenizer) return this.overrides.tokenizer;
     this._tokenizer ??= new TiktokenTokenizer();
     return this._tokenizer;
+  }
+
+  /**
+   * Intent facade (S4) — the ONLY way another module reaches the intent
+   * classifier (`run-executor.ts` calls `container.intent.getForReview(...)`,
+   * never imports `modules/intent` directly).
+   */
+  get intent(): IntentFacade {
+    if (this.overrides.intent) return this.overrides.intent;
+    this._intent ??= new IntentService({
+      repo: new IntentRepository(this.db),
+      llm: (id) => this.llm(id),
+      github: () => this.github(),
+      git: this.git,
+      countTokens: (text) => this.tokenizer.count(text),
+      resolveModel: (workspaceId) => resolveFeatureModel(this, workspaceId, 'review_intent'),
+    });
+    return this._intent;
   }
 
   /**

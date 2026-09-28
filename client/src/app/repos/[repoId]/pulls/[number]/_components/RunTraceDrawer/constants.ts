@@ -18,5 +18,6 @@ export const PROMPT_COLORS = {
   repoMap: "var(--accent)",
   specs: "var(--text-secondary)",
   callers: "var(--warn)",
+  intent: "var(--sugg)",
   user: "var(--ok)",
 } as const;

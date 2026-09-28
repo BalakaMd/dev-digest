@@ -26,3 +26,6 @@ test-results/
 
 # PR self-review reports (regenerated per branch by the pr-self-review skill)
 .claude/pr-self-review/
+
+# Development plans written by the planner subagent (local, reused across sessions)
+.claude/plans/

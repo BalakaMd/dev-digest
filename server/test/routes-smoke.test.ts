@@ -64,4 +64,23 @@ describe('routes (no DB)', () => {
     expect(res.json().error.code).toBe('validation_error');
     await app.close();
   });
+
+  it('GET /repos/:id/pulls/:number → 422 on a non-uuid repo id', async () => {
+    const app = await buildApp({ config });
+    const res = await app.inject({ method: 'GET', url: '/repos/not-a-uuid/pulls/1' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe('validation_error');
+    await app.close();
+  });
+
+  it('GET /repos/:id/pulls/:number → 422 on a non-numeric PR number', async () => {
+    const app = await buildApp({ config });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/repos/${'0'.repeat(8)}-0000-0000-0000-${'0'.repeat(12)}/pulls/abc`,
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe('validation_error');
+    await app.close();
+  });
 });

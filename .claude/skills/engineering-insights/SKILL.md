@@ -22,6 +22,7 @@ wastes their attention. Everything below exists to keep that balance.
 | `client/**` | `client/INSIGHTS.md` |
 | `reviewer-core/**` | `reviewer-core/INSIGHTS.md` |
 | `e2e/**` | `e2e/INSIGHTS.md` |
+| `mcp/**` | `mcp/INSIGHTS.md` |
 | several modules at once, or `scripts/`, Docker, CI, repo layout | `INSIGHTS.md` (root) |
 
 When work spans modules, route by **substance, not by file count**: the log that

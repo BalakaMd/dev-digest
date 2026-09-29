@@ -19,6 +19,7 @@ A `+` in the table means "in addition to the rows above it".
 | any `*.ts` / `*.tsx` | `typescript-expert` | folded into its domain |
 | **every** changed file | `security` | security |
 | `.github/workflows/**`, `scripts/*.sh`, `docker-compose.yml`, `Dockerfile*` | `security` | security |
+| `mcp/src/**` | `zod`, `typescript-expert` | backend |
 | `e2e/**`, `*.md`, `*.json` | none — invariants only | inline |
 
 ## Two rows that are easy to get wrong

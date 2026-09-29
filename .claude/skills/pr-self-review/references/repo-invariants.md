@@ -93,7 +93,7 @@ git diff --name-status "$BASE" -- 'server/src/db/migrations/*.sql'
 ## 5 · Lockfiles and package boundaries
 
 This is **not** a monorepo: each package owns its own lockfile, `server` and
-`client` use pnpm, `reviewer-core` and `e2e` use npm.
+`client` use pnpm, `reviewer-core`, `e2e` and `mcp` use npm.
 
 ```sh
 git diff --name-only "$BASE" | grep -E '(pnpm-lock\.yaml|package-lock\.json)$'

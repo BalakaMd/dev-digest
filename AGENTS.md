@@ -17,9 +17,10 @@ Fastify 5 · Drizzle ORM · Next.js 15 / React 19 · Zod 3 · vitest 2
 cd server && pnpm db:migrate  # migrations are NOT applied on boot
 ```
 
-Verify, per package: `pnpm test` / `pnpm typecheck` (`npm` in `reviewer-core` and
-`e2e`; server splits its suites — see `server/AGENTS.md`). There is **no linter
-or formatter** here — CI runs typecheck and tests only; do not invent `lint`.
+Verify, per package: `pnpm test` / `pnpm typecheck` (`npm` in `reviewer-core`,
+`e2e` and `mcp`; server splits its suites — see `server/AGENTS.md`). There is
+**no linter or formatter** here — CI runs typecheck and tests only; do not
+invent `lint`.
 
 ## Git
 
@@ -43,12 +44,13 @@ rubric, the bar, and the dedup procedure.
 | `client/`       | `@devdigest/web`           | Next.js studio              | 3000 |
 | `reviewer-core/`| `@devdigest/reviewer-core` | pure review engine          | —    |
 | `e2e/`          | `@devdigest/e2e`           | browser e2e (agent-browser) | —    |
+| `mcp/`          | `@devdigest/mcp`           | stdio MCP client of the API | —    |
 
 ## Conventions (non-default — not inferable from the code)
 
 - **This is NOT a monorepo.** Each package has its own `package.json` and its own
-  lockfile. `server`/`client` use pnpm, `reviewer-core`/`e2e` use npm. Never add
-  workspace fields.
+  lockfile. `server`/`client` use pnpm, `reviewer-core`/`e2e`/`mcp` use npm. Never
+  add workspace fields.
 - Cross-package code is shared through **tsconfig path aliases**, not published
   modules.
 - `server` imports **raw TypeScript** from `reviewer-core/src` (tsx in dev,

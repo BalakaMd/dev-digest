@@ -20,6 +20,15 @@ export const OUTPUT_BUDGET_CHARS = 24_000;
 export const DEFAULT_FINDINGS_LIMIT = 20;
 export const MAX_FINDINGS_LIMIT = 50;
 
+/** One short hint per `degraded_reason` of `GET /pulls/:id/blast`. */
+export const BLAST_REASON_TEXT = {
+  flag_off: 'repo intelligence is turned off, so no code index is available',
+  index_failed: 'indexing this repo failed; the map is empty or unreliable',
+  index_partial: 'the index is incomplete (still building, or the PR files are not synced yet); results may be missing',
+  repo_too_large: 'the repo is too large to index; no map is available',
+  no_data: 'no index data exists for this repo yet',
+} as const;
+
 /** Total order for findings: CRITICAL > WARNING > SUGGESTION. */
 export const SEVERITY_ORDER = ['CRITICAL', 'WARNING', 'SUGGESTION'] as const;
 export type Severity = (typeof SEVERITY_ORDER)[number];

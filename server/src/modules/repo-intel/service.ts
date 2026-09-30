@@ -381,11 +381,67 @@ export class RepoIntelService implements RepoIntel {
       for (const e of f.endpoints) endpoints.add(e);
     }
 
+    // Reach: the caller file itself (depth 1) plus files importing it, walking
+    // reverse import edges up to BFS_DEPTH total depth.
+    const reach = new Map<string, string[]>(callerFiles.map((f) => [f, [f]]));
+    const frontier = new Map<string, string[]>(callerFiles.map((f) => [f, [f]]));
+    const visited = new Map<string, Set<string>>(callerFiles.map((f) => [f, new Set([f])]));
+    for (let depth = 2; depth <= BFS_DEPTH; depth++) {
+      const level = [...new Set([...frontier.values()].flat())];
+      if (level.length === 0) break;
+      const importers = new Map<string, string[]>();
+      for (const e of await this.repo.getImporters(repoId, level)) {
+        const arr = importers.get(e.toFile);
+        if (arr) arr.push(e.fromFile);
+        else importers.set(e.toFile, [e.fromFile]);
+      }
+      for (const origin of callerFiles) {
+        const seen = visited.get(origin)!;
+        const next: string[] = [];
+        for (const f of frontier.get(origin) ?? []) {
+          for (const imp of importers.get(f) ?? []) {
+            if (seen.has(imp)) continue;
+            seen.add(imp);
+            next.push(imp);
+            reach.get(origin)!.push(imp);
+          }
+        }
+        frontier.set(origin, next);
+      }
+    }
+    const reachedFiles = [...new Set([...reach.values()].flat())];
+    const reachedFacts = new Map<string, { endpoints: string[]; crons: string[] }>();
+    for (const f of await this.repo.getFileFacts(repoId, reachedFiles)) {
+      reachedFacts.set(f.filePath, { endpoints: f.endpoints, crons: f.crons });
+    }
+    const reachableFactsByFile: Record<string, { endpoints: string[]; crons: string[] }> = {};
+    for (const [origin, files] of reach) {
+      const eps = new Set<string>();
+      const crs = new Set<string>();
+      for (const f of files) {
+        const rf = reachedFacts.get(f);
+        if (!rf) continue;
+        for (const e of rf.endpoints) eps.add(e);
+        for (const c of rf.crons) crs.add(c);
+      }
+      reachableFactsByFile[origin] = { endpoints: [...eps], crons: [...crs] };
+    }
+
+    // Cap per changed symbol (callers are already rank-sorted).
+    const perSymbol = new Map<string, number>();
+    const cappedCallers = callers.filter((c) => {
+      const n = perSymbol.get(c.viaSymbol) ?? 0;
+      if (n >= MAX_CALLERS_PER_SYMBOL) return false;
+      perSymbol.set(c.viaSymbol, n + 1);
+      return true;
+    });
+
     return {
       changedSymbols,
-      callers: callers.slice(0, MAX_CALLERS_PER_SYMBOL),
+      callers: cappedCallers,
       impactedEndpoints: [...endpoints],
       factsByFile,
+      reachableFactsByFile,
       degraded: false,
     };
   }

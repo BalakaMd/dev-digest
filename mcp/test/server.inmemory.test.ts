@@ -303,14 +303,168 @@ describe('devdigest MCP server (in-memory)', () => {
     expect(text).toMatch(/run a scan/i);
   });
 
-  it('get_blast_radius returns the not-implemented stub with no API call', async () => {
-    const fetchImpl = makeFetch();
-    const { client } = await connectedClient(fetchImpl);
-    const result = await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#482' } });
-    expect(result.isError).toBe(false);
-    const text = (result.content as { type: string; text: string }[])[0]!.text;
-    expect(text).toMatch(/not implemented yet/);
-    expect(fetchImpl).not.toHaveBeenCalled();
+  describe('devdigest_get_blast_radius', () => {
+    const BLAST_BODY = {
+      changed_symbols: [{ name: 'charge', file: 'src/pay.ts', kind: 'function' }],
+      downstream: [
+        {
+          symbol: 'charge',
+          callers: [{ name: 'checkout', file: 'src/checkout.ts', line: 12 }],
+          endpoints_affected: ['POST /checkout'],
+          crons_affected: [],
+        },
+      ],
+      summary: '1 changed symbol, 1 caller',
+      degraded: false,
+      degraded_reason: null,
+      indexed_sha: 'abc123',
+    };
+
+    const textOf = (result: object) =>
+      ((result as { content: { type: string; text: string }[] }).content)[0]!.text;
+
+    it('is registered read-only, idempotent and closed-world, with a short description that says when to call it', async () => {
+      const { client } = await connectedClient(makeFetch());
+      const { tools } = await client.listTools();
+      const tool = tools.find((t) => t.name === 'devdigest_get_blast_radius')!;
+      expect(tool.annotations).toMatchObject({
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+      expect(tool.description).toMatch(/Call it before/);
+      expect(tool.description!.length).toBeLessThan(500);
+      expect(tool.inputSchema.required).toEqual(['pr']);
+      expect(Object.keys(tool.inputSchema.properties ?? {}).sort()).toEqual(['pr', 'response_format']);
+    });
+
+    it('renders the impact map (summary, file:line callers, endpoints) from GET /pulls/:id/blast', async () => {
+      const fetchImpl = makeFetch({
+        'GET /repos': () => jsonResponse([REPO]),
+        'GET /repos/:id/pulls/:number': () => jsonResponse(PR),
+        'GET /pulls/:id/blast': () => jsonResponse(BLAST_BODY),
+      });
+      const { client } = await connectedClient(fetchImpl);
+      const result = await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#482' } });
+      expect(result.isError).toBe(false);
+      const text = textOf(result);
+      expect(text).toContain('Blast radius of acme/payments-api#482 — 1 changed symbol, 1 caller');
+      expect(text).toContain('charge — 1 caller\n  ← src/checkout.ts:12\n');
+      expect(text).not.toContain('(checkout)');
+      expect(text).toContain('endpoints: POST /checkout');
+      expect(text).not.toContain('Index incomplete');
+    });
+
+    it('only reads: every request is a GET, to the resolver routes and the blast route, addressed by the PR id', async () => {
+      const fetchImpl = makeFetch({
+        'GET /repos': () => jsonResponse([REPO]),
+        'GET /repos/:id/pulls/:number': () => jsonResponse(PR),
+        'GET /pulls/:id/blast': () => jsonResponse(BLAST_BODY),
+      });
+      const { client } = await connectedClient(fetchImpl);
+      await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#482' } });
+
+      const calls = fetchImpl.mock.calls.map(([input, init]) => ({
+        method: (init?.method ?? 'GET').toUpperCase(),
+        path: new URL(String(input)).pathname,
+      }));
+      expect(calls.every((c) => c.method === 'GET')).toBe(true);
+      expect(calls.map((c) => c.path).sort()).toEqual(
+        ['/pulls/pr-1/blast', '/repos', '/repos/repo-1/pulls/482'].sort(),
+      );
+    });
+
+    it('unknown PR: isError with the "not in DevDigest" hint, and the blast route is never called (no sync fallback)', async () => {
+      const fetchImpl = makeFetch({
+        'GET /repos': () => jsonResponse([REPO]),
+        'GET /repos/:id/pulls/:number': () =>
+          jsonResponse({ error: { code: 'not_found', message: 'Pull request not found' } }, 404),
+        'GET /repos/:id/pulls': () => {
+          throw new Error('a read tool must not sync pulls');
+        },
+        'GET /pulls/:id/blast': () => {
+          throw new Error('blast must not be requested for an unknown PR');
+        },
+      });
+      const { client } = await connectedClient(fetchImpl);
+      const result = await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#9999' } });
+      expect(result.isError).toBe(true);
+      const text = textOf(result);
+      expect(text).toContain('PR acme/payments-api#9999 is not in DevDigest.');
+      expect(text).not.toMatch(/\bat \S+:\d+:\d+/);
+    });
+
+    it('a PR the API no longer knows (404 from the blast route) is an actionable error, not a stack trace', async () => {
+      const fetchImpl = makeFetch({
+        'GET /repos': () => jsonResponse([REPO]),
+        'GET /repos/:id/pulls/:number': () => jsonResponse(PR),
+        'GET /pulls/:id/blast': () =>
+          jsonResponse({ error: { code: 'not_found', message: 'Pull request not found' } }, 404),
+      });
+      const { client } = await connectedClient(fetchImpl);
+      const result = await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#482' } });
+      expect(result.isError).toBe(true);
+      const text = textOf(result);
+      expect(text).toContain('not_found');
+      expect(text).not.toMatch(/\bat \S+:\d+:\d+/);
+    });
+
+    it('an incomplete index shows the reason and a resync hint, and still lists what was found', async () => {
+      const fetchImpl = makeFetch({
+        'GET /repos': () => jsonResponse([REPO]),
+        'GET /repos/:id/pulls/:number': () => jsonResponse(PR),
+        'GET /pulls/:id/blast': () =>
+          jsonResponse({ ...BLAST_BODY, degraded: true, degraded_reason: 'index_partial' }),
+      });
+      const { client } = await connectedClient(fetchImpl);
+      const result = await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#482' } });
+      expect(result.isError).toBe(false);
+      const text = textOf(result);
+      expect(text).toContain('Index incomplete (index_partial)');
+      expect(text).toContain('POST /repos/:id/resync');
+      expect(text).toContain('src/checkout.ts:12');
+    });
+
+    it('response_format: both formats list every caller; detailed adds function names and the indexed commit', async () => {
+      const many = Array.from({ length: 9 }, (_, i) => ({ name: `caller${i}`, file: `src/c${i}.ts`, line: i + 1 }));
+      const fetchImpl = makeFetch({
+        'GET /repos': () => jsonResponse([REPO]),
+        'GET /repos/:id/pulls/:number': () => jsonResponse(PR),
+        'GET /pulls/:id/blast': () =>
+          jsonResponse({ ...BLAST_BODY, downstream: [{ ...BLAST_BODY.downstream[0], callers: many }] }),
+      });
+      const { client } = await connectedClient(fetchImpl);
+
+      const concise = textOf(
+        await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#482' } }),
+      );
+      expect(concise).toContain('charge — 9 callers');
+      for (let i = 0; i < 9; i++) expect(concise).toContain(`  ← src/c${i}.ts:${i + 1}`);
+      expect(concise).not.toMatch(/… \d+ more/);
+      expect(concise).not.toContain('(caller8)');
+      expect(concise).not.toContain('Indexed at');
+
+      const detailed = textOf(
+        await client.callTool({
+          name: 'devdigest_get_blast_radius',
+          arguments: { pr: 'acme/payments-api#482', response_format: 'detailed' },
+        }),
+      );
+      expect(detailed).toContain('charge — 9 callers');
+      expect(detailed).toContain('  ← src/c8.ts:9 (caller8)');
+      expect(detailed).toContain('Indexed at abc123 (caller line numbers refer to this commit).');
+      expect(detailed).not.toMatch(/… \d+ more/);
+    });
+
+    it('API-unreachable → actionable text, no stack lines', async () => {
+      const fetchImpl = vi.fn(async () => {
+        throw new TypeError('fetch failed: ECONNREFUSED');
+      });
+      const { client } = await connectedClient(fetchImpl as unknown as typeof fetch);
+      const result = await client.callTool({ name: 'devdigest_get_blast_radius', arguments: { pr: 'acme/payments-api#482' } });
+      expect(result.isError).toBe(true);
+      expect(textOf(result)).toContain('./scripts/dev.sh');
+    });
   });
 
   it('API-unreachable → isError true, actionable text, no stack lines', async () => {

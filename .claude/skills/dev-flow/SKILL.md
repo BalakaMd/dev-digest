@@ -63,7 +63,7 @@ Build a recommendation from this table, then adjust it to the task:
 
 | Task | Recommended |
 |------|-------------|
-| Feature | planner, implementer, architecture-reviewer, plan-verifier (add test-writer when the new tests should be written by a separate agent rather than the implementer — independent eyes for one more instance; add doc-writer when docs or specs describe the changed behaviour; add researcher only for an external library or practice question) |
+| Feature | planner, implementer, architecture-reviewer, plan-verifier (add test-writer when the new tests should be written by a separate agent rather than the implementer — independent eyes for one more instance; add doc-writer when the feature deserves its own documentation or existing docs or specs describe the changed behaviour — its job is to document the new feature, not only to fix stale sentences; add researcher only for an external library or practice question) |
 | Bug fix | planner (skip for a one-line fix), implementer, test-writer (regression test), plan-verifier (add researcher when the root cause is unknown, and architecture-reviewer when the fix crosses layers) |
 | Refactor | planner, implementer, architecture-reviewer, plan-verifier (add test-writer when the touched code lacks tests) |
 | Tests only | test-writer (add plan-verifier when there is a plan to check against) |
@@ -79,6 +79,11 @@ a "none" option:
 1. Preparation: `researcher`, `planner`, none.
 2. Code and tests: `implementer`, `test-writer`, none.
 3. Review and docs: `architecture-reviewer`, `plan-verifier`, `doc-writer`, none.
+
+Describe `doc-writer` accurately: it writes documentation for the new feature (verified against
+the code, with Mermaid diagrams) into the repository's `docs/` folders; edits to READMEs,
+guidance files (`CLAUDE.md` / `AGENTS.md`), `specs/` outside `docs/` and non-Markdown files such
+as `package.json`, and any new section or decision record, are only proposed by it.
 
 Leave out any agent that does not exist in `.claude/agents/`. "None" together with an agent
 means the agent. Free text in "Other" is an instruction to take into account; if it is
@@ -143,6 +148,13 @@ S4`. Ask the user to approve the plan and the split, change them, run everything
 instance, or stop. Changes go back to the planner, or into your inline plan. Do not start
 the implementer without an explicit approval.
 
+When `doc-writer` is selected, ask two more questions in the same checkpoint, so the doc-writer
+does not have to stop later: (1) where the feature document goes — a new page or section, or an
+addition to an existing page (list the existing `docs/` folders and pages you found; a new
+section or decision record is created only if the user says so here); (2) whether you may apply,
+after the doc-writer reports, its proposed edits outside `docs/` (READMEs, specs, `package.json`,
+guidance files).
+
 ### 3.3 implementer
 Pass the plan path (or the inline plan), the step ids the instance owns, the user's answers
 to open questions, and the reminder that nothing is committed and that tests marked
@@ -203,9 +215,26 @@ behaviour follow the same rule: a fresh test-writer scoped to the named cases, w
 `model: "sonnet"`. Allow at most two fix rounds, then hand the decision back to the user.
 
 ### 3.6 doc-writer
-Pass the plan, the base commit and a summary of what was implemented. New documentation
-sections and decision records are allowed only if the user said so; otherwise relay the
-agent's proposals.
+The task you give it is **to document the new feature**, not only to fix stale sentences.
+Pass the plan path (source material), the base commit, a summary of what was implemented, the
+report language, and the user's answers from checkpoint A: the target page or section for the
+feature document, and whether a new section or decision record is authorised. Ask for an
+end-to-end explanation of the feature (data flow, contracts, states such as degraded modes, UI
+and API surfaces) with Mermaid diagrams where they help, verified against the code. As a
+secondary duty it lists existing statements the change made false.
+
+Respect the agent's write boundary when you write the prompt: it writes only Markdown inside
+`docs/` folders and cannot write READMEs outside `docs/`, `specs/` outside `docs/`, `CLAUDE.md` /
+`AGENTS.md` (also through symlinks), `package.json` or code. Do not list such files as its targets
+and do not tell it that it may edit them; ask for them as **proposed edits** with the exact
+replacement text. Check the prompt against the agent's definition in `.claude/agents/doc-writer.md`
+before sending it.
+
+After its report, show the proposed edits. If the user allowed it at checkpoint A (or says yes
+now), apply them yourself exactly as proposed, re-checking each claim against the code — this is
+the one place where you do work the agent is not allowed to do. Guidance files (`CLAUDE.md` /
+`AGENTS.md`) need the user's explicit yes even if the general permission was given. Then check
+that no stale statement is left (grep the old wording), and that `package.json` still parses.
 
 ## Parallel instances
 

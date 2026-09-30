@@ -13,11 +13,17 @@ database.
 | `devdigest_run_review` | Run agent(s) on a PR, blocking up to 120 s | `GET /repos`, `GET /repos/:id/pulls/:number`, `GET /agents`, `GET /settings/secrets-status`, `POST /pulls/:id/review`, `GET /pulls/:id/runs`, `GET /pulls/:id/reviews` |
 | `devdigest_get_findings` | Read findings for a PR (one run or the latest per agent), paginated | `GET /pulls/:id/runs`, `GET /pulls/:id/reviews` |
 | `devdigest_get_conventions` | Read a repo's extracted coding conventions | `GET /repos`, `GET /repos/:id/conventions` |
-| `devdigest_get_blast_radius` | Stub — not implemented yet (later lesson) | none |
+| `devdigest_get_blast_radius` | Blast radius of a PR: symbols declared in its changed files, their callers (`file:line`) and the HTTP endpoints / crons that depend on them. Read-only, no LLM | `GET /repos`, `GET /repos/:id/pulls/:number`, `GET /pulls/:id/blast` |
 
 A PR is identified as `owner/repo#123` or a GitHub PR URL; a repo as
 `owner/repo`. `response_format: "concise" | "detailed"` (default `concise`)
 controls how much detail comes back.
+
+`devdigest_get_blast_radius` lists every caller the API returns per symbol (the
+API keeps at most 20 per symbol, best-ranked first). `detailed` adds each
+caller's function name and the indexed commit. When the repo index is degraded,
+the output starts with an `Index incomplete (<reason>)` line. A PR that was
+never imported is not synced on demand.
 
 ## Env vars
 

@@ -27,6 +27,12 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-09-30 — [gotcha] `getByTitle` does not find an SVG `<title>` nested inside a `<g>`
+
+**Symptom** — a test using `screen.getByTitle("full label")` for tooltips of SVG graph nodes (`<g><title>…</title><rect/></g>`) fails with "Unable to find an element with the title", though the tooltip is in the DOM.
+**Cause** — Testing Library treats only a `<title>` that is a direct child of an `<svg>` as an SVG title; one nested in a `<g>` is ignored by `getByTitle`.
+**Takeaway** — query the tooltip with `getByText("full label")` (it matches the `<title>` element; assert `tagName` if you must tell it from a visible `<text>`). Short labels appear twice (title and text), so use `getAllByText` there.
+
 ## 2026-09-26 — [gotcha] A page's own sticky header already claims `top: 0` in AppShell's scroll container
 
 **Symptom** — a second `position: sticky; top: 0` element added further down the same page (Smart Diff's

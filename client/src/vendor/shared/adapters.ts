@@ -140,6 +140,32 @@ export interface CommitFilesPayload {
   files: CommitFile[];
 }
 
+/** Input of `GitHubClient.listPathPullHistory`. */
+export interface PathPullHistoryQuery {
+  /** Branch or commit-ish whose history is read (e.g. the PR base branch). */
+  ref: string;
+  paths: string[];
+  /** Latest commits inspected per path. */
+  commitsPerPath: number;
+  /** Associated pull requests read per commit. */
+  pullsPerCommit: number;
+}
+
+export interface PathPull {
+  number: number;
+  title: string;
+  mergedAt: string | null;
+  author: string;
+  changedFiles: number;
+}
+
+export interface PathPullHistory {
+  /** False when `ref` does not exist in the repository. */
+  refFound: boolean;
+  /** One entry per requested path, in request order; pulls may repeat across paths. */
+  paths: { path: string; pulls: PathPull[] }[];
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -170,6 +196,11 @@ export interface GitHubClient {
   getFileContent(repo: RepoRef, path: string, ref: string): Promise<string>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
+  /**
+   * Pull requests associated with the latest commits that touched each path on
+   * `ref` (GitHub GraphQL). `refFound=false` when `ref` does not exist.
+   */
+  listPathPullHistory(repo: RepoRef, q: PathPullHistoryQuery): Promise<PathPullHistory>;
 }
 
 // ---------- Git (simple-git, heavy) ----------

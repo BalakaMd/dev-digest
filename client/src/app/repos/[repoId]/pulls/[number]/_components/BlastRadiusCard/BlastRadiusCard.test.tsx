@@ -58,6 +58,7 @@ const degraded = (reason: BlastDegradedReason, over: Partial<PrBlastRadiusRespon
 
 interface ServerState {
   blast: () => Response;
+  history: () => Response;
   resync: () => Response;
 }
 
@@ -87,12 +88,14 @@ function renderCard(props: Partial<React.ComponentProps<typeof BlastRadiusCard>>
 beforeEach(() => {
   server = {
     blast: () => json(MAP),
+    history: () => json({ history: [], degraded: false, degraded_reason: null }),
     resync: () => json({ status: "queued" }),
   };
   fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const { pathname } = new URL(String(input));
     const method = (init?.method ?? "GET").toUpperCase();
     if (method === "GET" && pathname === "/pulls/pr-1/blast") return server.blast();
+    if (method === "GET" && pathname === "/pulls/pr-1/history") return server.history();
     if (method === "POST" && pathname === "/repos/repo-1/resync") return server.resync();
     throw new Error(`Unhandled fake fetch route: ${method} ${pathname}`);
   });
@@ -118,10 +121,17 @@ describe("BlastRadiusCard — summary and tree", () => {
     expect(screen.getByTestId("blast-stat-crons")).toHaveTextContent(/1\s*cron\/job(?!s)/);
   });
 
-  it("requests the blast map for the PR id, and nothing else while healthy", async () => {
+  it("requests the blast map and the prior-PR history for the PR id, and nothing else while healthy", async () => {
     renderCard();
     await screen.findByTestId("blast-stat-symbols");
-    expect(requests()).toEqual([{ method: "GET", path: "/pulls/pr-1/blast" }]);
+    await screen.findByText("0", { selector: "span" });
+    expect(requests()).toEqual(
+      expect.arrayContaining([
+        { method: "GET", path: "/pulls/pr-1/blast" },
+        { method: "GET", path: "/pulls/pr-1/history" },
+      ]),
+    );
+    expect(requests()).toHaveLength(2);
   });
 
   it("lists callers as file:line links to the exact GitHub line at the indexed commit", async () => {
@@ -347,5 +357,58 @@ describe("BlastRadiusCard — errors", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByTestId("blast-stat-symbols")).toBeInTheDocument();
     expect(screen.queryByText("index store unavailable")).toBeNull();
+  });
+});
+
+describe("BlastRadiusCard — Tree / Graph switch", () => {
+  const pressed = (name: string) => screen.getByRole("button", { name });
+
+  it("shows the Tree by default", async () => {
+    renderCard();
+    await screen.findByTestId("blast-stat-symbols");
+    expect(pressed("tree")).toHaveAttribute("aria-pressed", "true");
+    expect(pressed("graph")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("img", { name: "Blast radius graph" })).toBeNull();
+  });
+
+  it("switches to the graph and back, restoring the symbol rows", async () => {
+    renderCard();
+    await screen.findByRole("button", { name: /charge/ });
+
+    fireEvent.click(pressed("graph"));
+    expect(screen.getByRole("img", { name: "Blast radius graph" })).toBeInTheDocument();
+    expect(pressed("graph")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: /charge/ })).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+
+    fireEvent.click(pressed("tree"));
+    expect(screen.queryByRole("img", { name: "Blast radius graph" })).toBeNull();
+    expect(screen.getByRole("button", { name: /charge/ })).toBeInTheDocument();
+  });
+
+  it("keeps the degraded marker, Resync and the stats in the graph view", async () => {
+    server.blast = () => json({ ...MAP, degraded: true, degraded_reason: "index_partial" });
+    renderCard();
+    await screen.findByTestId("blast-degraded");
+    fireEvent.click(pressed("graph"));
+    expect(screen.getByRole("img", { name: "Blast radius graph" })).toBeInTheDocument();
+    expect(screen.getByTestId("blast-degraded")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resync" })).toBeEnabled();
+    expect(screen.getByTestId("blast-stat-symbols")).toBeInTheDocument();
+  });
+});
+
+describe("BlastRadiusCard — prior PRs block", () => {
+  it("is present, collapsed, in both views", async () => {
+    renderCard();
+    const toggle = await screen.findByRole("button", { name: /Prior PRs touching these files/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "graph" }));
+    expect(screen.getByRole("img", { name: "Blast radius graph" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Prior PRs touching these files/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 });

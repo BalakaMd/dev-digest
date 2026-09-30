@@ -12,7 +12,9 @@ import { usePrBlastRadius } from "@/lib/hooks/blast";
 import { useResyncRepoIntel } from "@/lib/hooks/repo-intel";
 import { RESYNC_ALLOWED_REASONS, RESYNC_POLL_MAX_MS, RESYNC_POLL_MS } from "./constants";
 import { blastCounts, callerLinkSha, symbolsWithoutCallers } from "./blast-model";
+import { BlastGraph } from "./_components/BlastGraph";
 import { BlastSymbolRow } from "./_components/BlastSymbolRow";
+import { PriorPrsAccordion } from "./_components/PriorPrsAccordion";
 import { s } from "./styles";
 
 export function BlastRadiusCard({
@@ -29,6 +31,7 @@ export function BlastRadiusCard({
   const t = useTranslations("blast");
   const [polling, setPolling] = React.useState(false);
   const [showNoCallers, setShowNoCallers] = React.useState(false);
+  const [view, setView] = React.useState<"tree" | "graph">("tree");
   const { data, isLoading, isError, error, refetch } = usePrBlastRadius(prId, {
     pollMs: polling ? RESYNC_POLL_MS : false,
   });
@@ -113,57 +116,79 @@ export function BlastRadiusCard({
         </div>
       )}
 
-      <div style={s.statsRow}>
-        {stats.map(({ key, icon }) => {
-          const StatIcon = Icon[icon];
-          return (
-            <span key={key} style={s.stat} data-testid={`blast-stat-${key}`}>
-              <StatIcon size={13} />
-              <span style={s.statValue}>{counts[key]}</span>
-              {t(`stat.${key}`, { count: counts[key] })}
-            </span>
-          );
-        })}
-      </div>
-
-      {data.downstream.length === 0 ? (
-        <p style={s.emptyText}>{t("noDownstream", { count: data.changed_symbols.length })}</p>
-      ) : (
-        <div style={s.list}>
-          {data.downstream.map((item, i) => (
-            <BlastSymbolRow
-              key={`${item.symbol}-${i}`}
-              item={item}
-              repoFullName={repoFullName}
-              sha={sha}
-              defaultOpen={i === 0}
-            />
+      <div style={s.headerRow}>
+        <div style={s.statsRow}>
+          {stats.map(({ key, icon }) => {
+            const StatIcon = Icon[icon];
+            return (
+              <span key={key} style={s.stat} data-testid={`blast-stat-${key}`}>
+                <StatIcon size={13} />
+                <span style={s.statValue}>{counts[key]}</span>
+                {t(`stat.${key}`, { count: counts[key] })}
+              </span>
+            );
+          })}
+        </div>
+        <div role="group" aria-label={t("view.label")} style={s.viewSwitch}>
+          {(["tree", "graph"] as const).map((v, i) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => setView(v)}
+              style={s.viewButton(view === v, i === 0)}
+            >
+              {t(`view.${v}`)}
+            </button>
           ))}
         </div>
-      )}
+      </div>
 
-      {noCallers.length > 0 && data.downstream.length > 0 && (
+      {view === "graph" ? (
+        <BlastGraph data={data} />
+      ) : (
         <>
-          <button
-            type="button"
-            aria-expanded={showNoCallers}
-            onClick={() => setShowNoCallers((o) => !o)}
-            style={s.noCallersToggle}
-          >
-            <Icon.ChevronRight size={13} style={{ transform: showNoCallers ? "rotate(90deg)" : "none" }} />
-            {t("symbolsWithoutCallers", { count: noCallers.length })}
-          </button>
-          {showNoCallers && (
-            <ul style={s.noCallersList}>
-              {noCallers.map((name) => (
-                <li key={name} style={s.noCallersItem}>
-                  {name}
-                </li>
+          {data.downstream.length === 0 ? (
+            <p style={s.emptyText}>{t("noDownstream", { count: data.changed_symbols.length })}</p>
+          ) : (
+            <div style={s.list}>
+              {data.downstream.map((item, i) => (
+                <BlastSymbolRow
+                  key={`${item.symbol}-${i}`}
+                  item={item}
+                  repoFullName={repoFullName}
+                  sha={sha}
+                  defaultOpen={i === 0}
+                />
               ))}
-            </ul>
+            </div>
+          )}
+          {noCallers.length > 0 && data.downstream.length > 0 && (
+            <>
+              <button
+                type="button"
+                aria-expanded={showNoCallers}
+                onClick={() => setShowNoCallers((o) => !o)}
+                style={s.noCallersToggle}
+              >
+                <Icon.ChevronRight size={13} style={{ transform: showNoCallers ? "rotate(90deg)" : "none" }} />
+                {t("symbolsWithoutCallers", { count: noCallers.length })}
+              </button>
+              {showNoCallers && (
+                <ul style={s.noCallersList}>
+                  {noCallers.map((name) => (
+                    <li key={name} style={s.noCallersItem}>
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </>
       )}
+
+      <PriorPrsAccordion prId={prId} repoFullName={repoFullName} />
     </Card>
   );
 }

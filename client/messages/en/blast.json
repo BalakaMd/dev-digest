@@ -27,6 +27,7 @@
     "crons": "{count, plural, one {cron/job} other {cron/jobs}}"
   },
   "view": {
+    "label": "Blast radius view",
     "tree": "tree",
     "graph": "graph"
   },
@@ -34,6 +35,33 @@
   "noDownstream": "{count, plural, one {# changed symbol, no downstream callers found.} other {# changed symbols, no downstream callers found.}}",
   "graph": {
     "empty": "No downstream callers to graph.",
-    "ariaLabel": "Blast radius graph"
+    "ariaLabel": "Blast radius graph",
+    "column": {
+      "symbols": "Changed symbols",
+      "callers": "Callers",
+      "targets": "Endpoints and crons"
+    },
+    "legend": {
+      "symbol": "Changed symbol",
+      "caller": "Caller (solid line)",
+      "endpoint": "HTTP endpoint (dashed line: reached via callers)",
+      "cron": "Cron job (dashed line: reached via callers)"
+    },
+    "more": "{count, plural, one {# more item not shown — see Tree} other {# more items not shown — see Tree}}"
+  },
+  "prior": {
+    "title": "Prior PRs touching these files",
+    "count": "{count, plural, one {# prior PR} other {# prior PRs}}",
+    "empty": "No earlier merged PRs touched these files.",
+    "loadError": "Could not load the prior PRs.",
+    "byAuthor": "by {author}",
+    "mergedOn": "merged {date}",
+    "filesLabel": "Shared files:",
+    "moreFiles": "{count, plural, one {+# more file} other {+# more files}}",
+    "degraded": {
+      "no_token": "Add a GitHub token in Settings to see prior PRs.",
+      "github_error": "Could not read the history from GitHub.",
+      "no_files": "Open the PR once so its changed files are loaded."
+    }
   }
 }

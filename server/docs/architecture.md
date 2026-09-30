@@ -41,7 +41,7 @@ resolved through `SecretsProvider` rather than config.
 |------|--------------------|-------|
 | `secrets` | `LocalSecretsProvider` | `~/.devdigest/secrets.json` (mode `0600`), `process.env` fallback |
 | `auth` | `LocalNoAuthProvider` | single-user local studio |
-| `github()` | `OctokitGitHubClient` | **throws `ConfigError` when `GITHUB_TOKEN` is unset** |
+| `github()` | `OctokitGitHubClient` | **throws `ConfigError` when `GITHUB_TOKEN` is unset**; REST reads plus one GraphQL read, `listPathPullHistory` |
 | `git` | `SimpleGitClient` | real `git` into `DEVDIGEST_CLONE_DIR` |
 | `llm(id)` | OpenAI / Anthropic / OpenRouter | resolved per agent's `provider` |
 | `codeIndex` | `RipgrepCodeIndex` | |
@@ -61,6 +61,14 @@ Note the asymmetry: `github()` and `llm()` are `async` because they must resolve
 a secret first, while `git`, `tokenizer` and friends are plain getters. A missing
 key surfaces as a thrown `ConfigError` at call time, not at boot — the app is
 designed to start with no keys at all.
+
+The container also exposes feature facades as lazy getters — `intent`, `blast`
+and `history` — each built from a repository plus explicit dependencies, never
+from the container itself. `history` (`modules/history`) receives
+`() => container.github()` and maps a `ConfigError` to a `no_token` marker
+instead of failing the request; `blast` receives the `repoIntel` facade and no
+GitHub or LLM dependency. Both are described in
+[`blast-radius.md`](blast-radius.md).
 
 ## Request lifecycle
 
@@ -99,4 +107,5 @@ behave the same under tsx, vitest, and a bundler.
 ## Related
 
 - [`../specs/review-flow.md`](../specs/review-flow.md) — the review cycle contract
+- [`blast-radius.md`](blast-radius.md) — the `blast` and `history` modules
 - [`../README.md`](../README.md) — API map and environment table

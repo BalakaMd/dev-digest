@@ -11,7 +11,7 @@ the same commit.
 | `/` | entry; redirects to the active repo's PR list | `useRepos` → `GET /repos` |
 | `/onboarding` | add a repository by URL | `useAddRepo` → `POST /repos` |
 | `/repos/[repoId]/pulls` | PR list | `usePulls` → `GET /repos/:id/pulls`; `useRefreshRepo` → `POST /repos/:id/refresh` |
-| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast` |
+| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast`, `usePrHistory` → `GET /pulls/:id/history` |
 | `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
 | `/skills/[id]` | skill editor — Config, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion` |
@@ -80,7 +80,7 @@ automatically; after a review run finishes, `page.tsx` invalidates
 `BlastRadiusCard` (`usePrBlastRadius` → `GET /pulls/:id/blast`) is the right
 card of the Overview row. It reads the persisted repo index — no LLM, nothing
 is re-parsed. The header shows four counters: symbols, callers, endpoints and
-crons (endpoints and crons are counted once each). Every changed symbol that has
+crons (endpoints and crons are counted once each). In the Tree view (the default) every changed symbol that has
 callers is a collapsible row (the first one starts open): each caller is a
 `file:line` link to that line on GitHub at the indexed commit (the PR head when
 the index carries no sha), followed by the HTTP endpoints and, separately, the
@@ -89,7 +89,18 @@ toggle. With no callers at all the card says so in words. When the response is
 `degraded` an "Index incomplete" notice shows the reason; for `no_data`,
 `index_failed` and `index_partial` it carries a **Resync** button
 (`POST /repos/:id/resync`) and the card re-reads the map every 3 s for up to
-2 min. There is no graph view and no "Prior PRs" block yet.
+2 min. A Tree/Graph switch in the header (Tree by default) picks the view; the
+degraded notice and Resync stay above both. The Graph view is an inline SVG of
+three columns — changed symbols, callers, endpoints and crons — with solid
+symbol→caller edges and dashed symbol→endpoint/cron edges ("reached via
+callers"); it shows at most 8 symbols, 5 callers per symbol and 10
+endpoint/cron nodes and says how many items are hidden. Under either view,
+`PriorPrsAccordion` (`usePrHistory` → `GET /pulls/:id/history`) is a
+collapsed-by-default "Prior PRs touching these files" block with a count
+badge: earlier merged PRs that touched the same files, each linking to
+GitHub with its author, merge date and shared files. It has its own loading,
+error-with-retry, empty and degraded states (`no_token`, `github_error`,
+`no_files`). See `server/docs/blast-radius.md`.
 
 ## Skills
 
@@ -169,5 +180,5 @@ All visible text resolves through `next-intl` — no literal strings in componen
 
 ## Not here yet
 
-Memory, eval, brief, multi-agent and the dashboards are later lessons, as are the Blast radius graph view and its "Prior PRs" block. Their message namespaces already exist in `messages/en/`, which is why
-you will see `eval.json` or `memory.json` with no screen behind them; likewise `blast.json` holds `view.*` and `graph.*` strings that no component renders yet.
+Memory, eval, brief, multi-agent and the dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
+you will see `eval.json` or `memory.json` with no screen behind them.

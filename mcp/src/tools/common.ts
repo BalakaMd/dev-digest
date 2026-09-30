@@ -27,6 +27,19 @@ export const PrInput = z
   .min(1)
   .describe('A PR as owner/repo#123 or a GitHub PR URL.');
 
+/**
+ * Nullable output fields as `anyOf` branches with one `type` each.
+ * zod's `.nullable()` (and a bare `z.union([z.number(), z.null()])`) serialises
+ * to `{"type": ["number", "null"]}`, which clients that map tool schemas onto a
+ * single-`type` dialect (e.g. Gemini function declarations) refuse. A check on
+ * the non-null branch (`.finite()` / `.min(0)`) stops zod-to-json-schema from
+ * collapsing the union and emits `anyOf` instead. Neither check narrows the
+ * value: JSON carries no Infinity, and every string is at least 0 long.
+ */
+export const numberOrNull = () => z.union([z.number().finite(), z.null()]);
+export const intOrNull = () => z.union([z.number().int(), z.null()]);
+export const stringOrNull = () => z.union([z.string().min(0), z.null()]);
+
 /** A successful, non-error tool result. `structured` is only ever attached
  * when the tool declares an `outputSchema` (list_agents/conventions/blast
  * radius return text only, per § Tool contracts). */

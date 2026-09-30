@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { DevDigestApi } from '../api/client.js';
 import { resolvePull } from '../resolve/resolvers.js';
 import { selectLatestReviewPerAgent, projectFindings, renderFindingsText } from '../format/findings.js';
-import { PrInput, ResponseFormat, ok, fail, toToolError } from './common.js';
+import { PrInput, ResponseFormat, intOrNull, stringOrNull, ok, fail, toToolError } from './common.js';
 import { DEFAULT_FINDINGS_LIMIT, MAX_FINDINGS_LIMIT, TOOL_NAMES } from '../constants.js';
 
 const InputSchema = {
@@ -36,12 +36,12 @@ export function registerGetFindings(api: DevDigestApi, apiUrl: string) {
       inputSchema: InputSchema,
       outputSchema: {
         pr: z.string(),
-        run_id: z.string().nullable(),
+        run_id: stringOrNull(),
         run_status: z.string().optional(),
         total: z.number().int(),
         returned: z.number().int(),
         offset: z.number().int(),
-        next_offset: z.number().int().nullable(),
+        next_offset: intOrNull(),
         hidden_dismissed: z.number().int(),
       },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },

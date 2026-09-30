@@ -31,6 +31,7 @@ export function BlastSymbolRow({
     <div style={s.row}>
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={s.toggle}>
         <Icon.ChevronRight size={14} style={s.chevron(open)} />
+        <Icon.Code size={14} style={s.symbolIcon} />
         <span style={s.name}>{item.symbol}</span>
         <span style={s.count}>{t("callerCount", { count: item.callers.length })}</span>
       </button>
@@ -65,6 +66,7 @@ export function BlastSymbolRow({
               <div style={s.chips}>
                 {item.endpoints_affected.map((e) => (
                   <span key={e} style={s.chip}>
+                    <Icon.Globe size={13} style={s.chipIcon} />
                     {e}
                   </span>
                 ))}
@@ -77,6 +79,7 @@ export function BlastSymbolRow({
               <div style={s.chips}>
                 {item.crons_affected.map((c) => (
                   <span key={c} style={s.chipCron}>
+                    <Icon.Clock size={13} style={s.chipIcon} />
                     {c}
                   </span>
                 ))}

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
+import { PrMeta, type PrDetail, type GitHubClient, type PrReviewComment } from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
@@ -9,12 +10,22 @@ import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import { deriveReviewStatus } from './status.js';
 
+/** `/repos/:id/pulls/:number` — id is the repo's uuid, number a GitHub PR number. */
+const PullNumberParams = z.object({
+  id: z.string().uuid(),
+  number: z.coerce.number().int().positive(),
+});
+
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
- *   GET /repos/:id/pulls → list PRs for a repo (open + recently merged/closed,
- *                          synced from GitHub, persisted). `status` is GitHub's
- *                          merge state (open/merged/closed).
- *   GET /pulls/:id       → full PR detail (diff/files, commits, body, linked issue)
+ *   GET /repos/:id/pulls        → list PRs for a repo (open + recently merged/
+ *                                 closed, synced from GitHub, persisted).
+ *                                 `status` is GitHub's merge state.
+ *   GET /repos/:id/pulls/:number → resolve one PR by its GitHub number,
+ *                                 DB-only, never GitHub (X1). Used by the MCP
+ *                                 server to turn `owner/repo#N` into a pr_id.
+ *   GET /pulls/:id              → full PR detail (diff/files, commits, body,
+ *                                 linked issue)
  *
  * Import is idempotent (unique repo_id+number). Review trigger is MANUAL
  * and owned by A2 — this module only imports/reads.
@@ -22,6 +33,15 @@ import { deriveReviewStatus } from './status.js';
 export default async function pullsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
+
+  app.get(
+    '/repos/:id/pulls/:number',
+    { schema: { params: PullNumberParams, response: { 200: PrMeta } } },
+    async (req): Promise<PrMeta> => {
+      const { workspaceId } = await getContext(container, req);
+      return container.pulls.lookup(workspaceId, req.params.id, req.params.number);
+    },
+  );
 
   app.get('/repos/:id/pulls', { schema: { params: IdParams } }, async (req): Promise<PrMeta[]> => {
     const { workspaceId } = await getContext(container, req);

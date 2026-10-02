@@ -130,18 +130,51 @@ Tell the planner to:
   sections;
 - **leave out steps for agents the user did not select** (see "Not selected means not done");
 - **assign the new tests** — `owner: test-writer` when the user selected test-writer, so they
-  stay out of the implementation steps; otherwise the implementer owns them.
+  stay out of the implementation steps; otherwise the implementer owns them;
+- **write every open question as a choice** — two to four concrete, mutually exclusive
+  options with the recommended one first, so it can be asked as a multiple-choice question.
+  Optional work (proposed improvements, nice-to-have steps) is listed with ids and marked
+  recommended or not, so the user can pick items from a list.
 The planner returns a plan path, or clarifying questions, or says the task is too small.
 Relay questions to the user and resume the planner with the answers. If the task is too
 small, switch to the inline plan from Step 2.
 
 ### Checkpoint A — plan approval
-Show the plan (path, goal, steps, open questions and their proposed defaults). If the work
-can run in parallel (see "Parallel instances" below), show the proposed split as well, for
-example `implementer #1: S1, S2 (backend) ∥ implementer #2: S3 (frontend) → implementer #3:
-S4`. Ask the user to approve the plan and the split, change them, run everything with one
-instance, or stop. Changes go back to the planner, or into your inline plan. Do not start
-the implementer without an explicit approval.
+Show the plan in text first (path, goal, steps, optional items, open questions and their
+recommended answers). If the work can run in parallel (see "Parallel instances" below), show
+the proposed split as well, for example `implementer #1: S1, S2 (backend) ∥ implementer #2:
+S3 (frontend) → implementer #3: S4`.
+
+Then decide with `AskUserQuestion`, never with a free-text request to answer in chat:
+
+1. **Gate — one call, one question** (`multiSelect: false`) with these options:
+   - **Run everything as recommended (Recommended)** — approves the plan and the split, takes
+     the recommended answer of every open question and includes only the optional items the
+     plan marks as recommended.
+   - **Choose the answers myself** — go to step 2.
+   - **Change the plan** — ask what to change; changes go back to the planner, or into your
+     inline plan, and the checkpoint starts again.
+   - **Stop** — end the run.
+   When the plan has no open questions and no optional items, the gate is the whole
+   checkpoint.
+2. **Answers — one or more calls**, up to four questions per call, in the plan's order:
+   - every open question becomes one question, its recommended option first with
+     " (Recommended)" appended to the label; the plan's rationale goes into the descriptions;
+   - optional items become `multiSelect: true` questions; with more than four items, group
+     related ones into one option (for example "P4+P5 SEO and performance") or split them
+     over several questions;
+   - the split question (parallel instances vs one instance) is included when a split was
+     proposed;
+   - an item that cannot fit into options (for example Hebrew copy to review) stays in the
+     text summary and is passed to the implementer as a note.
+   Free text in "Other" is an instruction; if it is unclear, ask about it.
+3. **Confirm** — show the resolved decisions on a few lines (plan, split, answers, chosen
+   optional items) and start the implementer. No extra approval question is needed: the
+   answers are the approval.
+
+If the user dismisses any of these dialogs, stop and wait for the next instruction; a
+dismissal is not an approval. Do not start the implementer without an explicit approval
+through the gate.
 
 ### 3.3 implementer
 Pass the plan path (or the inline plan), the step ids the instance owns, the user's answers

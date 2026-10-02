@@ -68,9 +68,9 @@ Build a recommendation from this table, then adjust it to the task:
 
 | Task | Recommended |
 |------|-------------|
-| Feature | implementation-planner, implementer, architecture-reviewer, plan-verifier (add spec-creator when the feature is user-visible or under-specified and has no approved spec yet, or when the user gave designs; add test-writer when the new tests should be written by a separate agent rather than the implementer — independent eyes for one more instance; add doc-writer when docs or specs describe the changed behaviour; add researcher only for an external library or practice question) |
-| Bug fix | implementation-planner (skip for a one-line fix), implementer, test-writer (regression test), plan-verifier (add researcher when the root cause is unknown, and architecture-reviewer when the fix crosses layers) |
-| Refactor | implementation-planner, implementer, architecture-reviewer, plan-verifier (add test-writer when the touched code lacks tests) |
+| Feature | implementation-planner, implementer, architecture-reviewer, plan-verifier (add spec-creator when the feature is user-visible or under-specified and has no approved spec yet, or when the user gave designs; test-writer is decided by the plan's execution mode — multi-agent gives the new tests to it; add doc-writer when docs or specs describe the changed behaviour; add researcher only for an external library or practice question) |
+| Bug fix | implementation-planner (skip for a one-line fix), implementer, plan-verifier — a regression test in the plan (test-writer via multi-agent mode; for a one-line fix without a plan, offer test-writer here) (add researcher when the root cause is unknown, and architecture-reviewer when the fix crosses layers) |
+| Refactor | implementation-planner, implementer, architecture-reviewer, plan-verifier (missing tests go into the plan; multi-agent mode gives them to test-writer) |
 | Tests only | test-writer (add plan-verifier when there is a plan to check against) |
 | Docs only | doc-writer (add researcher when the source material is thin) |
 | Investigation | researcher |
@@ -82,7 +82,10 @@ what the agent does and, for recommended ones, why it fits this task. Each group
 a "none" option:
 
 1. Preparation: `spec-creator`, `researcher`, `implementation-planner`, none.
-2. Code and tests: `implementer`, `test-writer`, none.
+2. Code and tests: `implementer`, `test-writer`, none. Offer `test-writer` here only when
+   `implementation-planner` is not recommended (tests only, bug fix without a plan, an inline
+   plan); with the planner, its execution-mode question at checkpoint A decides whether
+   test-writer runs, so the user is not asked twice.
 3. Review and docs: `architecture-reviewer`, `plan-verifier`, `doc-writer`, none.
 
 Describe `doc-writer` accurately: it writes documentation for the new feature (verified against
@@ -120,7 +123,9 @@ Stages run in this order; skip the ones not selected.
 ### 3.0 spec-creator
 Read `.claude/skills/spec/SKILL.md` and run its Steps 0–4 (intake, the agent, rounds of
 questions, approval) with the task description as its input; add a fourth option to its
-approval question, **Continue with the draft**. The result is a spec path. An approved spec, or
+approval question, **Continue with the draft** — only when the agent reports no blocking
+question left (otherwise the plan would come back blocked); with blocking questions open, the
+choices stay "one more round" and "Keep as draft". The result is a spec path. An approved spec, or
 a draft the user chose to continue with, goes on to the next stages; "Keep as draft" stops the
 run. From here on, the spec's `AC-n` and `NFR-n` are the task's acceptance criteria, and its
 path is passed to every later agent.
@@ -204,9 +209,9 @@ Then decide with `AskUserQuestion`, never with a free-text request to answer in 
      text summary and is passed to the implementer as a note.
    Free text in "Other" is an instruction; if it is unclear, ask about it.
 3. **Confirm** — show the resolved decisions on a few lines (plan, execution mode, answers,
-   chosen optional items) and start the implementer. The execution mode overrides the Step 1
-   choice of test-writer: single-agent drops it (the implementer writes the `T-n` tests),
-   multi-agent runs it on the `T-n` tests; say so when it changes the pipeline. No extra approval question is needed: the
+   chosen optional items) and start the implementer. The execution mode decides test-writer:
+   single-agent — the implementer writes the `T-n` tests; multi-agent — test-writer runs on
+   the `T-n` tests; say so in the pipeline line. No extra approval question is needed: the
    answers are the approval.
 
 If the user dismisses any of these dialogs, stop and wait for the next instruction; a

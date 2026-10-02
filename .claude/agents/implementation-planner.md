@@ -133,8 +133,8 @@ Otherwise, plan.
 When Step 2 leaves facts open that the plan depends on, stop and return `Research needed`
 instead of a plan:
 
-- 1–4 questions, each **independent** of the others (no question needs another's answer), so the
-  caller can run them in parallel on separate research agents;
+- 1–3 questions, each **independent** of the others (no question needs another's answer), so the
+  caller can run them in parallel on separate research agents (the caller runs at most three);
 - each question states its kind (`repository` — where/how/why in this codebase, or `external` —
   library, API, version, practice), its scope (paths, package versions from the manifests), why
   the plan needs it, and what answer shape is enough (for example "yes/no with `path:line`");

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Local stdio MCP server: a thin client of the DevDigest API (Fastify on :3001). No DB, no server internals — five tools to list agents, run a review, read findings, read conventions, and a not-implemented-yet blast-radius stub.",
+  "description": "Local stdio MCP server: a thin client of the DevDigest API (Fastify on :3001). No DB, no server internals — five tools to list agents, run a review, read findings, read conventions, and read a PR's blast radius.",
   "engines": {
     "node": ">=22"
   },

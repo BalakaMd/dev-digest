@@ -3,7 +3,7 @@ import type { DevDigestApi } from '../api/client.js';
 import { resolvePull, resolveAgent } from '../resolve/resolvers.js';
 import { waitForRuns } from '../review/wait.js';
 import { projectFindings, renderFindingsText } from '../format/findings.js';
-import { PrInput, fail, ok, toToolError, isNoKeyMessage, noKeyHint } from './common.js';
+import { PrInput, fail, ok, numberOrNull, stringOrNull, toToolError, isNoKeyMessage, noKeyHint } from './common.js';
 import { RUN_WAIT_CAP_MS, POLL_INTERVAL_MS, TOOL_NAMES } from '../constants.js';
 import type { RunSummary, ReviewRecord, SecretsStatus } from '@devdigest/shared';
 
@@ -88,12 +88,12 @@ export function registerRunReview(api: DevDigestApi, apiUrl: string) {
             run_id: z.string(),
             agent: z.string(),
             status: z.string(),
-            score: z.number().nullable(),
-            verdict: z.string().nullable(),
+            score: numberOrNull(),
+            verdict: stringOrNull(),
             counts: z.object({ critical: z.number(), warning: z.number(), suggestion: z.number() }),
-            blockers: z.number().nullable(),
-            cost_usd: z.number().nullable(),
-            duration_s: z.number().nullable(),
+            blockers: numberOrNull(),
+            cost_usd: numberOrNull(),
+            duration_s: numberOrNull(),
             error: z.string().optional(),
           }),
         ),

@@ -8,6 +8,7 @@ import {
   RunSummary,
   ReviewRecord,
   ConventionsState,
+  PrBlastRadiusResponse,
   ApiErrorBody,
 } from '@devdigest/shared';
 import { z } from 'zod';
@@ -75,6 +76,11 @@ export class DevDigestApi {
       if (err instanceof ApiHttpError && err.status === 404) return null;
       throw err;
     }
+  }
+
+  /** Blast-radius map of a PR (`GET /pulls/:id/blast`); `id` is the PR uuid. */
+  async getBlastRadius(prId: string, opts?: RequestOptions): Promise<PrBlastRadiusResponse> {
+    return this.request('GET', `/pulls/${prId}/blast`, PrBlastRadiusResponse, undefined, opts);
   }
 
   async secretsStatus(opts?: RequestOptions): Promise<SecretsStatus> {

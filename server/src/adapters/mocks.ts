@@ -17,6 +17,8 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  PathPullHistoryQuery,
+  PathPullHistory,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -129,6 +131,10 @@ export interface MockGitHubOptions {
   files?: Record<string, string>;
   /** Issue numbers for which getIssue throws (simulates 404 / no permission). */
   missingIssues?: number[];
+  /** Result of listPathPullHistory (default: no pulls for every path). */
+  pathHistory?: (q: PathPullHistoryQuery) => PathPullHistory;
+  /** When set, listPathPullHistory throws it. */
+  pathHistoryError?: Error;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -136,6 +142,7 @@ export class MockGitHubClient implements GitHubClient {
   public openedPrs: OpenPrPayload[] = [];
   public committed: CommitFilesPayload[] = [];
   public createdComments: CreateReviewCommentInput[] = [];
+  public pathHistoryQueries: { repo: RepoRef; q: PathPullHistoryQuery }[] = [];
 
   constructor(private opts: MockGitHubOptions = {}) {}
 
@@ -247,6 +254,17 @@ export class MockGitHubClient implements GitHubClient {
       throw new Error(`${path} not found`);
     }
     return content;
+  }
+
+  async listPathPullHistory(repo: RepoRef, q: PathPullHistoryQuery): Promise<PathPullHistory> {
+    this.pathHistoryQueries.push({ repo, q });
+    if (this.opts.pathHistoryError) throw this.opts.pathHistoryError;
+    return (
+      this.opts.pathHistory?.(q) ?? {
+        refFound: true,
+        paths: q.paths.map((path) => ({ path, pulls: [] })),
+      }
+    );
   }
 
   async currentLogin(): Promise<string> {

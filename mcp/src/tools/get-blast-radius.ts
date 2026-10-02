@@ -1,20 +1,33 @@
-import { PrInput, ok } from './common.js';
+import type { DevDigestApi } from '../api/client.js';
+import { resolvePull } from '../resolve/resolvers.js';
+import { projectBlast, renderBlastText } from '../format/blast.js';
+import { PrInput, ResponseFormat, ok, toToolError } from './common.js';
 import { TOOL_NAMES } from '../constants.js';
 
-const NOT_IMPLEMENTED_TEXT =
-  'devdigest_get_blast_radius is not implemented yet (planned for a later lesson). For now use devdigest_get_findings or read the diff.';
+const InputSchema = { pr: PrInput, response_format: ResponseFormat };
 
-/** Stub only — the final contract, so the later lesson does not change the
- * schema (§ Tool contracts). No API call. */
-export function registerGetBlastRadius() {
+type Input = { pr: string; response_format: 'concise' | 'detailed' };
+
+export function registerGetBlastRadius(api: DevDigestApi, apiUrl: string) {
   return {
     name: TOOL_NAMES.getBlastRadius,
     config: {
-      title: 'Blast radius of a PR (not implemented yet)',
-      description: 'Blast radius of a PR (impacted symbols and callers). Not implemented yet — returns a not-implemented notice.',
-      inputSchema: { pr: PrInput },
+      title: 'Blast radius of a PR',
+      description:
+        "Impact map of a PR from DevDigest's code index: symbols declared in changed files, their callers (file:line), and the HTTP endpoints / cron jobs that depend on them. Call it before reviewing or changing a PR to see what else it can break. Lists every caller the API returned per symbol (same map as the UI); response_format='detailed' also adds each caller's function name and the indexed commit. Read-only; no LLM.",
+      inputSchema: InputSchema,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
-    handler: async (_args: { pr: string }) => ok(NOT_IMPLEMENTED_TEXT),
+    handler: async (args: Input) => {
+      try {
+        // No sync fallback: a PR never imported has no blast radius.
+        const { pr } = await resolvePull(api, args.pr);
+        const res = await api.getBlastRadius(pr.id!);
+        const projection = projectBlast(res, { detailed: args.response_format === 'detailed' });
+        return ok(renderBlastText(projection, args.pr));
+      } catch (err) {
+        return toToolError(err, apiUrl);
+      }
+    },
   };
 }

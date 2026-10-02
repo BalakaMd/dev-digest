@@ -43,6 +43,7 @@ pnpm typecheck
 | Document | Read it when |
 |----------|--------------|
 | [docs/ui-architecture.md](docs/ui-architecture.md) | adding a screen, moving state, or touching the data layer |
+| [../server/docs/blast-radius.md](../server/docs/blast-radius.md) | working on `BlastRadiusCard`, its Graph view or the Prior PRs block |
 | [specs/pages.md](specs/pages.md) | changing a route's behaviour or the data a page reads |
 | [README.md](README.md) | you need the UI route map or the hook→endpoint mapping |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change here |

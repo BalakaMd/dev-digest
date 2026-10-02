@@ -15,6 +15,7 @@ import { OverviewTab } from "./_components/OverviewTab";
 import { FindingsTab } from "./_components/FindingsTab";
 import { DiffTab } from "./_components/DiffTab";
 import { IntentCard } from "./_components/IntentCard";
+import { BlastRadiusCard } from "./_components/BlastRadiusCard";
 import RunTraceDrawer from "./_components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
@@ -157,12 +158,15 @@ export default function PRDetailPage() {
       />
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
-        {(tab === "overview" || tab === "findings") && (
-          // Keyed by tab so the Agent runs tab always opens folded.
-          <IntentCard key={tab} prId={prId} collapsible={tab === "findings"} />
-        )}
+        {tab === "findings" && <IntentCard key={tab} prId={prId} collapsible />}
 
-        {tab === "overview" && <OverviewTab prBody={pr.body} />}
+        {tab === "overview" && (
+          <OverviewTab
+            prBody={pr.body}
+            intent={<IntentCard prId={prId} />}
+            blast={<BlastRadiusCard prId={prId} repoId={repoId} repoFullName={repoFullName} headSha={pr.head_sha} />}
+          />
+        )}
 
         {tab === "findings" && (
           <FindingsTab

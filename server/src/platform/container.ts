@@ -34,6 +34,12 @@ import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.j
 import type { IntentFacade } from '../modules/intent/types.js';
 import { IntentRepository } from '../modules/intent/repository.js';
 import { IntentService } from '../modules/intent/service.js';
+import type { BlastFacade } from '../modules/blast/types.js';
+import { BlastRepository } from '../modules/blast/repository.js';
+import { BlastService } from '../modules/blast/service.js';
+import type { HistoryFacade } from '../modules/history/types.js';
+import { HistoryRepository } from '../modules/history/repository.js';
+import { HistoryService } from '../modules/history/service.js';
 import { resolveFeatureModel } from '../modules/settings/feature-models.js';
 
 /**
@@ -59,6 +65,10 @@ export interface ContainerOverrides {
   tokenizer?: Tokenizer;
   /** Intent facade (S4) — tests inject a fake to skip DB/LLM/GitHub entirely. */
   intent?: IntentFacade;
+  /** Blast-radius facade — tests inject a fake to skip DB/repo-intel entirely. */
+  blast?: BlastFacade;
+  /** PR history facade — tests inject a fake or a MockGitHubClient-backed service. */
+  history?: HistoryFacade;
 }
 
 export class Container {
@@ -86,6 +96,8 @@ export class Container {
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
   private _intent?: IntentFacade;
+  private _blast?: BlastFacade;
+  private _history?: HistoryFacade;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -165,6 +177,28 @@ export class Container {
       resolveModel: (workspaceId) => resolveFeatureModel(this, workspaceId, 'review_intent'),
     });
     return this._intent;
+  }
+
+  /** Blast-radius facade — reads the persisted repo-intel index; no LLM, no GitHub. */
+  get blast(): BlastFacade {
+    if (this.overrides.blast) return this.overrides.blast;
+    this._blast ??= new BlastService({
+      repo: new BlastRepository(this.db),
+      repoIntel: this.repoIntel,
+      repoIntelEnabled: this.config.repoIntelEnabled,
+    });
+    return this._blast;
+  }
+
+  /** Prior-PR history facade — GitHub GraphQL read with an in-memory cache; no LLM. */
+  get history(): HistoryFacade {
+    if (this.overrides.history) return this.overrides.history;
+    this._history ??= new HistoryService({
+      repo: new HistoryRepository(this.db),
+      github: () => this.github(),
+      now: () => Date.now(),
+    });
+    return this._history;
   }
 
   /**

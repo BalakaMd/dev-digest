@@ -82,6 +82,11 @@ export interface BlastResult {
    * Present on the persistent (non-degraded) path; absent otherwise.
    */
   factsByFile?: Record<string, { endpoints: string[]; crons: string[] }>;
+  /**
+   * Per-caller-file facts of the caller file plus the files that import it,
+   * up to BFS_DEPTH total depth; persistent path only.
+   */
+  reachableFactsByFile?: Record<string, { endpoints: string[]; crons: string[] }>;
   degraded?: boolean;
   reason?: DegradedReason;
 }

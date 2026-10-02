@@ -55,7 +55,8 @@ application/json".
 
 Hooks are grouped by domain in `src/lib/hooks/`: `core.ts` (repos, pulls,
 settings), `agents.ts`, `reviews.ts` (runs, findings, comments, SSE run events),
-`trace.ts`, `repo-intel.ts`. Mutations invalidate the query keys they affect —
+`trace.ts`, `repo-intel.ts`, plus one file per PR-detail feature (`intent.ts`,
+`blast.ts`, `history.ts`, …). Mutations invalidate the query keys they affect —
 `["repos"]`, `["pulls", repoId]` and so on.
 
 ## File layout
@@ -72,6 +73,28 @@ the vendored primitives in `src/vendor/ui` (`@devdigest/ui`).
 
 Shared display helpers go in `src/lib/format.ts`; single-consumer helpers stay
 next to their component.
+
+### Example: the Blast radius card
+
+`BlastRadiusCard` on the PR Overview tab shows how a feature folder nests.
+`page.tsx` passes it (and `IntentCard`) into `OverviewTab` as slots, so the two
+features never import each other. Inside the card folder:
+
+- `BlastRadiusCard.tsx` owns `usePrBlastRadius` and the local Tree/Graph view
+  state, and renders the stat chips, the degraded marker with its Resync button,
+  and the chosen view.
+- `blast-model.ts` holds pure derivations (counts, symbols without callers, the
+  commit used for GitHub links); `constants.ts` holds the resync polling limits.
+- `_components/BlastSymbolRow/` is the Tree view row.
+- `_components/BlastGraph/` is the Graph view: `graph-layout.ts` is a pure,
+  React-free layout (node positions, edges, caps in `constants.ts`) and
+  `BlastGraph.tsx` only draws the resulting inline SVG during render.
+- `_components/PriorPrsAccordion/` owns its own query, `usePrHistory`
+  (`GET /pulls/:id/history`), so a failure there never affects the blast content.
+
+What the two routes compute, the degraded states and the graph's edge semantics
+are documented in the server package, in
+[`server/docs/blast-radius.md`](../../server/docs/blast-radius.md).
 
 ## Text and theming
 
@@ -94,3 +117,4 @@ target is enough to drive any screen. Real browser journeys live in
 
 - [`../specs/pages.md`](../specs/pages.md) — routes and the data each one needs
 - [`../README.md`](../README.md) — the UI route map diagram
+- [`../../server/docs/blast-radius.md`](../../server/docs/blast-radius.md) — the Blast radius and Prior PRs routes behind the card

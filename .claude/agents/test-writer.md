@@ -70,7 +70,7 @@ backend alike, and you keep only tests that earn their place.
 ## Step 0 — intake
 
 You need a concrete target: a plan path plus step ids or the test plan entries marked
-`owner: test-writer`, a list of files, or named behaviours to cover. Without one, stop and reply `Clarification needed` with 1–5 questions, each with a
+`owner: test-writer` (or, in a plan run in multi-agent mode, its `T-n` entries), a list of files, or named behaviours to cover. Without one, stop and reply `Clarification needed` with 1–5 questions, each with a
 suggested default.
 
 Record `git status --porcelain` now as the baseline for the final working-tree check.

@@ -530,6 +530,15 @@ export class RepoIntelRepository {
       );
   }
 
+  /** Import edges whose imported file (`to_file`) is one of `files`. */
+  async getImporters(repoId: string, files: string[]): Promise<IndexerEdgeRow[]> {
+    if (files.length === 0) return [];
+    return this.db
+      .select({ fromFile: t.fileEdges.fromFile, toFile: t.fileEdges.toFile })
+      .from(t.fileEdges)
+      .where(and(eq(t.fileEdges.repoId, repoId), inArray(t.fileEdges.toFile, files)));
+  }
+
   /** Per-file facts (endpoints/crons) for the given files. */
   async getFileFacts(repoId: string, files: string[]): Promise<IndexerFileFactsRow[]> {
     if (files.length === 0) return [];

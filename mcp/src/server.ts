@@ -27,7 +27,7 @@ export function createServer(deps: CreateServerDeps): McpServer {
     registerRunReview(api, apiUrl),
     registerGetFindings(api, apiUrl),
     registerGetConventions(api, apiUrl),
-    registerGetBlastRadius(),
+    registerGetBlastRadius(api, apiUrl),
   ]) {
     server.registerTool(tool.name, tool.config as never, tool.handler as never);
   }

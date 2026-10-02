@@ -11,7 +11,10 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  PathPullHistoryQuery,
+  PathPullHistory,
 } from '@devdigest/shared';
+import { PATH_ALIASES_PER_QUERY, buildPathHistoryQuery, parsePathHistory } from './path-history.js';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 
 const TIMEOUT = 30_000;
@@ -26,6 +29,7 @@ function mapStatus(state: string, merged: boolean | undefined): PrStatus {
 /**
  * GitHubClient over Octokit REST — thin. PAT auth (fine-grained).
  * Reads PR list/detail/files/commits/issue; posts reviews; opens PRs.
+ * One GraphQL read: per-path pull-request history (`listPathPullHistory`).
  */
 export class OctokitGitHubClient implements GitHubClient {
   private octokit: Octokit;
@@ -389,6 +393,33 @@ export class OctokitGitHubClient implements GitHubClient {
         TIMEOUT,
       ),
     );
+  }
+
+  async listPathPullHistory(repo: RepoRef, q: PathPullHistoryQuery): Promise<PathPullHistory> {
+    const clamp = (n: number) => Math.min(100, Math.max(1, Math.trunc(n)));
+    const n = clamp(q.commitsPerPath);
+    const m = clamp(q.pullsPerCommit);
+    const result: PathPullHistory = { refFound: true, paths: [] };
+    for (let i = 0; i < q.paths.length; i += PATH_ALIASES_PER_QUERY) {
+      const chunk = q.paths.slice(i, i + PATH_ALIASES_PER_QUERY);
+      const vars: Record<string, string | number> = {
+        owner: repo.owner,
+        name: repo.name,
+        ref: q.ref,
+        n,
+        m,
+      };
+      chunk.forEach((path, j) => {
+        vars[`p${j}`] = path;
+      });
+      const data = await withRetry(() =>
+        withTimeout(this.octokit.graphql(buildPathHistoryQuery(chunk.length), vars), TIMEOUT),
+      );
+      const parsed = parsePathHistory(data, chunk);
+      if (!parsed.refFound) result.refFound = false;
+      result.paths.push(...parsed.paths);
+    }
+    return result;
   }
 
   async currentLogin(): Promise<string> {

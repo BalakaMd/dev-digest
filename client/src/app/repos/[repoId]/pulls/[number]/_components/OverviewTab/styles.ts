@@ -1,6 +1,14 @@
 import type { CSSProperties } from "react";
 
 export const s = {
+  cards: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+    gap: 16,
+    alignItems: "start",
+    marginBottom: 24,
+  } satisfies CSSProperties,
+  cell: { minWidth: 0 } satisfies CSSProperties,
   descriptionBox: {
     border: "1px solid var(--border)",
     borderRadius: 8,

@@ -2,7 +2,8 @@
 
 A thin HTTP client of the DevDigest API (Fastify on `:3001`), exposed over MCP
 stdio. Five tools: list agents, run a review (blocking, 120 s cap), get
-findings, get conventions, and a not-implemented-yet blast-radius stub.
+findings, get conventions, and get a PR's blast radius (read-only, from the
+persisted repo index).
 
 ## Stack
 

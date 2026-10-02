@@ -1,18 +1,67 @@
 {
+  "title": "Blast radius",
+  "loadError": "Could not load the blast radius.",
+  "retry": "Retry",
+  "degraded": {
+    "title": "Index incomplete — the map may be missing callers",
+    "reason": {
+      "flag_off": "Repository intelligence is turned off, so no call data is available.",
+      "index_failed": "The last indexing run failed.",
+      "index_partial": "Only part of the repository was indexed.",
+      "repo_too_large": "The repository is too large to index fully.",
+      "no_data": "This repository has not been indexed yet."
+    }
+  },
+  "resync": "Resync",
+  "resyncing": "Resyncing…",
+  "resyncStarted": "Resync started — the map refreshes automatically.",
+  "resyncError": "Could not start the resync.",
+  "endpointsLabel": "HTTP endpoints",
+  "cronsLabel": "Cron jobs",
+  "symbolsWithoutCallers": "{count, plural, one {# changed symbol without callers} other {# changed symbols without callers}}",
+  "openOnGithub": "Open on GitHub",
   "stat": {
-    "symbols": "symbols",
-    "callers": "callers",
-    "endpoints": "endpoints",
-    "crons": "cron/jobs"
+    "symbols": "{count, plural, one {symbol} other {symbols}}",
+    "callers": "{count, plural, one {caller} other {callers}}",
+    "endpoints": "{count, plural, one {endpoint} other {endpoints}}",
+    "crons": "{count, plural, one {cron/job} other {cron/jobs}}"
   },
   "view": {
+    "label": "Blast radius view",
     "tree": "tree",
     "graph": "graph"
   },
-  "callerCount": "{count} callers",
-  "noDownstream": "{count} changed symbol(s), no downstream callers found.",
+  "callerCount": "{count, plural, one {# caller} other {# callers}}",
+  "noDownstream": "{count, plural, one {# changed symbol, no downstream callers found.} other {# changed symbols, no downstream callers found.}}",
   "graph": {
     "empty": "No downstream callers to graph.",
-    "ariaLabel": "Blast radius graph"
+    "ariaLabel": "Blast radius graph",
+    "column": {
+      "symbols": "Changed symbols",
+      "callers": "Callers",
+      "targets": "Endpoints and crons"
+    },
+    "legend": {
+      "symbol": "Changed symbol",
+      "caller": "Caller (solid line)",
+      "endpoint": "HTTP endpoint (dashed line: reached via callers)",
+      "cron": "Cron job (dashed line: reached via callers)"
+    },
+    "more": "{count, plural, one {# more item not shown — see Tree} other {# more items not shown — see Tree}}"
+  },
+  "prior": {
+    "title": "Prior PRs touching these files",
+    "count": "{count, plural, one {# prior PR} other {# prior PRs}}",
+    "empty": "No earlier merged PRs touched these files.",
+    "loadError": "Could not load the prior PRs.",
+    "byAuthor": "by {author}",
+    "mergedOn": "merged {date}",
+    "filesLabel": "Shared files:",
+    "moreFiles": "{count, plural, one {+# more file} other {+# more files}}",
+    "degraded": {
+      "no_token": "Add a GitHub token in Settings to see prior PRs.",
+      "github_error": "Could not read the history from GitHub.",
+      "no_files": "Open the PR once so its changed files are loaded."
+    }
   }
 }

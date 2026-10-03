@@ -21,6 +21,7 @@ import type { FindingRecord, FindingActionKind } from "@devdigest/shared";
 import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
 import { lineLabel } from "./helpers";
 import { githubBlobUrl } from "../../../../../../../lib/github-urls";
+import { CitedDocs } from "./_components/CitedDocs";
 import { s } from "./styles";
 
 export function FindingCard({
@@ -31,6 +32,7 @@ export function FindingCard({
   pending,
   repoFullName,
   headSha,
+  repoId,
 }: {
   f: FindingRecord;
   focused?: boolean;
@@ -39,6 +41,8 @@ export function FindingCard({
   pending?: boolean;
   repoFullName?: string | null;
   headSha?: string | null;
+  /** Repository the cited project documents belong to (enables the citation chips). */
+  repoId?: string | null;
 }) {
   const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
@@ -92,6 +96,8 @@ export function FindingCard({
               </div>
             </div>
           )}
+
+          <CitedDocs repoId={repoId} paths={f.cited_docs} />
 
           <div style={s.actions}>
             <Button

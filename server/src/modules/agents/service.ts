@@ -95,6 +95,23 @@ export class AgentsService {
     return toAgentDto(row);
   }
 
+  /**
+   * Replace the agent's attached documents (AC-24..26, AC-75). Paths must also
+   * match the configured search globs; a rejection keeps the previous list.
+   */
+  async setContextDocs(
+    workspaceId: string,
+    id: string,
+    paths: string[],
+  ): Promise<Agent | undefined> {
+    const bad = paths.find((p) => !this.container.contextDocs.matchesGlobs(p));
+    if (bad !== undefined) {
+      throw new ValidationError(`Path does not match the context document globs: ${bad}`);
+    }
+    const row = await this.repo.setContextDocs(workspaceId, id, paths);
+    return row ? toAgentDto(row) : undefined;
+  }
+
   async update(
     workspaceId: string,
     id: string,

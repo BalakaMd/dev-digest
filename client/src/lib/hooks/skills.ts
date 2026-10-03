@@ -150,3 +150,16 @@ export function useSetAgentSkills() {
       ]),
   });
 }
+
+/** Replace the skill's whole ordered list of attached context documents (version unchanged). */
+export function useSetSkillContextDocs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, paths }: { id: string; paths: string[] }) =>
+      api.put<Skill>(`/skills/${id}/context-docs`, { paths }),
+    onSuccess: (skill) => {
+      onSkillSaved(qc, skill);
+      qc.invalidateQueries({ queryKey: ["context-doc-usage"] });
+    },
+  });
+}

@@ -140,5 +140,12 @@ export class RepoService {
   async remove(workspaceId: string, id: string): Promise<void> {
     const ok = await this.repo.remove(workspaceId, id);
     if (!ok) throw new NotFoundError('Repo not found');
+    // AC-87: the repo's local context documents go with it. Best-effort — the
+    // repo row is already gone, so a leftover folder must not fail the removal.
+    try {
+      await this.container.contextDocs.removeRepoLocal(id);
+    } catch {
+      // swallowed on purpose
+    }
   }
 }

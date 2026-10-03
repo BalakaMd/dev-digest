@@ -12,7 +12,8 @@
   },
   "removeRepo": {
     "confirm": "Remove {name} from DevDigest?\n\nThis only removes it from DevDigest (and its imported PRs). Nothing is deleted on GitHub, and your local clone on disk is left untouched.",
-    "fallbackName": "this repository"
+    "fallbackName": "this repository",
+    "confirmWithLocalDocs": "Remove {name} from DevDigest?\n\nThis also permanently deletes the {count, plural, one {# local document} other {# local documents}} you created for this repository on this machine. Nothing is deleted on GitHub, and your local clone on disk is left untouched."
   },
   "nav": {
     "pulls": "Pull Requests",

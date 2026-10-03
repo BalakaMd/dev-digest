@@ -129,6 +129,8 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  // Ordered repo-relative paths of attached context documents.
+  context_docs: z.array(z.string()).optional(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -325,6 +327,8 @@ export const Agent = z.object({
   repo_intel: z.boolean().default(true),
   // Number of linked skills; present on list/get responses.
   skill_count: z.number().int().optional(),
+  // Ordered repo-relative paths of attached context documents.
+  context_docs: z.array(z.string()).optional(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -356,6 +360,8 @@ export const AgentVersionConfig = z.object({
   ci_fail_on: CiFailOn,
   repo_intel: z.boolean(),
   skills: z.array(z.string()),
+  // Ordered attached context-document paths; default keeps old snapshots parseable.
+  context_docs: z.array(z.string()).default([]),
 });
 export type AgentVersionConfig = z.infer<typeof AgentVersionConfig>;
 

@@ -248,3 +248,183 @@ describe('reviewPullRequest (engine) — scope filter', () => {
     expect(outcome.assembly.intent ?? null).toBeNull();
   });
 });
+
+describe('reviewPullRequest (engine) — project context (AC-31, AC-48)', () => {
+  const specs = [
+    { path: 'specs/api-rules.md', content: 'The `api/` module must not import `db/` directly.' },
+    { path: 'docs/security.md', content: 'Never commit secrets.' },
+  ];
+
+  const twoFileDiff =
+    'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,2 +1,3 @@\n a\n+b\n c\n' +
+    'diff --git a/src/b.ts b/src/b.ts\n--- a/src/b.ts\n+++ b/src/b.ts\n@@ -1,2 +1,3 @@\n a\n+b\n c';
+
+  const noFindings = { verdict: 'approve', summary: 'ok', score: 100, findings: [] };
+
+  function structuredCalls(llm: MockLLMProvider) {
+    return llm.calls.filter((c) => c.method === 'completeStructured');
+  }
+
+  it('single-pass: attaching documents does not add an LLM call, and the documents reach the prompt', async () => {
+    const diff = await new MockGitClient().diff();
+    const plain = new MockLLMProvider('openai', { structured: noFindings });
+    const withDocs = new MockLLMProvider('openai', { structured: noFindings });
+
+    await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: plain });
+    const outcome = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: withDocs, specs });
+
+    expect(structuredCalls(plain)).toHaveLength(1);
+    expect(structuredCalls(withDocs)).toHaveLength(structuredCalls(plain).length);
+    expect(withDocs.calls).toHaveLength(plain.calls.length);
+
+    const sent = (structuredCalls(withDocs)[0]!.req as { messages: { role: string; content: string }[] })
+      .messages;
+    expect(sent[1]!.content).toContain('## Project context');
+    expect(sent[1]!.content).toContain('<untrusted source="specs/api-rules.md">');
+    expect(sent[1]!.content).toContain('<untrusted source="docs/security.md">');
+    // the trace assembly carries the wrapped documents, in order
+    const assembled = outcome.assembly.specs as string;
+    expect(assembled.indexOf('specs/api-rules.md')).toBeLessThan(assembled.indexOf('docs/security.md'));
+  });
+
+  it('map-reduce: the call count is one per file with or without documents', async () => {
+    const diff = await new MockGitClient({ diff: twoFileDiff }).diff();
+    const plain = new MockLLMProvider('openai', { structured: noFindings });
+    const withDocs = new MockLLMProvider('openai', { structured: noFindings });
+
+    const a = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: plain, strategy: 'map-reduce' });
+    const b = await reviewPullRequest({
+      systemPrompt: 's',
+      model: 'm',
+      diff,
+      llm: withDocs,
+      strategy: 'map-reduce',
+      specs,
+    });
+
+    expect(a.mode).toBe('map-reduce');
+    expect(b.mode).toBe('map-reduce');
+    expect(structuredCalls(plain)).toHaveLength(2);
+    expect(structuredCalls(withDocs)).toHaveLength(2);
+    // every per-file prompt carries the documents
+    for (const c of structuredCalls(withDocs)) {
+      const msgs = (c.req as { messages: { content: string }[] }).messages;
+      expect(msgs[1]!.content).toContain('<untrusted source="specs/api-rules.md">');
+    }
+  });
+
+  it('without documents the prompt sent to the model has no Project context section', async () => {
+    const diff = await new MockGitClient().diff();
+    const llm = new MockLLMProvider('openai', { structured: noFindings });
+    const withEmpty = new MockLLMProvider('openai', { structured: noFindings });
+
+    await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm });
+    await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: withEmpty, specs: [] });
+
+    const sentOf = (m: MockLLMProvider) =>
+      (structuredCalls(m)[0]!.req as { messages: unknown[] }).messages;
+    expect(sentOf(withEmpty)).toEqual(sentOf(llm));
+    expect(JSON.stringify(sentOf(llm))).not.toContain('Project context');
+  });
+
+  const citedFixture = {
+    verdict: 'request_changes',
+    summary: 'api imports db',
+    score: 50,
+    findings: [
+      {
+        id: 'cited',
+        severity: 'WARNING',
+        category: 'bug',
+        title: 'api imports db directly',
+        file: 'src/config.ts',
+        start_line: 11,
+        end_line: 11,
+        rationale: 'violates specs/api-rules.md',
+        confidence: 0.9,
+        kind: 'finding',
+        scope: 'in',
+        cited_docs: ['specs/api-rules.md'],
+      },
+      {
+        id: 'cited-out-of-scope-critical',
+        severity: 'CRITICAL',
+        category: 'security',
+        title: 'secret in code',
+        file: 'src/config.ts',
+        start_line: 11,
+        end_line: 11,
+        rationale: 'docs/security.md forbids it',
+        confidence: 0.95,
+        kind: 'finding',
+        scope: 'out',
+        cited_docs: ['docs/security.md', 'specs/api-rules.md'],
+      },
+      {
+        id: 'uncited',
+        severity: 'SUGGESTION',
+        category: 'style',
+        title: 'no document involved',
+        file: 'src/config.ts',
+        start_line: 11,
+        end_line: 11,
+        rationale: 'style',
+        confidence: 0.4,
+        kind: 'finding',
+        scope: 'in',
+      },
+      {
+        id: 'cited-hallucinated',
+        severity: 'WARNING',
+        category: 'bug',
+        title: 'phantom line',
+        file: 'src/config.ts',
+        start_line: 999,
+        end_line: 999,
+        rationale: 'not in the diff',
+        confidence: 0.3,
+        kind: 'finding',
+        cited_docs: ['specs/api-rules.md'],
+      },
+    ],
+  };
+
+  it('cited_docs survives grounding unchanged; the gate still drops an ungrounded finding that cites', async () => {
+    const llm = new MockLLMProvider('openai', { structured: citedFixture });
+    const diff = await new MockGitClient().diff();
+
+    const outcome = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm, specs });
+
+    const byId = Object.fromEntries(outcome.review.findings.map((f) => [f.id, f]));
+    expect(Object.keys(byId).sort()).toEqual(['cited', 'cited-out-of-scope-critical', 'uncited']);
+    expect(byId['cited']!.cited_docs).toEqual(['specs/api-rules.md']);
+    expect(byId['cited-out-of-scope-critical']!.cited_docs).toEqual([
+      'docs/security.md',
+      'specs/api-rules.md',
+    ]);
+    expect(byId['uncited']!.cited_docs ?? null).toBeNull();
+    expect(outcome.dropped.map((d) => d.finding.id)).toEqual(['cited-hallucinated']);
+  });
+
+  it('cited_docs survives the scope filter, including on the kept out-of-scope signal', async () => {
+    const llm = new MockLLMProvider('openai', { structured: citedFixture });
+    const diff = await new MockGitClient().diff();
+    const intent = {
+      summary: 'Adds config.',
+      in_scope: ['config'],
+      out_of_scope: [],
+      confidence: 'medium' as const,
+      unavailable: [],
+    };
+
+    const outcome = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm, specs, intent });
+
+    expect(outcome.scopeSignal?.id).toBe('cited-out-of-scope-critical');
+    const byId = Object.fromEntries(outcome.review.findings.map((f) => [f.id, f]));
+    expect(byId['cited']!.cited_docs).toEqual(['specs/api-rules.md']);
+    expect(byId['cited-out-of-scope-critical']!.cited_docs).toEqual([
+      'docs/security.md',
+      'specs/api-rules.md',
+    ]);
+  });
+});

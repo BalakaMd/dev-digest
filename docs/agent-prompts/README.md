@@ -26,7 +26,7 @@ receives exactly two messages:
 ```
 <your system_prompt>
 
-<INJECTION_GUARD>   // appended verbatim to EVERY agent, every run
+<INJECTION_GUARD>   // appended to EVERY agent, every run (+1 sentence when Project context documents are present)
 ```
 
 `INJECTION_GUARD` (`prompt.ts:16`) tells the model that everything inside
@@ -43,7 +43,7 @@ delimiter-wrapped (`prompt.ts:104-122`):
 ## Skills / rules        (linked skill bodies)
 ## Relevant memory       (curated memory items)
 ## Repo skeleton         (untrusted, repo-derived)
-## Project context       (untrusted spec chunks)
+## Project context       (fixed trusted rule + one <untrusted source="<path>"> block per attached document)
 ## Callers of changed symbols  (untrusted, repo-derived)
 ## Diff to review        (untrusted)
 ```
@@ -51,6 +51,9 @@ delimiter-wrapped (`prompt.ts:104-122`):
 Sections with no content are omitted. Everything repo- or author-derived is wrapped
 in `<untrusted source="…">…</untrusted>` so the model can tell instructions
 (system) from data (user).
+
+The `## Project context` section is filled from the markdown documents attached to
+the agent and its skills; see [`../project-context.md`](../project-context.md).
 
 ## The output schema is NOT in the prompt
 

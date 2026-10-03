@@ -49,6 +49,7 @@ export async function insertFindings(
         kind: f.kind ?? 'finding',
         trifectaComponents: f.trifecta_components ?? null,
         scope: f.scope ?? null,
+        citedDocs: f.cited_docs && f.cited_docs.length > 0 ? f.cited_docs : null,
       })),
     )
     .returning();

@@ -42,6 +42,24 @@ export interface UpdateAgent {
   enabled?: boolean;
 }
 
+/** Per-workspace attachment overview used for document usage/coverage. */
+export interface ContextAttachmentSkill {
+  id: string;
+  name: string;
+  enabled: boolean;
+  docs: string[];
+}
+export interface ContextAttachments {
+  agents: Array<{
+    id: string;
+    name: string;
+    enabled: boolean;
+    docs: string[];
+    skills: ContextAttachmentSkill[];
+  }>;
+  skills: Array<{ id: string; name: string; docs: string[] }>;
+}
+
 /** A skill linked to an agent (with its order), joined from agent_skills. */
 export interface LinkedSkillRow {
   skill: typeof t.skills.$inferSelect;
@@ -184,6 +202,75 @@ export class AgentsRepository {
     if (row) await this.snapshotVersion(row, row.version);
   }
 
+  /**
+   * Replace the agent's attached context documents. A changed list bumps the
+   * version and snapshots it (the ordered paths ride in the snapshot); an equal
+   * list is a no-op. Returns undefined when the agent is not in the workspace.
+   */
+  async setContextDocs(
+    workspaceId: string,
+    id: string,
+    paths: string[],
+  ): Promise<AgentRow | undefined> {
+    const existing = await this.getById(workspaceId, id);
+    if (!existing) return undefined;
+    const current = existing.contextDocs ?? [];
+    if (current.length === paths.length && current.every((p, i) => p === paths[i])) {
+      return existing;
+    }
+    const [row] = await this.db
+      .update(t.agents)
+      .set({ contextDocs: paths, version: existing.version + 1 })
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+      .returning();
+    if (row) await this.snapshotVersion(row, row.version);
+    return row;
+  }
+
+  /**
+   * Every agent and skill of the workspace with its attached documents and the
+   * agent's linked skills (in link order). Total ORDER BY throughout.
+   */
+  async contextAttachments(workspaceId: string): Promise<ContextAttachments> {
+    const [agentRows, skillRows, linkRows] = await Promise.all([
+      this.db
+        .select()
+        .from(t.agents)
+        .where(eq(t.agents.workspaceId, workspaceId))
+        .orderBy(...this.listOrder),
+      this.db
+        .select()
+        .from(t.skills)
+        .where(eq(t.skills.workspaceId, workspaceId))
+        .orderBy(asc(t.skills.name), asc(t.skills.id)),
+      this.db
+        .select({ agentId: t.agentSkills.agentId, skillId: t.agentSkills.skillId })
+        .from(t.agentSkills)
+        .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
+        .where(eq(t.agents.workspaceId, workspaceId))
+        .orderBy(asc(t.agentSkills.agentId), asc(t.agentSkills.order), asc(t.agentSkills.skillId)),
+    ]);
+    const skillById = new Map(skillRows.map((s) => [s.id, s]));
+    const linksByAgent = new Map<string, ContextAttachmentSkill[]>();
+    for (const l of linkRows) {
+      const s = skillById.get(l.skillId);
+      if (!s) continue;
+      const list = linksByAgent.get(l.agentId) ?? [];
+      list.push({ id: s.id, name: s.name, enabled: s.enabled, docs: s.contextDocs ?? [] });
+      linksByAgent.set(l.agentId, list);
+    }
+    return {
+      agents: agentRows.map((a) => ({
+        id: a.id,
+        name: a.name,
+        enabled: a.enabled,
+        docs: a.contextDocs ?? [],
+        skills: linksByAgent.get(a.id) ?? [],
+      })),
+      skills: skillRows.map((s) => ({ id: s.id, name: s.name, docs: s.contextDocs ?? [] })),
+    };
+  }
+
   private async snapshotVersion(row: AgentRow, version: number): Promise<void> {
     const skills = await this.skillIdsForAgent(row.id);
     await this.db
@@ -200,6 +287,7 @@ export class AgentsRepository {
           ci_fail_on: row.ciFailOn,
           repo_intel: row.repoIntel,
           skills,
+          context_docs: row.contextDocs ?? [],
         },
       })
       .onConflictDoNothing();

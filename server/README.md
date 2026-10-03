@@ -73,12 +73,13 @@ flowchart TB
     intent["intent<br/>GET/POST /pulls/:id/intent"]
   end
   subgraph Agents["Agents"]
-    agents["agents<br/>/agents · /agents/:id"]
+    agents["agents<br/>/agents · /agents/:id · /agents/:id/context-docs"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
     blast["blast<br/>GET /pulls/:id/blast"]
     history["history<br/>GET /pulls/:id/history"]
+    contextDocs["context-docs<br/>/repos/:id/context-docs (list · content · usage · sync · local)"]
   end
   subgraph Platform["Platform"]
     settings["settings<br/>/settings · /providers"]
@@ -100,6 +101,8 @@ flowchart TB
 | `EMBEDDINGS_ENABLED` | `false` | memory/RAG embeddings (OpenAI); off → **zero** OpenAI calls |
 | `REPO_INTEL_ENABLED` | `true` | repo skeleton + callers in the prompt; `false` → ripgrep-only |
 | `DEVDIGEST_CLONE_DIR` | `./clones` | imported-repo checkouts (git-ignored) |
+| `CONTEXT_DOC_GLOBS` | `**/{specs,docs,insights}/**/*.md` | `;`-separated search globs for project context documents |
+| `DEVDIGEST_CONTEXT_DIR` | `~/.devdigest/context` | local (overlay) project documents, per repository |
 | `LOG_LEVEL` | `info` (`silent` in test) | pino level |
 | `NODE_ENV` | `development` | `test` → silent logs + global rate-limit disabled |
 

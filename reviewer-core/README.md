@@ -31,8 +31,9 @@ model. `review/run.ts` orchestrates the run (single-pass by default).
 The engine also accepts optional prompt slots the **course lessons** start
 feeding it — `skills` (L02), `memory` (L07), `specs` (L05), `callers` — plus a
 `reduce()`/map-reduce path and a `toReview()` CI payload helper used from L06.
-In the starter the server passes only the diff, system prompt, and repo map; the
-extra slots are omitted, so `assemblePrompt` simply leaves those sections out.
+The server passes the diff, system prompt and repo map, plus skills and, when
+documents are attached, `specs` (path + content pairs); the other slots are
+omitted, so `assemblePrompt` simply leaves those sections out.
 
 ## Public API
 

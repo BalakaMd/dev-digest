@@ -84,6 +84,8 @@ rubric, the bar, and the dedup procedure.
   built-in agents use the `openrouter` provider).
 - Secrets never live in the DB or in git: `~/.devdigest/secrets.json`, mode
   `0600`, with `process.env` as fallback.
+- Local project documents live in `~/.devdigest/context` (`DEVDIGEST_CONTEXT_DIR`),
+  outside the clone; they are deleted with the repo and never committed.
 
 ## Do not touch
 
@@ -103,6 +105,6 @@ rubric, the bar, and the dedup procedure.
 |----------|--------------|
 | [README.md](README.md) | you need the architecture diagram or the package map |
 | [TESTING.md](TESTING.md) | the question is about test strategy or CI workflows |
-| [docs/](docs/) | you need agent system prompts or model-selection guidance |
+| [docs/](docs/) | you need agent system prompts, model-selection guidance, or how project context documents reach a review ([project-context.md](docs/project-context.md)) |
 | [specs/](specs/) | you are picking up a cross-package feature |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change — past traps are logged there |

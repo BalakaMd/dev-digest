@@ -31,6 +31,8 @@ export interface BuildTraceInput {
   rawOutput: string;
   memoryPulled: MemoryPulled[];
   specsRead: string[];
+  /** Per-document detail of the injected project context (omit when none). */
+  context?: RunTrace['context'];
   log: RunLogLine[];
 }
 
@@ -50,6 +52,7 @@ export function buildRunTrace(input: BuildTraceInput): RunTrace {
     raw_output: input.rawOutput,
     memory_pulled: input.memoryPulled,
     specs_read: input.specsRead,
+    ...(input.context ? { context: input.context } : {}),
     log: input.log,
   };
   // Validate so a malformed trace fails loudly at write-time, not read-time.

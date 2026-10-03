@@ -42,7 +42,8 @@ Note: this package uses **npm** (`package-lock.json`), not pnpm.
 - Skill bodies, memory and specs arrive as **resolved strings**, never as slugs
   or ids — resolution belongs to the caller.
 - Optional prompt slots (`skills`, `memory`, `specs`, `callers`, `intent`) are
-  fed by later lessons. When omitted, `assemblePrompt` simply leaves the
+  fed by later lessons (`specs` is fed by the Project Context feature, see
+  `docs/project-context.md`). When omitted, `assemblePrompt` simply leaves the
   section out.
 - The public surface is whatever `src/index.ts` exports — keep it explicit.
 

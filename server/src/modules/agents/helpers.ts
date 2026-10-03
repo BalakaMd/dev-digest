@@ -31,6 +31,7 @@ export function toAgentDto(row: AgentRow, skillCount?: number): Agent {
     strategy: row.strategy as ReviewStrategy,
     ci_fail_on: row.ciFailOn as CiFailOn,
     repo_intel: row.repoIntel,
+    context_docs: row.contextDocs ?? [],
     ...(skillCount !== undefined ? { skill_count: skillCount } : {}),
   };
 }
@@ -51,6 +52,7 @@ export function toAgentSkillDetail(link: LinkedSkillRow): AgentSkillDetail {
     enabled: link.skill.enabled,
     version: link.skill.version,
     evidence_files: link.skill.evidenceFiles ?? null,
+    context_docs: link.skill.contextDocs ?? [],
     order: link.order,
   };
 }

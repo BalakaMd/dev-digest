@@ -11,7 +11,9 @@
     "sendReply": "Send reply",
     "cancel": "Cancel",
     "outOfScope": "Outside PR scope",
-    "outOfScopeHint": "This finding is real and grounded, but falls outside what the PR's derived intent says it is meant to do."
+    "outOfScopeHint": "This finding is real and grounded, but falls outside what the PR's derived intent says it is meant to do.",
+    "citedDocs": "Cited documents",
+    "openCitedDoc": "Open {path}"
   },
   "trifecta": {
     "lethal": "LETHAL TRIFECTA — ALL 3 PRESENT",

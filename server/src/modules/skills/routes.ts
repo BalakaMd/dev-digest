@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { SkillSource, SkillType } from '@devdigest/shared';
+import { ContextDocPaths, SkillSource, SkillType } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
@@ -18,6 +18,7 @@ import { MAX_BODY_BYTES, MAX_NAME_CHARS } from './constants.js';
  *   POST   /skills                     → create
  *   PUT    /skills/:id                 → update (a content change bumps version)
  *   DELETE /skills/:id                 → delete (links cascade)
+ *   PUT    /skills/:id/context-docs    → replace attached context documents (no version bump)
  *   GET    /skills/:id/versions        → body history, newest first
  *   GET    /skills/:id/versions/:version → one snapshot
  *   POST   /skills/:id/versions/:version/restore → write that body forward as a new version
@@ -47,6 +48,8 @@ const UpdateSkillBody = z.object({
   body: z.string().min(1).max(MAX_BODY_BYTES).optional(),
   enabled: z.boolean().optional(),
 });
+
+const SetContextDocsBody = z.object({ paths: ContextDocPaths });
 
 /**
  * Import upload. The file arrives base64-encoded in JSON rather than as
@@ -87,6 +90,17 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     if (!skill) throw new NotFoundError('Skill not found');
     return skill;
   });
+
+  app.put(
+    '/skills/:id/context-docs',
+    { schema: { params: IdParams, body: SetContextDocsBody } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const skill = await service.setContextDocs(workspaceId, req.params.id, req.body.paths);
+      if (!skill) throw new NotFoundError('Skill not found');
+      return skill;
+    },
+  );
 
   app.delete('/skills/:id', { schema: { params: IdParams } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);

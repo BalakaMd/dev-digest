@@ -31,6 +31,8 @@ export const skills = pgTable(
     // Global kill-switch: a disabled skill reaches no agent's prompt.
     enabled: boolean('enabled').notNull().default(true),
     version: integer('version').notNull().default(1),
+    // Ordered repo-relative paths of attached context documents (paths only, never text).
+    contextDocs: jsonb('context_docs').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     evidenceFiles: jsonb('evidence_files').$type<string[]>(),
     createdAt: now(),
   },

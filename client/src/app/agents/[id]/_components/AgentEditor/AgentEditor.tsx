@@ -1,5 +1,5 @@
-/* AgentEditor — the agent's two tabs: Config (model, strategy, system prompt)
-   and Skills (which skills it links, in prompt order). Tab state lives in ?tab=. */
+/* AgentEditor — the agent's three tabs: Config (model, strategy, system prompt),
+   Skills (which skills it links, in prompt order) and Context (project documents). Tab state lives in ?tab=. */
 "use client";
 
 import React from "react";
@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Tabs } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
 import { ConfigTab } from "./_components/ConfigTab";
+import { ContextTab } from "./_components/ContextTab";
 import { SkillsTab } from "./_components/SkillsTab";
 import { TABS } from "./constants";
 import { s } from "./styles";
@@ -20,7 +21,13 @@ export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; 
         <Tabs tabs={tabs} value={tab} onChange={onTab} pad="0 24px" />
       </div>
       <div style={s.body}>
-        {tab === "skills" ? <SkillsTab agent={agent} /> : <ConfigTab agent={agent} />}
+        {tab === "skills" ? (
+          <SkillsTab agent={agent} />
+        ) : tab === "context" ? (
+          <ContextTab agent={agent} />
+        ) : (
+          <ConfigTab agent={agent} />
+        )}
       </div>
     </div>
   );

@@ -62,6 +62,13 @@ Task description: $ARGUMENTS
    `/dev-flow` runs (for example backend core → integration → UI), each with its own plan and
    review. Smaller plans mean less context per agent and no turn-limit stops. If the user
    prefers one run, continue.
+7. **Test coverage tokens.** The user may put controls for how much gets tested into the task
+   description: `tests:full|standard|minimal` (depth), `skip:e2e,integration,ui,unit` (levels
+   not written at all) and `security:skip` (let even security and bug-regression tests be cut;
+   by default they are always kept). Pick them out, remember them as the **coverage profile**,
+   and remove them from the task text you pass on — they are controls, not requirements. If
+   `tests:` is present, the coverage question at checkpoint A is not asked. The semantics are
+   defined once, in the "Coverage profile" section of `.claude/agents/test-writer.md`.
 
 ## Step 1 — Recommend and let the user choose
 
@@ -195,8 +202,10 @@ Then decide with `AskUserQuestion`, never with a free-text request to answer in 
 
 1. **Gate — one call, one question** (`multiSelect: false`) with these options:
    - **Run everything as recommended (Recommended)** — approves the plan and the recommended
-     execution mode, takes the recommended answer of every open question and includes only the
-     optional items the plan marks as recommended.
+     execution mode, takes the recommended answer of every open question, includes only the
+     optional items the plan marks as recommended and, when the plan has tests, uses the
+     recommended coverage profile (`depth:standard`, no skipped levels) unless one was given in
+     the task description.
    - **Choose the answers myself** — go to step 2.
    - **Change the plan** — ask what to change; changes go back to the implementation-planner, or into your
      inline plan, and the checkpoint starts again.
@@ -212,11 +221,21 @@ Then decide with `AskUserQuestion`, never with a free-text request to answer in 
    - the planner's `Q-mode` question (single-agent vs multi-agent) is always included, its
      recommended mode first;
    - improvements `I-n` are optional items;
+   - **test coverage**, when the plan has tests (`T-n`) and no `tests:` token was given in the
+     task: two questions. (1) Depth (`multiSelect: false`): **standard (Recommended)** — one
+     test per acceptance criterion on the main behaviour and its principal failure path;
+     **full** — every planned test with edge cases; **minimal** — only the key happy path per
+     feature. (2) Skipped levels (`multiSelect: true`): End-to-end flows, Integration
+     (DB-backed `*.it.test.ts`), UI / component tests; nothing selected means nothing is
+     skipped. Say in the descriptions that tests guarding security properties and
+     regressions of a fixed bug are always kept, and that every skipped test is listed in the
+     test-writer's report. List the plan's test counts per level in the text summary first
+     (for example "23 tests: 9 unit, 6 integration, 8 UI") so the choice is informed;
    - an item that cannot fit into options (for example Hebrew copy to review) stays in the
      text summary and is passed to the implementer as a note.
    Free text in "Other" is an instruction; if it is unclear, ask about it.
 3. **Confirm** — show the resolved decisions on a few lines (plan, execution mode, answers,
-   chosen optional items) and start the implementer. The execution mode decides test-writer:
+   chosen optional items, coverage profile) and start the implementer. The execution mode decides test-writer:
    single-agent — the implementer writes the `T-n` tests; multi-agent — test-writer runs on
    the `T-n` tests; say so in the pipeline line. No extra approval question is needed: the
    answers are the approval.
@@ -235,7 +254,10 @@ guidance files).
 ### 3.3 implementer
 Pass the plan path (or the inline plan), the chosen execution mode, the step ids the instance
 owns, the user's answers to open questions, and the reminder that nothing is committed and
-that in multi-agent mode the `T-n` tests (or tests marked `owner: test-writer`) are not its job. Tell it to read only its own
+that in multi-agent mode the `T-n` tests (or tests marked `owner: test-writer`) are not its job.
+In single-agent mode it does write them: pass the coverage profile and tell it to apply the
+"Coverage profile" section of `.claude/agents/test-writer.md` (depth, skipped levels,
+always-keep tests) to the `T-n` list it owns and to report what the profile skipped. Tell it to read only its own
 steps plus the plan's shared sections, and to run targeted tests for its steps; the full
 suites run once in this session at the end. Respect the instance size limit in "Token
 budget". In multi-agent mode, run the plan's waves as described in "Parallel instances". If an
@@ -257,7 +279,12 @@ starts on the fixed code.
 ### 3.4 test-writer
 Runs in multi-agent mode. Pass the plan path, its `T-n` test entries (or, in an older plan,
 the entries marked `owner: test-writer`), the step ids they cover and the files the
-implementer changed; those entries are its work list.
+implementer changed; those entries are its work list. Pass the **coverage profile** in every
+test-writer prompt as `depth:<…>`, `skip:<…>` and `security:<keep|skip>` tokens. When there is
+no checkpoint A (tests only, or test-writer without a plan) and the task description gave no
+`tests:` token, ask the two coverage questions from checkpoint A with one `AskUserQuestion`
+call before launching. If the report lists "Always-keep tests not written", relay them and ask
+the user whether to allow them at another level.
 Fall back to **gap mode** when the plan gave the new tests to the implementer anyway (for
 example a plan reused from an earlier run): first compare the plan's test plan with the
 tests the implementer reports. If every item is covered, tell the user and skip the
@@ -276,7 +303,10 @@ inline plan, or the description as requirements). They are read-only. Always pas
 plan-verifier the acceptance criteria from the user's original task **verbatim** as separate
 requirements, even when a plan exists: a plan can drift from the task, and a verifier that
 checks only the plan confirms the drift. With a spec, also pass its path: the verifier checks
-its `AC-n` / `NFR-n` and Non-goals against their own wording.
+its `AC-n` / `NFR-n` and Non-goals against their own wording. Also pass the coverage profile
+and the tests the writers reported under "Skipped by profile": a test the user chose not to
+have is marked **Skipped by user profile**, not Not met, and a skipped always-keep test stays
+visible as an open item.
 
 Then run in this session the commands plan-verifier lists under "commands for the caller"
 (tests, type checks, verify steps), since it does not run them itself. Report each
@@ -291,7 +321,7 @@ instance or resume" in "Token budget"; a fresh instance gets the plan path, the 
 the list of files it may touch. After a fix, re-run only the reviewers that reported the
 fixed items, scoped to those items only and with `model: "sonnet"`. Tests for the fixed
 behaviour follow the same rule: a fresh test-writer scoped to the named cases, with
-`model: "sonnet"`. Allow at most two fix rounds, then hand the decision back to the user.
+`model: "sonnet"` and the same coverage profile. Allow at most two fix rounds, then hand the decision back to the user.
 
 ### 3.6 doc-writer
 The task you give it is **to document the new feature**, not only to fix stale sentences.
@@ -423,7 +453,8 @@ Reply in the user's language with:
 - A table with one row per agent instance that ran: status and the key output (plan path,
   files changed, tests added, findings, docs written).
 - What remains open: unresolved findings, commands that were not run, proposals from the
-  doc-writer.
+  doc-writer, and — when a coverage profile cut tests — how many were skipped by it (by level)
+  and any always-keep tests that could not be written.
 - The working tree (`git status --porcelain`). Nothing is committed.
 - With an approved spec whose `AC-n` all came back Met from plan-verifier: ask whether to
   mark it `Status: implemented`; on yes, change only that line yourself.

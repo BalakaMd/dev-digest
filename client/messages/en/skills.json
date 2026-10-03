@@ -90,8 +90,14 @@
   "editor": {
     "tabs": {
       "config": "Config",
+      "context": "Context",
       "preview": "Preview",
       "versioning": "Versioning"
+    },
+    "context": {
+      "title": "Project context to use",
+      "inherit": "Any agent using this skill inherits these documents.",
+      "serializesAs": "SERIALIZES AS"
     },
     "enabled": "Enabled",
     "save": "Save",

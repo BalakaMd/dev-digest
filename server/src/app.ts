@@ -64,6 +64,13 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
+  if (config.contextDocGlobsRejected !== null) {
+    app.log.warn(
+      { value: config.contextDocGlobsRejected },
+      'invalid CONTEXT_DOC_GLOBS rejected; using default globs',
+    );
+  }
+
   const container = new Container(config, db, opts.overrides);
   app.decorate('container', container);
 

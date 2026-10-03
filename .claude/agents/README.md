@@ -201,10 +201,18 @@ commits, pushes or opens a pull request; that stays with the user.
   `PreToolUse` hook on `Bash`, copied from implementer's, blocks the same git-mutation and `gh pr`
   words.
 - **Input:** a concrete target — a plan path plus step ids or the test plan entries marked
-  `owner: test-writer`, a file list, or named behaviours.
+  `owner: test-writer`, a file list, or named behaviours — and, optionally, a **coverage profile**
+  chosen by the caller: `depth:full|standard|minimal` (how many behaviours and how deep; `full` is
+  the default), `skip:e2e,integration,ui,unit` (levels not written at all) and
+  `security:keep|skip` (tests that guard a security property, and the regression test of a fixed
+  bug, survive any depth unless `security:skip` is given). The agent only ever removes work under
+  a profile, and lists everything it dropped. In `/dev-flow` the profile is asked at checkpoint A
+  (or given in the task as `tests:minimal skip:e2e`) and is passed to the test-writer, to the
+  implementer in single-agent mode, and to the plan-verifier.
 - **Output artifacts:** new or changed test files and fixtures (uncommitted).
-- **Output (reply):** test report — behaviours covered with level, test location and can-fail
-  result; discarded tests; verification commands; production changes needed but not made; suggested
+- **Output (reply):** test report — the profile applied; behaviours covered with level, test
+  location and can-fail result; skipped by profile; always-keep tests not written (needs a caller
+  decision); discarded tests; verification commands; production changes needed but not made; suggested
   red checks; lesson candidates. Stop states: `Clarification needed`, `Production change needed`,
   `Dependency needed`, `Bug found` (a correct test exposes a real bug — the failing test stays in
   the tree), `blocked` after three failed gate attempts.

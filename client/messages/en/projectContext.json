@@ -1,0 +1,142 @@
+{
+  "page": {
+    "crumb": "Project Context",
+    "repoFallback": "Repository",
+    "treeTitle": "Project Context",
+    "treeLabel": "Project documents",
+    "loadError": "Couldn’t load project documents",
+    "truncated": "Too many documents — only the first ones are listed.",
+    "emptyTitle": "No documents found",
+    "emptyBody": "No markdown files matched under {globs}.",
+    "emptyNoGlobs": "No markdown documents were found in this repository.",
+    "notClonedTitle": "Repository not cloned yet",
+    "notClonedBody": "Project documents are read from the repository working copy. Sync the repository to see them.",
+    "noSelection": "Select a document to preview it."
+  },
+  "toolbar": {
+    "refresh": "Refresh document list",
+    "refreshing": "Refreshing document list…",
+    "sync": "Sync with GitHub",
+    "syncing": "Syncing with GitHub…",
+    "newFile": "New file",
+    "newFolder": "New folder",
+    "upload": "Upload files",
+    "deleteFolder": "Delete empty folder {folder}"
+  },
+  "tree": {
+    "rootFolder": "Repository root",
+    "local": "Local",
+    "shadowed": "Shadowed",
+    "shadowedTitle": "A repository document with the same path takes precedence over this local one",
+    "tooLarge": "Too large",
+    "localFolderEmpty": "Empty folder"
+  },
+  "viewer": {
+    "modeLabel": "Document mode",
+    "preview": "Preview",
+    "edit": "Edit",
+    "editUnavailable": "Repository documents are changed in the repository, not here.",
+    "usedBy": "Used by {count, plural, one {# agent} other {# agents}}",
+    "usageError": "Usage unavailable",
+    "usageLoading": "Loading usage…",
+    "coverage": "Coverage",
+    "coverageValue": "Coverage {value}",
+    "coverageNone": "Coverage not available — no enabled agents",
+    "coverageNoneText": "—",
+    "delete": "Delete"
+  },
+  "footer": {
+    "summary": "Indexed: {count, plural, one {# file} other {# files}} · scanned {when}"
+  },
+  "sync": {
+    "confirmTitle": "Sync with GitHub?",
+    "confirmBody": "This fetches the latest changes of the repository from GitHub into its working copy, then re-reads the document list.",
+    "confirmLabel": "Sync",
+    "running": "Syncing the repository…",
+    "done": "Repository synced — document list refreshed.",
+    "failed": "Sync failed. The previous document list is still shown.",
+    "retry": "Retry sync"
+  },
+  "live": {
+    "refreshed": "Document list refreshed.",
+    "saved": "Document saved.",
+    "conflict": "The document changed elsewhere; the newer version is shown.",
+    "uploaded": "Upload finished.",
+    "deleted": "Deleted."
+  },
+  "editor": {
+    "label": "Markdown source of {name}",
+    "draftLabel": "Markdown source of the new document {name}",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "loading": "Loading document…",
+    "loadError": "Couldn’t load the document for editing.",
+    "newDraftHint": "New document — it is created in {folder} when you save.",
+    "saveError": "Couldn’t save the document.",
+    "dirty": "Unsaved changes"
+  },
+  "conflict": {
+    "title": "This document changed elsewhere",
+    "body": "Your save was rejected because a newer version is stored. The newer content is shown below.",
+    "newerLabel": "Newer content",
+    "useNewer": "Load the newer version",
+    "keepMine": "Keep my text and save over it"
+  },
+  "newFile": {
+    "title": "New file",
+    "name": "File name",
+    "namePlaceholder": "notes.md",
+    "folder": "Folder",
+    "folderHint": "Repo-relative folder, e.g. docs. Leave empty for the repository root.",
+    "create": "Create",
+    "errorName": "Enter a file name without slashes.",
+    "announce": "New document draft opened.",
+    "cancel": "Cancel"
+  },
+  "newFolder": {
+    "title": "New folder",
+    "path": "Folder path",
+    "pathPlaceholder": "docs/guides",
+    "create": "Create folder",
+    "errorPath": "Enter a folder path.",
+    "done": "Folder created.",
+    "failed": "Couldn’t create the folder.",
+    "cancel": "Cancel"
+  },
+  "upload": {
+    "title": "Upload files",
+    "folder": "Folder",
+    "files": "Markdown files",
+    "submit": "Upload",
+    "close": "Close",
+    "tooMany": "Select at most 50 files.",
+    "noFiles": "Select at least one file.",
+    "stored": "{count, plural, one {# file stored} other {# files stored}}.",
+    "rejectedTitle": "Not stored",
+    "rejectedItem": "{name} — {reason}",
+    "failed": "Upload failed.",
+    "readFailed": "Couldn’t read {name}."
+  },
+  "delete": {
+    "docTitle": "Delete local document?",
+    "folderTitle": "Delete empty folder?",
+    "docBody": "{path} will be removed from the local documents of this repository.",
+    "folderBody": "{path} will be removed.",
+    "usageLoading": "Checking which agents and skills use it…",
+    "usageError": "Couldn’t check which agents and skills use this document.",
+    "attachedIntro": "These attachments stay and will show as “Missing”:",
+    "agents": "Agents",
+    "skills": "Skills",
+    "noneAttached": "No agents or skills attach it.",
+    "confirm": "Delete",
+    "failed": "Couldn’t delete.",
+    "done": "Deleted."
+  },
+  "unsaved": {
+    "title": "Discard unsaved changes?",
+    "body": "You have unsaved edits. Discard them, or keep editing?",
+    "discard": "Discard",
+    "keep": "Keep editing"
+  }
+}

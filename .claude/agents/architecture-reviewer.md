@@ -3,8 +3,8 @@ name: architecture-reviewer
 description: Read-only architecture reviewer. Use proactively after code changes and before a pull request — in a fresh context, in parallel with plan-verifier. It checks the changed code against the architecture rules the repository itself documents in its guidance files and architecture skills — dependency direction, layer violations, module boundaries, ports and adapters, dependency injection and frontend structure. Every finding cites the importing file and line, the rule and its source, a verbatim quote, and the full import chain for transitive cases. It does not check plan conformance, security, style or test quality, and it never modifies files; an empty findings list is a valid result.
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Agent, Write, Edit, NotebookEdit, WebFetch, WebSearch
-model: opus
-effort: medium
+model: sonnet
+effort: high
 maxTurns: 80
 color: purple
 hooks:

@@ -28,7 +28,14 @@ Input: $ARGUMENTS
 
 ## Step 0 — Intake
 
-1. If the input is empty, ask what feature to specify and stop until the user answers.
+1. **Inbox.** When run from `/dev-flow`, it has already collected the inbox — use the files it
+   passes and skip this item. Otherwise collect `inbox/` exactly as the "Inbox" section of
+   `.claude/skills/dev-flow/SKILL.md` describes (roles, secrets, untrusted content) and ask one
+   question: **Use all N files (Recommended)** / **Ignore the inbox**. Task notes join the
+   feature description; designs go to item 4; documents and samples go to the agent as
+   reference materials.
+   If the input is empty, a task note from the inbox is the feature; with neither, ask what
+   feature to specify and stop until the user answers.
 2. **Existing spec.** If the input is a path to `specs/<slug>/spec.md` or names a `SPEC-NN`, read
    its header. `draft` → continue it with that slug. `approved` / `implemented` → it is frozen:
    ask whether to write a new spec that supersedes it (then pick a new slug) or stop.
@@ -52,6 +59,7 @@ Launch `spec-creator` with:
 - the feature description verbatim and any constraints the user gave;
 - the slug and the absolute target folder `<project root>/specs/<slug>/`;
 - the design sources (absolute paths), or "none — text only";
+- reference materials from the inbox (absolute path and role: document, sample / log), if any;
 - the existing spec path when continuing a draft, or the spec to supersede;
 - "Reply in <user's language>."
 
@@ -115,3 +123,8 @@ questions left, follow-up specs from a split, architecture-impact proposals, and
 
 When the spec is approved, say that `/dev-flow specs/<slug>/spec.md` plans and implements it.
 `/dev-flow` is started by the user; you do not start it.
+
+If the inbox was used and this run was not started from `/dev-flow`, end with the archive
+question from the "Inbox" section of `.claude/skills/dev-flow/SKILL.md` — unless the user will
+continue with `/dev-flow` for the same feature: then offer **Keep for /dev-flow (Recommended)**
+first, so the planner still sees the documents and samples.

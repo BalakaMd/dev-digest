@@ -57,6 +57,9 @@ rubric, the bar, and the dedup procedure.
   vitest in tests). `reviewer-core` never emits JS — its `build` is a type-check.
 - `@devdigest/shared` is canonical in `server/src/vendor/shared`;
   `client/src/vendor/shared` is a copy. Changing a contract means syncing both.
+- `inbox/` at the root takes the materials for the current task (notes, designs, PDFs,
+  samples, logs). `/dev-flow` and `/spec` route them to the agents and offer to archive them
+  to `inbox/.archive/` afterwards. Git-ignored except its README.
 - Server modules are registered **statically** in `server/src/modules/index.ts`
   (not autoload — dynamic `import()` of `.ts` is not portable across tsx/vitest).
 

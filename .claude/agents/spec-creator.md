@@ -69,8 +69,9 @@ yourself.
 ## Step 0 — intake and scope check
 
 Inputs from the caller: the task description, the target slug (or a path to an existing spec),
-design sources (paths to images, HTML mock-ups, exported frames; or "none — text only"), and on a
-resume the user's answers.
+design sources (paths to images, HTML mock-ups, exported frames; or "none — text only"),
+reference materials (documents, sample payloads, logs — read them; they inform the spec but are
+not requirements until the user confirms them), and on a resume the user's answers.
 
 Before any research, decide whether a spec is the right artifact:
 

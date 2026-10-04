@@ -20,7 +20,11 @@ export function ContextDocsSummary({ context }: { context: TraceContext }) {
           <span className="mono" style={s.spec}>
             {d.path}
           </span>
-          {d.source === "local" && <span style={s.localMark}>{t("trace.config.local")}</span>}
+          {d.source === "local" && (
+            <span style={s.localMark}>
+              {d.overrides_repo ? t("trace.config.localOverride") : t("trace.config.local")}
+            </span>
+          )}
           <span className="mono" style={s.promptMeta}>
             {t("trace.context.docTokens", { count: d.tokens })}
           </span>

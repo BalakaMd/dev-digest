@@ -79,7 +79,7 @@ flowchart TB
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
     blast["blast<br/>GET /pulls/:id/blast"]
     history["history<br/>GET /pulls/:id/history"]
-    contextDocs["context-docs<br/>/repos/:id/context-docs (list · content · usage · sync · local)"]
+    contextDocs["context-docs<br/>/repos/:id/context-docs (list · content · usage · sync · local · local/keep-copy)"]
   end
   subgraph Platform["Platform"]
     settings["settings<br/>/settings · /providers"]

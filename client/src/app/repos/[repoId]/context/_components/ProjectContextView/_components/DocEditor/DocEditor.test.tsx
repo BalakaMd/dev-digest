@@ -218,6 +218,41 @@ describe("DocEditor — a save based on an older version (AC-85)", () => {
   });
 });
 
+describe("DocEditor — a copy draft of a repository document (AC-5, AC-23)", () => {
+  it("is prefilled with the repository text, sends nothing until Save, then creates the override with the origin version", async () => {
+    const created = { path: "docs/guide.md", source: "local", content: "# Guide (mine)", version: "v1", size_bytes: 14 };
+    const net = installFetch({ [`PUT ${BASE}/local`]: created });
+    renderEditor({
+      existing: false,
+      folder: "docs",
+      name: "guide.md",
+      initialText: "# Guide",
+      override: { originVersion: "repo-v7" },
+      notice: <p>copy notice</p>,
+    });
+    const editor = screen.getByRole("textbox", { name: "Markdown source of the local copy of guide.md" }) as HTMLTextAreaElement;
+    expect(editor.value).toBe("# Guide");
+    expect(screen.getByText("copy notice")).toBeInTheDocument();
+    expect(net.requests).toHaveLength(0);
+
+    // Only a change from the repository text counts as unsaved.
+    fireEvent.change(editor, { target: { value: "# Guide (mine)" } });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(created));
+    const puts = net.requests.filter((r) => r.method === "PUT");
+    expect(puts).toHaveLength(1);
+    expect(puts[0]!.body).toEqual({
+      folder: "docs",
+      name: "guide.md",
+      content: "# Guide (mine)",
+      override_repo: true,
+      origin_version: "repo-v7",
+    });
+  });
+});
+
 describe("DocEditor — a draft of a new file (AC-68)", () => {
   it("starts empty and makes no request until the first Save", async () => {
     const net = installFetch({});

@@ -9,7 +9,8 @@ import type { ContextAttachments } from '../src/modules/agents/repository.js';
 import { FsContextDocStore } from '../src/adapters/context-docs/index.js';
 import { DEFAULT_CONTEXT_GLOBS } from '../src/adapters/context-docs/glob.js';
 import { AppError } from '../src/platform/errors.js';
-import { MockGitClient } from '../src/adapters/mocks.js';
+import { MockGitClient, MockContextDocStore } from '../src/adapters/mocks.js';
+import { createHash } from 'node:crypto';
 
 // `readFile` passes through to the real one; a test makes it fail for one stored
 // file to simulate an I/O error (portable: root ignores chmod).
@@ -507,6 +508,75 @@ describe('ContextDocsService', () => {
       expect(usage.attached_by_agents.map((a) => a.id)).toEqual(['a1']);
       expect((await service.list(WS, REPO_ID)).docs).toEqual([]);
     });
+  });
+
+  /**
+   * SPEC-02 (T-7): the service maps the override intent and "Keep my copy" onto
+   * the store port. Run against `MockContextDocStore`, which mirrors the port.
+   */
+  describe('local override of a repository document (SPEC-02 AC-2, AC-7, AC-22)', () => {
+    const sha = (text: string) => createHash('sha256').update(text).digest('hex');
+
+    function makeMockService() {
+      const store = new MockContextDocStore();
+      store.setRepoDoc(REPO_ID, 'docs/guide.md', 'repo v1');
+      const repos: RepoLookup = {
+        getRepo: async (workspaceId, id) => (workspaceId === WS && id === repoRow.id ? repoRow : undefined),
+      };
+      const agents: AttachmentSource = { contextAttachments: async () => attachments };
+      return { service: new ContextDocsService({ store, git, agents, repos }), store };
+    }
+
+    const marksOf = async (service: ContextDocsService) =>
+      Object.fromEntries(
+        (await service.list(WS, REPO_ID)).docs.map((d) => [
+          `${d.source}:${d.path}`,
+          { overrides_repo: d.overrides_repo, overridden: d.overridden, repo_changed: d.repo_changed },
+        ]),
+      );
+
+    it('creates a copy only with the explicit intent and marks both entries; without it the create stays a 422 naming the path', async () => {
+      const { service } = makeMockService();
+      const plain = { folder: 'docs', name: 'guide.md', content: 'my copy' };
+
+      const refused = await failure(() => service.writeLocal(WS, REPO_ID, plain));
+      expect(refused.statusCode).toBe(422);
+      expect(refused.message).toContain('docs/guide.md');
+
+      const saved = await service.writeLocal(WS, REPO_ID, {
+        ...plain,
+        override_repo: true,
+        origin_version: sha('repo v1'),
+      });
+      expect(saved).toMatchObject({ path: 'docs/guide.md', source: 'local', content: 'my copy' });
+      expect(await marksOf(service)).toEqual({
+        'repo:docs/guide.md': { overrides_repo: false, overridden: true, repo_changed: false },
+        'local:docs/guide.md': { overrides_repo: true, overridden: false, repo_changed: false },
+      });
+    });
+
+    it('"Keep my copy" records the current repository text as origin and leaves the copy text unchanged', async () => {
+      const { service, store } = makeMockService();
+      const saved = await service.writeLocal(WS, REPO_ID, {
+        folder: 'docs',
+        name: 'guide.md',
+        content: 'my copy',
+        override_repo: true,
+        origin_version: sha('repo v1'),
+      });
+      store.setRepoDoc(REPO_ID, 'docs/guide.md', 'repo v2');
+      expect((await marksOf(service))['local:docs/guide.md']!.repo_changed).toBe(true);
+
+      await service.keepCopy(WS, REPO_ID, 'docs/guide.md');
+
+      expect((await marksOf(service))['local:docs/guide.md']!.repo_changed).toBe(false);
+      expect(await service.read(WS, REPO_ID, 'docs/guide.md')).toMatchObject({
+        source: 'local',
+        content: 'my copy',
+        version: saved.version,
+      });
+    });
+
   });
 
   describe('local count (AC-87)', () => {

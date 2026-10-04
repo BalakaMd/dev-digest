@@ -79,7 +79,9 @@ describe('FsContextDocStore — reader', () => {
         folder: 'docs/arch',
         size_bytes: 100,
         too_large: false,
-        shadowed: false,
+        overrides_repo: false,
+        overridden: false,
+        repo_changed: false,
       });
       expect(Number.isInteger(doc!.tokens)).toBe(true);
       // counted by the injected tokenizer, over at least the document text

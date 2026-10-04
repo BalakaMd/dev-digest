@@ -22,6 +22,8 @@
     "missing": "Missing",
     "missingTitle": "This document no longer exists in the repository",
     "local": "Local",
+    "overridesRepo": "Overrides repo",
+    "overridesRepoTitle": "This local copy replaces the repository document at the same path; runs use the copy.",
     "via": "via {skill}",
     "preview": "Preview",
     "previewLabel": "Preview {path}",

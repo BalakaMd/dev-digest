@@ -475,8 +475,11 @@ export class ReviewRunExecutor {
         paths,
         read: async (path) => {
           try {
-            const doc = await this.container.contextDocs.read(scope, path);
-            return { ok: true, doc: { path, source: doc.source, content: doc.content } };
+            const doc = await this.container.contextDocs.readEffective(scope, path);
+            return {
+              ok: true,
+              doc: { path, source: doc.source, content: doc.content, overridesRepo: doc.overrides_repo },
+            };
           } catch (err) {
             return { ok: false, reason: readFailureReason(err) };
           }

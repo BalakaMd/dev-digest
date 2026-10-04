@@ -38,7 +38,8 @@
       "specsRead": "Specs read",
       "items": "{count, plural, one {# item} other {# items}}",
       "none": "none",
-      "local": "Local"
+      "local": "Local",
+      "localOverride": "Local · overrides repository"
     },
     "stat": {
       "duration": "DURATION",

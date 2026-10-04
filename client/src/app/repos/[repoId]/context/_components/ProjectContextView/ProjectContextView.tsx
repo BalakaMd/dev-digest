@@ -20,18 +20,27 @@ import { useActiveRepo, useRepoNotFound } from "@/lib/repo-context";
 import { DocTree } from "./_components/DocTree";
 import { DocViewer } from "./_components/DocViewer";
 import { DeleteDocDialog, type DeleteTarget } from "./_components/DeleteDocDialog/DeleteDocDialog";
+import { CopyDraftNotice } from "./_components/CopyDraftNotice";
 import { DocEditor } from "./_components/DocEditor";
+import { RevertCopyDialog } from "./_components/RevertCopyDialog";
 import { NewFileDialog, type NewFileTarget } from "./_components/NewFileDialog/NewFileDialog";
 import { NewFolderDialog } from "./_components/NewFolderDialog";
 import { ScanFooter } from "./_components/ScanFooter";
 import { UnsavedChangesDialog } from "./_components/UnsavedChangesDialog";
 import { UploadDialog } from "./_components/UploadDialog";
 import { DOC_PARAM, SOURCE_PARAM } from "./constants";
-import { groupDocs, resolveSelection } from "./doc-groups";
+import { fileName, groupDocs, resolveSelection } from "./doc-groups";
 import { s } from "./styles";
 import { useUnsavedGuard } from "./useUnsavedGuard";
 
 type Dialog = "newFile" | "newFolder" | "upload" | null;
+
+/** An unsaved document: new (no `copy`) or a copy of a repository document (`copy`). */
+interface Draft extends NewFileTarget {
+  copy?: { initialText: string; originVersion: string };
+}
+
+const joinPath = (folder: string, name: string) => (folder ? `${folder}/${name}` : name);
 
 export function ProjectContextView({ repoId }: { repoId: string }) {
   const t = useTranslations("projectContext");
@@ -46,8 +55,9 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
   const [dirty, setDirty] = React.useState(false);
   const [dialog, setDialog] = React.useState<Dialog>(null);
   const [deleting, setDeleting] = React.useState<DeleteTarget | null>(null);
-  // Unsaved new document (AC-68): exists only on this page until its first Save.
-  const [draft, setDraft] = React.useState<NewFileTarget | null>(null);
+  // Unsaved new document (AC-68) or copy draft (AC-5): exists only on this page until its first Save.
+  const [draft, setDraft] = React.useState<Draft | null>(null);
+  const [reverting, setReverting] = React.useState<string | null>(null);
   const { guard, prompting, discard, keepEditing } = useUnsavedGuard(dirty);
 
   const repoName = activeRepo?.full_name ?? t("page.repoFallback");
@@ -65,7 +75,7 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
     (doc: ContextDocEntry) => {
       const sp = new URLSearchParams(searchParams.toString());
       sp.set(DOC_PARAM, doc.path);
-      if (doc.source === "local" && doc.shadowed) sp.set(SOURCE_PARAM, "local");
+      if (doc.overridden) sp.set(SOURCE_PARAM, "repo");
       else sp.delete(SOURCE_PARAM);
       return `/repos/${repoId}/context?${sp.toString()}`;
     },
@@ -90,9 +100,17 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
     guard(() => setDraft(target));
   };
 
+  const openCopyDraft = (doc: ContextDocEntry, copy: NonNullable<Draft["copy"]>) =>
+    guard(() => setDraft({ folder: doc.folder, name: fileName(doc.path), copy }));
+
+  const openCopy = (doc: ContextDocEntry) => {
+    const copy = docs.find((d) => d.path === doc.path && d.source === "local");
+    if (copy) select(copy);
+  };
+
   const draftSaved = (saved: ContextDocContent) => {
+    setAnnouncement(draft?.copy ? t("live.copyCreated", { path: saved.path }) : t("live.saved"));
     setDraft(null);
-    setAnnouncement(t("live.saved"));
     const sp = new URLSearchParams(searchParams.toString());
     sp.set(DOC_PARAM, saved.path);
     sp.delete(SOURCE_PARAM);
@@ -193,6 +211,10 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
         guard={guard}
         onDirtyChange={setDirty}
         onDelete={(d) => setDeleting({ kind: "doc", path: d.path })}
+        onEditCopy={openCopyDraft}
+        onRevert={(d) => setReverting(d.path)}
+        onOpenCopy={openCopy}
+        onKeptCopy={(d) => setAnnouncement(t("live.keptCopy", { path: d.path }))}
         onSaved={() => setAnnouncement(t("live.saved"))}
         onConflict={() => setAnnouncement(t("live.conflict"))}
       />
@@ -204,11 +226,18 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
   if (draft && data?.state === "ok") {
     right = (
       <DocEditor
-        key={`draft:${draft.folder}/${draft.name}`}
+        key={`${draft.copy ? "copy" : "draft"}:${joinPath(draft.folder, draft.name)}`}
         repoId={repoId}
         folder={draft.folder}
         name={draft.name}
         existing={false}
+        {...(draft.copy
+          ? {
+              initialText: draft.copy.initialText,
+              override: { originVersion: draft.copy.originVersion },
+              notice: <CopyDraftNotice repoId={repoId} path={joinPath(draft.folder, draft.name)} />,
+            }
+          : {})}
         onSaved={draftSaved}
         onCancel={() => guard(() => setDraft(null))}
         onDirtyChange={setDirty}
@@ -262,6 +291,17 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
             setAnnouncement(t("live.deleted"));
           }}
           onClose={() => setDeleting(null)}
+        />
+      )}
+      {reverting && (
+        <RevertCopyDialog
+          repoId={repoId}
+          path={reverting}
+          onReverted={() => {
+            setAnnouncement(t("live.reverted", { path: reverting }));
+            setReverting(null);
+          }}
+          onClose={() => setReverting(null)}
         />
       )}
       {prompting && <UnsavedChangesDialog onDiscard={discard} onKeep={keepEditing} />}

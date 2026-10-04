@@ -79,13 +79,41 @@ describe("buildRows — order (AC-11)", () => {
     });
   });
 
-  it("does not list a shadowed local document (the repository copy is the effective one)", () => {
+  it("lists an overridden path once: the local copy is the row, the repository document is dropped", () => {
     const rows = buildRows({
-      docs: [entry("docs/a.md"), entry("docs/a.md", { source: "local", shadowed: true })],
+      docs: [
+        entry("docs/a.md", { overridden: true, tokens: 10 }),
+        entry("docs/a.md", { source: "local", overrides_repo: true, tokens: 42 }),
+      ],
       attached: [],
     });
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.local).toBe(false);
+    expect(rows[0]).toMatchObject({ local: true, overridesRepo: true, tokens: 42 });
+  });
+
+  it("an attached overridden path is one attached, non-missing row whose tokens are the copy's (AC-16)", () => {
+    const rows = buildRows({
+      docs: [
+        entry("docs/a.md", { overridden: true, tokens: 10 }),
+        entry("docs/a.md", { source: "local", overrides_repo: true, tokens: 42 }),
+      ],
+      attached: ["docs/a.md"],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ attached: true, missing: false, tokens: 42 });
+    expect(injectedRows(rows).map((r) => r.tokens)).toEqual([42]);
+  });
+
+  it("carries the copy's too-large state, not the repository document's (AC-16)", () => {
+    const rows = buildRows({
+      docs: [
+        entry("docs/a.md", { overridden: true, tokens: 10 }),
+        entry("docs/a.md", { source: "local", overrides_repo: true, too_large: true, tokens: null }),
+      ],
+      attached: [],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ overridesRepo: true, tooLarge: true, tokens: null });
   });
 
   it("flags too-large documents", () => {

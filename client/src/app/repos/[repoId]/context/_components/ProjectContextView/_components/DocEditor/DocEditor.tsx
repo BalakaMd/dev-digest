@@ -1,7 +1,8 @@
 /* DocEditor — markdown source editor for a local document (AC-66, AC-68,
    AC-85). `existing` loads the stored content and saves with its version as
    `base_version`; a draft (new file) starts empty and creates on first Save
-   without one. Reports dirtiness upward for the unsaved-changes guard. */
+   without one. A copy draft (`override`) is prefilled with the repository text
+   (`initialText`) and creates a local override on first Save. Reports dirtiness upward for the unsaved-changes guard. */
 "use client";
 
 import React from "react";
@@ -24,6 +25,12 @@ export interface DocEditorProps {
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
   onConflict?: () => void;
+  /** Copy draft: prefill text (the repository document's current text). */
+  initialText?: string;
+  /** Copy draft: the version of the repository text that was loaded; the create carries the override intent. */
+  override?: { originVersion: string };
+  /** Shown above the textarea (e.g. the attaching agents/skills notice). */
+  notice?: React.ReactNode;
 }
 
 interface Newer {
@@ -46,7 +53,7 @@ export function DocEditor(props: DocEditorProps) {
     if (!stored.data) return <ErrorState body={t("loadError")} onRetry={() => void stored.refetch()} />;
     return <EditorForm {...props} initial={stored.data.content} initialVersion={stored.data.version} />;
   }
-  return <EditorForm {...props} initial="" initialVersion={undefined} />;
+  return <EditorForm {...props} initial={props.initialText ?? ""} initialVersion={undefined} />;
 }
 
 function joinPath(folder: string, name: string) {
@@ -64,6 +71,8 @@ function EditorForm({
   onCancel,
   onDirtyChange,
   onConflict,
+  override,
+  notice,
 }: DocEditorProps & { initial: string; initialVersion: string | undefined }) {
   const t = useTranslations("projectContext.editor");
   const save = useSaveLocalDoc(repoId);
@@ -85,7 +94,13 @@ function EditorForm({
   const submit = () => {
     setError(null);
     save.mutate(
-      { folder, name, content: text, ...(existing && baseVersion ? { base_version: baseVersion } : {}) },
+      {
+        folder,
+        name,
+        content: text,
+        ...(existing && baseVersion ? { base_version: baseVersion } : {}),
+        ...(!existing && override ? { override_repo: true as const, origin_version: override.originVersion } : {}),
+      },
       {
         onSuccess: (saved) => {
           onDirtyChange(false);
@@ -109,10 +124,11 @@ function EditorForm({
     setNewer(null);
   };
 
-  const label = existing ? t("label", { name }) : t("draftLabel", { name });
+  const label = existing ? t("label", { name }) : t(override ? "copyDraftLabel" : "draftLabel", { name });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "16px 22px", flex: 1, minHeight: 0 }}>
-      {!existing && <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>{t("newDraftHint", { folder: folder || "/" })}</p>}
+      {notice}
+      {!existing && !override && <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>{t("newDraftHint", { folder: folder || "/" })}</p>}
       {newer && <ConflictNotice content={newer.content} onUseNewer={() => take(newer.content)} onKeepMine={() => take(null)} />}
       <textarea
         aria-label={label}

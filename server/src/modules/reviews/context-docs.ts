@@ -13,6 +13,8 @@ export interface ReadContextDoc {
   path: string;
   source: 'repo' | 'local';
   content: string;
+  /** A local copy that overrides a repository document at the same path (AC-17). */
+  overridesRepo?: boolean;
 }
 
 export type ReadResult =
@@ -25,6 +27,7 @@ export interface InjectedContextDoc {
   content: string;
   /** Tokens of the wrapped untrusted block of this document (Q-5). */
   tokens: number;
+  overridesRepo?: boolean;
 }
 
 export interface ResolvedContext {
@@ -81,7 +84,13 @@ export async function resolveContextDocs(input: {
       return;
     }
     total += tokens;
-    injected.push({ path, source: r.doc.source, content: r.doc.content, tokens });
+    injected.push({
+      path,
+      source: r.doc.source,
+      content: r.doc.content,
+      tokens,
+      ...(r.doc.overridesRepo ? { overridesRepo: true } : {}),
+    });
   });
   return { injected, skipped, blockTokens: total };
 }
@@ -115,7 +124,12 @@ export function filterCitations<F extends Finding>(
 export function toTraceContext(ctx: ResolvedContext): RunTrace['context'] {
   if (ctx.injected.length === 0 && ctx.skipped.length === 0) return null;
   return {
-    docs: ctx.injected.map(({ path, source, tokens }) => ({ path, source, tokens })),
+    docs: ctx.injected.map(({ path, source, tokens, overridesRepo }) => ({
+      path,
+      source,
+      tokens,
+      ...(overridesRepo ? { overrides_repo: true } : {}),
+    })),
     tokens: ctx.blockTokens,
     skipped: ctx.skipped,
   };

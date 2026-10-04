@@ -99,14 +99,30 @@ export function DocTree({
                   <Icon.FileText size={14} />
                   <span style={s.name}>{fileName(d.path)}</span>
                   {d.source === "local" && (
-                    <Badge style={s.badge} color="var(--accent)">
-                      {t("tree.local")}
-                    </Badge>
+                    <span title={t("tree.localTitle")}>
+                      <Badge style={s.badge} color="var(--accent)">
+                        {t("tree.local")}
+                      </Badge>
+                    </span>
                   )}
-                  {d.shadowed && (
-                    <span title={t("tree.shadowedTitle")}>
+                  {d.overrides_repo && (
+                    <span title={t("tree.overridesRepoTitle")}>
+                      <Badge style={s.badge} color="var(--accent)">
+                        {t("tree.overridesRepo")}
+                      </Badge>
+                    </span>
+                  )}
+                  {d.repo_changed && (
+                    <span title={t("tree.repoChangedTitle")}>
                       <Badge style={s.badge} color="var(--warn)">
-                        {t("tree.shadowed")}
+                        {t("tree.repoChanged")}
+                      </Badge>
+                    </span>
+                  )}
+                  {d.overridden && (
+                    <span title={t("tree.overriddenTitle")}>
+                      <Badge style={s.badge} color="var(--text-muted)">
+                        {t("tree.overridden")}
                       </Badge>
                     </span>
                   )}

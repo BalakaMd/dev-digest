@@ -48,7 +48,11 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
                     <span className="mono" style={s.spec}>
                       {d.path}
                     </span>
-                    {d.source === "local" && <span style={s.localMark}>{t("trace.config.local")}</span>}
+                    {d.source === "local" && (
+                      <span style={s.localMark}>
+                        {d.overrides_repo ? t("trace.config.localOverride") : t("trace.config.local")}
+                      </span>
+                    )}
                   </span>
                 ))
               ) : trace.specs_read.length === 0 ? (

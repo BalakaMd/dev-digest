@@ -26,8 +26,13 @@
   "tree": {
     "rootFolder": "Repository root",
     "local": "Local",
-    "shadowed": "Shadowed",
-    "shadowedTitle": "A repository document with the same path takes precedence over this local one",
+    "localTitle": "Stored in DevDigest only, not in the repository",
+    "overridesRepo": "Overrides repo",
+    "overridesRepoTitle": "This local copy replaces the repository document with the same path",
+    "overridden": "Overridden",
+    "overriddenTitle": "A local copy overrides this repository document; it is not used",
+    "repoChanged": "Repository changed",
+    "repoChangedTitle": "The repository text changed since this copy was made; the copy is still used",
     "tooLarge": "Too large",
     "localFolderEmpty": "Empty folder"
   },
@@ -35,7 +40,6 @@
     "modeLabel": "Document mode",
     "preview": "Preview",
     "edit": "Edit",
-    "editUnavailable": "Repository documents are changed in the repository, not here.",
     "usedBy": "Used by {count, plural, one {# agent} other {# agents}}",
     "usageError": "Usage unavailable",
     "usageLoading": "Loading usage…",
@@ -43,7 +47,43 @@
     "coverageValue": "Coverage {value}",
     "coverageNone": "Coverage not available — no enabled agents",
     "coverageNoneText": "—",
-    "delete": "Delete"
+    "delete": "Delete",
+    "editCopy": "Edit a copy",
+    "editCopyLabel": "Edit a copy of {path}",
+    "editCopyHint": "The copy is stored in DevDigest only; the repository is not changed.",
+    "editCopyTooLarge": "Too large",
+    "editCopyNotUtf8": "Not valid UTF-8",
+    "editCopyFailed": "Couldn’t load the repository text for {path}.",
+    "overriddenHint": "A local copy overrides this document.",
+    "openLocalCopy": "Open local copy",
+    "openLocalCopyLabel": "Open local copy of {path}",
+    "notUsedOverridden": "Not used — overridden by a local copy",
+    "keepCopy": "Keep my copy",
+    "keepCopyLabel": "Keep my copy of {path}",
+    "keepCopyFailed": "Couldn’t keep the copy.",
+    "revert": "Revert to repository version",
+    "revertLabel": "Revert {path} to repository version",
+    "repoChanged": "Repository changed"
+  },
+  "copyNotice": {
+    "loading": "Checking which agents and skills use {path}…",
+    "usageError": "Couldn’t check which agents and skills use {path}.",
+    "attached": "These agents and skills attach {path} and will use your copy from their next run on:",
+    "noneAttached": "No agent or skill attaches {path}."
+  },
+  "revert": {
+    "title": "Revert to repository version?",
+    "body": "The edits of your copy of {path} are discarded.",
+    "usageLoading": "Checking which agents and skills use it…",
+    "usageError": "Couldn’t check which agents and skills use this document.",
+    "attachedIntro": "These will use the repository document again:",
+    "noneAttached": "No agents or skills attach it.",
+    "confirm": "Revert",
+    "failed": "Couldn’t revert."
+  },
+  "attachedBy": {
+    "agents": "Agents",
+    "skills": "Skills"
   },
   "footer": {
     "summary": "Indexed: {count, plural, one {# file} other {# files}} · scanned {when}"
@@ -62,7 +102,10 @@
     "saved": "Document saved.",
     "conflict": "The document changed elsewhere; the newer version is shown.",
     "uploaded": "Upload finished.",
-    "deleted": "Deleted."
+    "deleted": "Deleted.",
+    "copyCreated": "Local copy of {path} created.",
+    "keptCopy": "Kept your copy of {path}.",
+    "reverted": "Reverted {path} to the repository version."
   },
   "editor": {
     "label": "Markdown source of {name}",
@@ -74,7 +117,8 @@
     "loadError": "Couldn’t load the document for editing.",
     "newDraftHint": "New document — it is created in {folder} when you save.",
     "saveError": "Couldn’t save the document.",
-    "dirty": "Unsaved changes"
+    "dirty": "Unsaved changes",
+    "copyDraftLabel": "Markdown source of the local copy of {name}"
   },
   "conflict": {
     "title": "This document changed elsewhere",
@@ -126,8 +170,6 @@
     "usageLoading": "Checking which agents and skills use it…",
     "usageError": "Couldn’t check which agents and skills use this document.",
     "attachedIntro": "These attachments stay and will show as “Missing”:",
-    "agents": "Agents",
-    "skills": "Skills",
     "noneAttached": "No agents or skills attach it.",
     "confirm": "Delete",
     "failed": "Couldn’t delete.",

@@ -100,12 +100,29 @@ export interface LocalDocWrite {
   content: string;
   /** Omit to create; give the version being edited to update. */
   baseVersion?: string;
+  /**
+   * Explicit intent to override the repository document at this path (create
+   * only). `originVersion` is the sha256 of the repository text the copy was
+   * made from. Without it, a create onto a repository path is a `conflict`.
+   */
+  override?: { originVersion: string };
 }
+
+/** The effective document plus whether it overrides a repository document. */
+export type EffectiveContextDoc = ContextDocContent & { overrides_repo: boolean };
 
 export interface ContextDocStore {
   list(scope: ContextDocScope): Promise<ContextDocListResult>;
-  /** `source` omitted = the effective document (repo first, else local). */
+  /** `source` omitted = the effective document (local first, else repo). */
   read(scope: ContextDocScope, path: string, source?: ContextDocSource): Promise<ContextDocContent>;
+  /** The effective document (local first, repo only on local `not_found`) with the override indicator. */
+  readEffective(scope: ContextDocScope, path: string): Promise<EffectiveContextDoc>;
+  /**
+   * "Keep my copy": record the current repository text's version as the copy's
+   * origin; the copy's text is untouched. `not_found` without a copy or without
+   * a repository document at the path, `not_cloned` without a working copy.
+   */
+  keepOrigin(scope: ContextDocScope, path: string): Promise<void>;
   writeLocal(scope: ContextDocScope, input: LocalDocWrite): Promise<ContextDocContent>;
   createLocalFolder(scope: ContextDocScope, path: string): Promise<string>;
   deleteLocal(scope: ContextDocScope, path: string): Promise<void>;

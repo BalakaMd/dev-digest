@@ -181,7 +181,8 @@ d('context documents API', () => {
       type: 'specs',
       folder: '.devdigest/specs',
       too_large: false,
-      shadowed: false,
+      overrides_repo: false,
+      overridden: false,
     });
     expect(body.docs[0].tokens).toBeGreaterThan(0);
     expect(body.limits).toEqual({ max_doc_bytes: 65_536, max_attachments: 20, token_budget: 8_000 });
@@ -293,7 +294,7 @@ d('context documents API', () => {
     expect(readFileSync(join(fx.localRoot, 'docs', 'mine.md'), 'utf8')).toBe('v2');
     expect(tree(fx.cloneRoot)).toEqual(before);
     const entry = (await list(fx.id)).docs.find((x: { path: string }) => x.path === 'docs/mine.md');
-    expect(entry).toMatchObject({ source: 'local', shadowed: false });
+    expect(entry).toMatchObject({ source: 'local', overrides_repo: false, overridden: false });
     expectNoAbsolutePath();
   });
 
@@ -348,18 +349,25 @@ d('context documents API', () => {
     expect(readFileSync(join(fx.localRoot, 'docs', 'mine.md'), 'utf8')).toBe('v2');
   });
 
-  it('a local document with the same path as a repository document is listed as shadowed (AC-65)', async () => {
+  it('a local document with the same path as a repository document overrides it and is the effective document (SPEC-02 AC-1, AC-2)', async () => {
     const fx = await makeRepo();
     fx.put('docs/x.md', 'REPO');
     mkdirSync(join(fx.localRoot, 'docs'), { recursive: true });
     writeFileSync(join(fx.localRoot, 'docs', 'x.md'), 'LOCAL');
 
     const body = await list(fx.id);
-    expect(body.docs.map((x: { path: string; source: string; shadowed: boolean }) => [x.source, x.shadowed])).toEqual([
-      ['repo', false],
-      ['local', true],
+    expect(
+      body.docs.map((x: { source: string; overrides_repo: boolean; overridden: boolean }) => [
+        x.source,
+        x.overrides_repo,
+        x.overridden,
+      ]),
+    ).toEqual([
+      ['repo', false, true],
+      ['local', true, false],
     ]);
-    expect((await content(fx.id, 'docs/x.md')).json()).toMatchObject({ source: 'repo', content: 'REPO' });
+    expect((await content(fx.id, 'docs/x.md')).json()).toMatchObject({ source: 'local', content: 'LOCAL' });
+    expect((await content(fx.id, 'docs/x.md', 'repo')).json()).toMatchObject({ source: 'repo', content: 'REPO' });
     expect((await content(fx.id, 'docs/x.md', 'local')).json()).toMatchObject({ source: 'local', content: 'LOCAL' });
   });
 

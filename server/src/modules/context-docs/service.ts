@@ -125,8 +125,15 @@ export class ContextDocsService {
         name: body.name,
         content: body.content,
         baseVersion: body.base_version,
+        override: body.override_repo ? { originVersion: body.origin_version! } : undefined,
       }),
     );
+  }
+
+  /** "Keep my copy": the store records the current repository text's version as the copy's origin. */
+  async keepCopy(workspaceId: string, repoId: string, path: string): Promise<void> {
+    const { scope } = await this.scope(workspaceId, repoId);
+    await mapStoreErrors(() => this.deps.store.keepOrigin(scope, path));
   }
 
   /** Each file is validated and stored separately; failures are reported by name (AC-70). */

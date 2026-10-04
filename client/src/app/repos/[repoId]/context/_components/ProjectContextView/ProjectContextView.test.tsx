@@ -53,9 +53,9 @@ const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString(
 const DOCS = [
   entry("docs/guide.md"),
   entry("docs/notes.md", { source: "local" }),
-  entry("specs/api.md"),
   entry("specs/big.md", { too_large: true, tokens: null, size_bytes: 70_000 }),
-  entry("specs/api.md", { source: "local", shadowed: true }),
+  entry("specs/api.md", { overridden: true }),
+  entry("specs/api.md", { source: "local", overrides_repo: true }),
 ];
 
 let list: ContextDocList;
@@ -117,11 +117,11 @@ describe("Project Context page — document list (AC-52, AC-61, AC-65, AC-6)", (
     for (const name of ["guide.md", "notes.md", "big.md"]) {
       expect(within(panel).getAllByText(name)).toHaveLength(1);
     }
-    // api.md appears twice: the repository document and its shadowed local copy.
+    // api.md appears twice: the overridden repository document and its local copy.
     expect(within(panel).getAllByText("api.md")).toHaveLength(2);
   });
 
-  it('badges local documents "Local", shadowed local documents "Shadowed" and oversize ones "Too large"', async () => {
+  it('badges local documents "Local", override copies "Overrides repo", overridden documents "Overridden" and oversize ones "Too large"', async () => {
     setup();
     renderView();
     const docsNav = await screen.findByRole("navigation", { name: "Project documents" });
@@ -130,11 +130,13 @@ describe("Project Context page — document list (AC-52, AC-61, AC-65, AC-6)", (
     expect(within(btn("docs/notes.md")).getByText("Local")).toBeInTheDocument();
     expect(within(btn("docs/guide.md")).queryByText("Local")).not.toBeInTheDocument();
     expect(within(btn("specs/big.md")).getByText("Too large")).toBeInTheDocument();
-    // specs/api.md: repository copy first, then the shadowed local one.
-    expect(within(btn("specs/api.md", 0)).queryByText("Shadowed")).not.toBeInTheDocument();
-    const shadowed = btn("specs/api.md", 1);
-    expect(within(shadowed).getByText("Local")).toBeInTheDocument();
-    expect(within(shadowed).getByText("Shadowed")).toBeInTheDocument();
+    // specs/api.md: the overridden repository row first, then its local copy.
+    const overridden = btn("specs/api.md", 0);
+    expect(within(overridden).getByText("Overridden")).toBeInTheDocument();
+    expect(within(overridden).queryByText("Local")).not.toBeInTheDocument();
+    const copy = btn("specs/api.md", 1);
+    expect(within(copy).getByText("Local")).toBeInTheDocument();
+    expect(within(copy).getByText("Overrides repo")).toBeInTheDocument();
   });
 
   it("shows a local folder in the panel even while it is empty (AC-69)", async () => {
@@ -187,20 +189,22 @@ describe("Project Context page — selection in the URL (AC-73)", () => {
     renderView();
     await screen.findByRole("heading", { name: "guide.md" });
     fireEvent.click(within(tree()).getAllByTitle("specs/api.md")[0]!);
-    expect(nav.replace).toHaveBeenCalledWith(`/repos/r1/context?doc=${encodeURIComponent("specs/api.md")}`);
+    // The overridden repository row carries an explicit source (AC-13).
+    expect(nav.replace).toHaveBeenCalledWith(`/repos/r1/context?doc=${encodeURIComponent("specs/api.md")}&source=repo`);
     expect(await screen.findByRole("heading", { name: "api.md" })).toBeInTheDocument();
   });
 });
 
 describe("Project Context page — selected document (AC-53, AC-59, AC-71, AC-72)", () => {
-  it("shows the file name, a Preview/Edit toggle on Preview, the rendered markdown, usage and coverage", async () => {
+  it('shows the file name, Preview mode with "Edit a copy", the rendered markdown, usage and coverage', async () => {
     setup({ url: "doc=docs%2Fguide.md" });
     renderView();
     expect(await screen.findByRole("heading", { name: "guide.md" })).toBeInTheDocument();
 
     const mode = screen.getByRole("group", { name: "Document mode" });
     expect(within(mode).getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(mode).getByRole("button", { name: "Edit" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(mode).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit a copy of docs/guide.md" })).toBeInTheDocument();
 
     expect(await screen.findByRole("heading", { name: "Guide" })).toBeInTheDocument();
     expect(screen.getByText("How we work.")).toBeInTheDocument();
@@ -420,17 +424,15 @@ describe("Project Context page — accessibility (AC-59, NFR-3)", () => {
   });
 });
 
-describe("Project Context page — repository documents are read-only (AC-67)", () => {
-  it("disables Edit for a repository document and explains why", async () => {
+describe("Project Context page — repository documents are read-only (AC-67, AC-4)", () => {
+  it('offers "Edit a copy" instead of the Edit toggle for a repository document', async () => {
     setup({ url: "doc=docs%2Fguide.md" });
     renderView();
     await screen.findByRole("heading", { name: "guide.md" });
-    const edit = screen.getByRole("button", { name: "Edit" });
-    expect(edit).toBeDisabled();
-    expect(screen.getByText("Repository documents are changed in the repository, not here.")).toBeInTheDocument();
-    expect(edit).toHaveAccessibleDescription("Repository documents are changed in the repository, not here.");
-    fireEvent.click(edit);
-    expect(screen.queryByRole("textbox", { name: /Markdown source of/ })).not.toBeInTheDocument();
+    const edit = screen.getByRole("button", { name: "Edit a copy of docs/guide.md" });
+    expect(edit).toBeEnabled();
+    expect(edit).toHaveAccessibleDescription("The copy is stored in DevDigest only; the repository is not changed.");
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 
@@ -548,5 +550,157 @@ describe("Project Context page — unsaved changes guard (AC-74)", () => {
     fireEvent.click(within(tree()).getAllByTitle("docs/guide.md")[0]!);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "guide.md" })).toBeInTheDocument();
+  });
+});
+
+describe("Project Context page — edit a copy of a repository document (AC-4, AC-5, AC-23, AC-25, AC-15)", () => {
+  it("opens the editor at once with the repository text and the attachment notice, creates the copy only on Save, then selects it and announces it", async () => {
+    usage = usageOf({ attached_by_agents: [{ id: "a1", name: "Security reviewer" }], used_by_agents: 1 });
+    extraRoutes = {
+      [`PUT ${BASE}/local`]: { path: "docs/guide.md", source: "local", content: "# Guide (mine)", version: "v1", size_bytes: 14 },
+    };
+    setup({ url: "doc=docs%2Fguide.md" });
+    renderView();
+    await screen.findByRole("heading", { name: "guide.md" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit a copy of docs/guide.md" }));
+    const editor = (await screen.findByRole("textbox", {
+      name: "Markdown source of the local copy of guide.md",
+    })) as HTMLTextAreaElement;
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(editor.value).toBe("# Guide\n\nHow we work.");
+    expect(await screen.findByText("Security reviewer")).toBeInTheDocument();
+    expect(net.requests.filter((r) => r.method !== "GET")).toHaveLength(0);
+
+    fireEvent.change(editor, { target: { value: "# Guide (mine)" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(net.count("PUT", `${BASE}/local`)).toBe(1));
+    expect(net.requests.find((r) => r.method === "PUT")!.body).toEqual({
+      folder: "docs",
+      name: "guide.md",
+      content: "# Guide (mine)",
+      override_repo: true,
+      origin_version: "v1",
+    });
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Local copy of docs/guide.md created."));
+    // The copy is selected by path, without a `source` (AC-13).
+    expect(nav.replace).toHaveBeenLastCalledWith(`/repos/r1/context?doc=${encodeURIComponent("docs/guide.md")}`);
+    expect(screen.queryByRole("textbox", { name: /Markdown source of/ })).not.toBeInTheDocument();
+  });
+
+});
+
+describe("Project Context page — an overridden repository document (AC-12, AC-13, AC-26, AC-27)", () => {
+  it("opens the repository row with ?source=repo as a read-only preview; \"Open local copy\" selects the copy and drops the source", async () => {
+    setup({ url: "doc=specs%2Fapi.md" });
+    renderView();
+    await screen.findByRole("heading", { name: "api.md" });
+    // `?doc=p` alone selects the copy (AC-13): it offers Revert, not "Open local copy".
+    expect(screen.getByRole("button", { name: "Revert specs/api.md to repository version" })).toBeInTheDocument();
+
+    fireEvent.click(within(tree()).getAllByTitle("specs/api.md")[0]!);
+    expect(nav.replace).toHaveBeenLastCalledWith(`/repos/r1/context?doc=${encodeURIComponent("specs/api.md")}&source=repo`);
+    expect(await screen.findByText("Not used — overridden by a local copy")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Edit a copy/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open local copy of specs/api.md" }));
+    expect(nav.replace).toHaveBeenLastCalledWith(`/repos/r1/context?doc=${encodeURIComponent("specs/api.md")}`);
+    expect(await screen.findByRole("button", { name: "Revert specs/api.md to repository version" })).toBeInTheDocument();
+    expect(await screen.findByText("Used by 1 agent")).toBeInTheDocument();
+  });
+
+  it("reloading ?doc=p&source=repo selects the repository row", async () => {
+    setup({ url: "doc=specs%2Fapi.md&source=repo" });
+    renderView();
+    expect(await screen.findByText("Not used — overridden by a local copy")).toBeInTheDocument();
+    expect(within(tree()).getAllByRole("button", { current: true })).toHaveLength(1);
+    expect(within(tree()).getAllByTitle("specs/api.md")[0]).toHaveAttribute("aria-current", "true");
+  });
+});
+
+describe("Project Context page — local override copy (AC-14, AC-20, AC-21, AC-22, AC-15)", () => {
+  it("Revert asks first, then deletes the copy by path and announces it; Delete is not offered", async () => {
+    extraRoutes = { [`DELETE ${BASE}/local`]: { ok: true } };
+    setup({ url: "doc=specs%2Fapi.md" });
+    renderView();
+    await screen.findByRole("heading", { name: "api.md" });
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Revert specs/api.md to repository version" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Revert to repository version?")).toBeInTheDocument();
+    expect(net.count("DELETE", `${BASE}/local`)).toBe(0);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revert" }));
+    await waitFor(() => expect(net.count("DELETE", `${BASE}/local`)).toBe(1));
+    expect(new URLSearchParams(net.requests.find((r) => r.method === "DELETE")!.search).get("path")).toBe("specs/api.md");
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Reverted specs/api.md to the repository version."),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it('"Keep my copy" records the kept copy, clears "Repository changed" and announces it', async () => {
+    const changed = [
+      entry("specs/api.md", { overridden: true }),
+      entry("specs/api.md", { source: "local", overrides_repo: true, repo_changed: true }),
+    ];
+    extraRoutes = {
+      [`POST ${BASE}/local/keep-copy`]: () => {
+        list = listOf(
+          [changed[0]!, entry("specs/api.md", { source: "local", overrides_repo: true })],
+          { scanned_at: minutesAgo(1) },
+        );
+        return { ok: true };
+      },
+    };
+    setup({ url: "doc=specs%2Fapi.md", list: listOf(changed, { scanned_at: minutesAgo(1) }) });
+    renderView();
+    await screen.findByRole("heading", { name: "api.md" });
+    // The badge is on the tree row and in the viewer (AC-21).
+    expect(within(tree()).getByText("Repository changed")).toBeInTheDocument();
+    expect(screen.getAllByText("Repository changed")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep my copy of specs/api.md" }));
+    await waitFor(() => expect(net.count("POST", `${BASE}/local/keep-copy`)).toBe(1));
+    expect(net.requests.find((r) => r.method === "POST")!.body).toEqual({ path: "specs/api.md" });
+    await waitFor(() => expect(screen.queryByText("Repository changed")).not.toBeInTheDocument());
+    expect(screen.getByRole("status")).toHaveTextContent("Kept your copy of specs/api.md.");
+  });
+});
+
+describe("Project Context page — tree rows of override states (AC-11, AC-21, AC-24, NFR-2)", () => {
+  it('shows "Repository changed" with a tooltip on the copy row; a plain local row carries only "Local"', async () => {
+    setup({
+      list: listOf(
+        [
+          entry("docs/notes.md", { source: "local" }),
+          entry("specs/api.md", { overridden: true }),
+          entry("specs/api.md", { source: "local", overrides_repo: true, repo_changed: true }),
+        ],
+        { scanned_at: minutesAgo(1) },
+      ),
+    });
+    renderView();
+    const panel = await screen.findByRole("navigation", { name: "Project documents" });
+
+    const copyRow = within(panel).getAllByTitle("specs/api.md")[1]!;
+    const changed = within(copyRow).getByText("Repository changed");
+    expect(changed.closest("[title]")).toHaveAttribute(
+      "title",
+      "The repository text changed since this copy was made; the copy is still used",
+    );
+    expect(within(copyRow).getByText("Overrides repo").closest("[title]")).toHaveAttribute(
+      "title",
+      "This local copy replaces the repository document with the same path",
+    );
+
+    const plain = within(panel).getByTitle("docs/notes.md");
+    expect(within(plain).getByText("Local")).toBeInTheDocument();
+    for (const text of ["Overrides repo", "Overridden", "Repository changed"]) {
+      expect(within(plain).queryByText(text)).not.toBeInTheDocument();
+    }
   });
 });

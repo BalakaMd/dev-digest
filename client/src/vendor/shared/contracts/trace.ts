@@ -107,6 +107,8 @@ export const RunTrace = z.object({
           path: z.string(),
           source: z.enum(['repo', 'local']),
           tokens: z.number().int(),
+          /** Local document injected while a repository document has the same path; omitted otherwise. */
+          overrides_repo: z.boolean().optional(),
         }),
       ),
       tokens: z.number().int(),

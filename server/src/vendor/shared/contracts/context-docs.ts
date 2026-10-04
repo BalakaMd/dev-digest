@@ -54,8 +54,12 @@ export const ContextDocEntry = z.object({
   /** Tokens of the wrapped untrusted block; null when the document is too large. */
   tokens: z.number().int().nullable(),
   too_large: z.boolean(),
-  /** A local document whose path is also held by a repository document. */
-  shadowed: z.boolean(),
+  /** A local document (override copy) whose path is also held by a repository document. */
+  overrides_repo: z.boolean(),
+  /** A repository document whose path is also held by a local document. */
+  overridden: z.boolean(),
+  /** A local override whose recorded origin differs from the current repository text. */
+  repo_changed: z.boolean(),
 });
 export type ContextDocEntry = z.infer<typeof ContextDocEntry>;
 
@@ -106,14 +110,45 @@ export const ContextDocPathQuery = z.object({
 });
 export type ContextDocPathQuery = z.infer<typeof ContextDocPathQuery>;
 
-/** Create or update one local document. Omit `base_version` to create. */
-export const LocalDocWriteBody = z.object({
-  folder: z.string().max(512),
-  name: z.string().min(1).max(255),
-  content: z.string(),
-  base_version: z.string().optional(),
-});
+/**
+ * Create or update one local document. Omit `base_version` to create.
+ * `override_repo` + `origin_version` state the explicit intent to override a
+ * repository document at the same path (create only); `origin_version` is the
+ * sha256 of the repository text that was loaded into the editor.
+ */
+export const LocalDocWriteBody = z
+  .object({
+    folder: z.string().max(512),
+    name: z.string().min(1).max(255),
+    content: z.string(),
+    base_version: z.string().optional(),
+    override_repo: z.literal(true).optional(),
+    origin_version: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/, 'origin_version must be a lowercase sha256 hex digest')
+      .optional(),
+  })
+  .superRefine((b, ctx) => {
+    if ((b.override_repo === undefined) !== (b.origin_version === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'override_repo and origin_version must be given together',
+        path: [b.override_repo === undefined ? 'override_repo' : 'origin_version'],
+      });
+    }
+    if (b.override_repo !== undefined && b.base_version !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'override intent is only valid when creating (no base_version)',
+        path: ['override_repo'],
+      });
+    }
+  });
 export type LocalDocWriteBody = z.infer<typeof LocalDocWriteBody>;
+
+/** "Keep my copy": the server records the current repository text's version as the copy's origin. */
+export const KeepCopyBody = z.object({ path: ContextDocPath });
+export type KeepCopyBody = z.infer<typeof KeepCopyBody>;
 
 export const LocalDocUploadBody = z.object({
   folder: z.string().max(512),

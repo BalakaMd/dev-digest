@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
   mkdtempSync,
@@ -98,7 +99,7 @@ describe('FsContextDocStore — local documents', () => {
         ['docs/mine.md', 'local'],
         ['docs/repo.md', 'repo'],
       ]);
-      expect(docs[0]).toMatchObject({ type: 'docs', folder: 'docs', shadowed: false, too_large: false });
+      expect(docs[0]).toMatchObject({ type: 'docs', folder: 'docs', overrides_repo: false, overridden: false, repo_changed: false, too_large: false });
     });
 
     it('keeps each repository\'s local documents separate (EC-9)', async () => {
@@ -203,32 +204,32 @@ describe('FsContextDocStore — local documents', () => {
     });
   });
 
-  describe('precedence and shadowing (AC-65, AC-64)', () => {
-    it('the repository document wins; the local one stays listed with shadowed=true', async () => {
+  describe('precedence: local override wins (SPEC-02 AC-1, AC-2)', () => {
+    it('the local copy wins; both rows stay listed, marked as override and overridden', async () => {
       putRepo('docs/rules.md', 'REPO TEXT');
       putLocal('docs/rules.md', 'LOCAL TEXT');
       const s = store();
 
       const docs = (await s.list(scope)).docs.filter((d) => d.path === 'docs/rules.md');
-      expect(docs.map((d) => [d.source, d.shadowed])).toEqual([
-        ['repo', false],
-        ['local', true],
+      expect(docs.map((d) => [d.source, d.overridden, d.overrides_repo])).toEqual([
+        ['repo', true, false],
+        ['local', false, true],
       ]);
 
-      // effective read (what a run uses) is the repository document
-      expect(await s.read(scope, 'docs/rules.md')).toMatchObject({ source: 'repo', content: 'REPO TEXT' });
-      // the shadowed local document is still addressable explicitly (Project Context page)
-      expect(await s.read(scope, 'docs/rules.md', 'local')).toMatchObject({ source: 'local', content: 'LOCAL TEXT' });
+      // effective read (what a run uses) is the local copy
+      expect(await s.read(scope, 'docs/rules.md')).toMatchObject({ source: 'local', content: 'LOCAL TEXT' });
+      // the overridden repository document is still addressable explicitly
+      expect(await s.read(scope, 'docs/rules.md', 'repo')).toMatchObject({ source: 'repo', content: 'REPO TEXT' });
     });
 
-    it('a repository that gains the path later shadows an existing local document', async () => {
+    it('a repository that gains the path later turns an existing local document into an override', async () => {
       await store().writeLocal(scope, { folder: 'docs', name: 'rules.md', content: 'LOCAL TEXT' });
       expect(await store().read(scope, 'docs/rules.md')).toMatchObject({ source: 'local' });
 
       putRepo('docs/rules.md', 'REPO TEXT');
-      expect(await store().read(scope, 'docs/rules.md')).toMatchObject({ source: 'repo', content: 'REPO TEXT' });
+      expect(await store().read(scope, 'docs/rules.md')).toMatchObject({ source: 'local', content: 'LOCAL TEXT' });
       const local = (await store().list(scope)).docs.find((d) => d.source === 'local');
-      expect(local?.shadowed).toBe(true);
+      expect(local?.overrides_repo).toBe(true);
     });
 
     it('a run reads a local document at its last saved content (AC-64)', async () => {
@@ -238,12 +239,47 @@ describe('FsContextDocStore — local documents', () => {
       expect((await store().read(scope, 'docs/a.md')).content).toBe('second');
     });
 
-    it('deleting the repository-shadowed local document leaves the repository document in place', async () => {
+    it('deleting the override copy leaves the repository document in place', async () => {
       putRepo('docs/rules.md', 'REPO TEXT');
       putLocal('docs/rules.md', 'LOCAL TEXT');
       await store().deleteLocal(scope, 'docs/rules.md');
       expect(await store().read(scope, 'docs/rules.md')).toMatchObject({ source: 'repo', content: 'REPO TEXT' });
       expect((await store().list(scope)).docs.map((d) => d.source)).toEqual(['repo']);
+    });
+  });
+
+  describe('creating an override copy (SPEC-02 AC-6, AC-7, AC-23, AC-29, AC-30; NFR-1)', () => {
+    const sha = (t: string) => createHash('sha256').update(t).digest('hex');
+    const origins = () =>
+      (JSON.parse(readFileSync(join(ctxDir, 'repo1/.origins.json'), 'utf8')) as { origins: Record<string, string> }).origins;
+
+    it('with the intent writes only into the overlay, records the sent origin, and keeps it across saves', async () => {
+      putRepo('docs/rules.md', 'REPO TEXT');
+      const cloneBefore = tree(clone);
+
+      // identical text is stored like any other copy (AC-30)
+      const first = await store().writeLocal(scope, {
+        folder: 'docs',
+        name: 'rules.md',
+        content: 'REPO TEXT',
+        override: { originVersion: sha('REPO TEXT') },
+      });
+      expect(first).toMatchObject({ path: 'docs/rules.md', source: 'local' });
+      expect(tree(clone)).toEqual(cloneBefore); // NFR-1: the working copy is untouched
+      expect(readFileSync(join(clone, 'docs/rules.md'), 'utf8')).toBe('REPO TEXT');
+      expect(tree(ctxDir)).toEqual(['repo1/.origins.json', 'repo1/docs/rules.md']);
+      expect(origins()).toEqual({ 'docs/rules.md': sha('REPO TEXT') });
+      expect(await store().readEffective(scope, 'docs/rules.md')).toMatchObject({ source: 'local', overrides_repo: true });
+
+      // saving the copy leaves its origin unchanged (AC-29)
+      await store().writeLocal(scope, {
+        folder: 'docs',
+        name: 'rules.md',
+        content: 'MY EDIT',
+        baseVersion: first.version,
+      });
+      expect(origins()).toEqual({ 'docs/rules.md': sha('REPO TEXT') });
+      expect(tree(clone)).toEqual(cloneBefore);
     });
   });
 

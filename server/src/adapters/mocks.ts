@@ -43,6 +43,7 @@ import {
   type ContextDocListResult,
   type ContextDocScope,
   type ContextDocStore,
+  type EffectiveContextDoc,
   type LocalDocWrite,
 } from './context-docs/types.js';
 import { DEFAULT_CONTEXT_GLOBS, compileGlobs, docTypeOf, searchRoots } from './context-docs/glob.js';
@@ -386,6 +387,8 @@ export class MockContextDocStore implements ContextDocStore {
   private localDocs = new Map<string, Map<string, string>>();
   private localFolders = new Map<string, Set<string>>();
   private cloned = new Set<string>();
+  /** repoId → (path → repository-text version recorded for an override copy). */
+  private origins = new Map<string, Map<string, string>>();
   private readonly matches: (p: string) => boolean;
   private readonly roots: string[];
 
@@ -410,7 +413,18 @@ export class MockContextDocStore implements ContextDocStore {
     return createHash('sha256').update(content).digest('hex');
   }
 
-  private entry(path: string, content: string, source: ContextDocSource, shadowed: boolean): ContextDocEntry {
+  private originsOf(repoId: string): Map<string, string> {
+    const m = this.origins.get(repoId) ?? new Map<string, string>();
+    this.origins.set(repoId, m);
+    return m;
+  }
+
+  private entry(
+    path: string,
+    content: string,
+    source: ContextDocSource,
+    marks: { overrides_repo: boolean; overridden: boolean; repo_changed: boolean },
+  ): ContextDocEntry {
     const size = Buffer.byteLength(content);
     const tooLarge = size > CONTEXT_DOC_MAX_BYTES;
     const slash = path.lastIndexOf('/');
@@ -422,19 +436,43 @@ export class MockContextDocStore implements ContextDocStore {
       size_bytes: size,
       tokens: tooLarge ? null : Math.ceil(content.length / 4),
       too_large: tooLarge,
-      shadowed,
+      ...marks,
     };
   }
 
   async list(scope: ContextDocScope): Promise<ContextDocListResult> {
     const repo = this.repoDocs.get(scope.repoId) ?? new Map<string, string>();
     const local = this.localDocs.get(scope.repoId) ?? new Map<string, string>();
+    const cloned = this.cloned.has(scope.repoId);
+    const repoHas = (p: string): boolean => cloned && repo.has(p) && this.matches(p);
+    const origins = this.originsOf(scope.repoId);
+    const repoChanged = (p: string, localHas: boolean): boolean => {
+      if (!localHas || !repoHas(p)) return false;
+      const version = MockContextDocStore.version(repo.get(p)!);
+      const origin = origins.get(p);
+      if (origin === undefined) {
+        origins.set(p, version);
+        return false;
+      }
+      return origin !== version;
+    };
+    if (cloned) for (const p of [...origins.keys()]) if (local.has(p) && !repo.has(p)) origins.delete(p);
     const docs = [
-      ...[...repo].filter(([p]) => this.matches(p)).map(([p, c]) => this.entry(p, c, 'repo', false)),
-      ...[...local].map(([p, c]) => this.entry(p, c, 'local', repo.has(p))),
+      ...[...repo]
+        .filter(([p]) => this.matches(p))
+        .map(([p, c]) =>
+          this.entry(p, c, 'repo', { overrides_repo: false, overridden: cloned && local.has(p), repo_changed: false }),
+        ),
+      ...[...local].map(([p, c]) =>
+        this.entry(p, c, 'local', {
+          overrides_repo: repoHas(p),
+          overridden: false,
+          repo_changed: repoChanged(p, true),
+        }),
+      ),
     ].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.source === 'repo' ? -1 : 1));
     return {
-      state: this.cloned.has(scope.repoId) ? 'ok' : 'not_cloned',
+      state: cloned ? 'ok' : 'not_cloned',
       docs: docs.slice(0, 1000),
       local_folders: [...(this.localFolders.get(scope.repoId) ?? [])].sort(),
       truncated: docs.length > 1000,
@@ -442,25 +480,50 @@ export class MockContextDocStore implements ContextDocStore {
   }
 
   async read(scope: ContextDocScope, path: string, source?: ContextDocSource): Promise<ContextDocContent> {
+    if (source === undefined) {
+      const { overrides_repo: _overrides, ...doc } = await this.readEffective(scope, path);
+      return doc;
+    }
     if (!this.matches(path)) throw new ContextDocError('invalid_path');
-    const repoText = this.cloned.has(scope.repoId) ? this.repoDocs.get(scope.repoId)?.get(path) : undefined;
-    const localText = this.localDocs.get(scope.repoId)?.get(path);
-    const pick: [ContextDocSource, string] | null =
-      source === 'local' ? (localText !== undefined ? ['local', localText] : null)
-      : source === 'repo' ? (repoText !== undefined ? ['repo', repoText] : null)
-      : repoText !== undefined ? ['repo', repoText]
-      : localText !== undefined ? ['local', localText]
-      : null;
-    if (!pick) throw new ContextDocError(this.cloned.has(scope.repoId) ? 'not_found' : 'not_cloned', { path });
-    const size = Buffer.byteLength(pick[1]);
+    const cloned = this.cloned.has(scope.repoId);
+    const text =
+      source === 'local' ? this.localDocs.get(scope.repoId)?.get(path) : cloned ? this.repoDocs.get(scope.repoId)?.get(path) : undefined;
+    if (text === undefined) {
+      throw new ContextDocError(source === 'repo' && !cloned ? 'not_cloned' : 'not_found', { path });
+    }
+    return this.content(path, source, text);
+  }
+
+  private content(path: string, source: ContextDocSource, text: string): ContextDocContent {
+    const size = Buffer.byteLength(text);
     if (size > CONTEXT_DOC_MAX_BYTES) throw new ContextDocError('too_large', { path });
-    return {
-      path,
-      source: pick[0],
-      content: pick[1],
-      version: MockContextDocStore.version(pick[1]),
-      size_bytes: size,
-    };
+    return { path, source, content: text, version: MockContextDocStore.version(text), size_bytes: size };
+  }
+
+  async readEffective(scope: ContextDocScope, path: string): Promise<EffectiveContextDoc> {
+    if (!this.matches(path)) throw new ContextDocError('invalid_path');
+    const cloned = this.cloned.has(scope.repoId);
+    const repoText = cloned ? this.repoDocs.get(scope.repoId)?.get(path) : undefined;
+    const localText = this.localDocs.get(scope.repoId)?.get(path);
+    if (localText !== undefined) {
+      const doc = this.content(path, 'local', localText);
+      if (repoText !== undefined) {
+        const origins = this.originsOf(scope.repoId);
+        if (!origins.has(path)) origins.set(path, MockContextDocStore.version(repoText));
+      }
+      return { ...doc, overrides_repo: repoText !== undefined };
+    }
+    if (repoText === undefined) throw new ContextDocError(cloned ? 'not_found' : 'not_cloned', { path });
+    return { ...this.content(path, 'repo', repoText), overrides_repo: false };
+  }
+
+  async keepOrigin(scope: ContextDocScope, path: string): Promise<void> {
+    if (!this.matches(path)) throw new ContextDocError('invalid_path');
+    if (!this.localDocs.get(scope.repoId)?.has(path)) throw new ContextDocError('not_found', { path });
+    if (!this.cloned.has(scope.repoId)) throw new ContextDocError('not_cloned');
+    const repoText = this.repoDocs.get(scope.repoId)?.get(path);
+    if (repoText === undefined) throw new ContextDocError('not_found', { path });
+    this.originsOf(scope.repoId).set(path, MockContextDocStore.version(repoText));
   }
 
   async writeLocal(scope: ContextDocScope, input: LocalDocWrite): Promise<ContextDocContent> {
@@ -470,9 +533,13 @@ export class MockContextDocStore implements ContextDocStore {
     if (size > CONTEXT_DOC_MAX_BYTES) throw new ContextDocError('too_large', { path });
     const local = this.localDocs.get(scope.repoId) ?? new Map<string, string>();
     const existing = local.get(path);
+    let originVersion: string | undefined;
     if (input.baseVersion === undefined) {
-      if (existing !== undefined || this.repoDocs.get(scope.repoId)?.has(path)) {
-        throw new ContextDocError('conflict', { path });
+      if (existing !== undefined) throw new ContextDocError('conflict', { path });
+      const repoHas = this.cloned.has(scope.repoId) && this.repoDocs.get(scope.repoId)?.has(path);
+      if (repoHas) {
+        if (!input.override) throw new ContextDocError('conflict', { path });
+        originVersion = input.override.originVersion;
       }
     } else {
       if (existing === undefined) throw new ContextDocError('not_found', { path });
@@ -483,6 +550,7 @@ export class MockContextDocStore implements ContextDocStore {
     }
     local.set(path, input.content);
     this.localDocs.set(scope.repoId, local);
+    if (originVersion !== undefined) this.originsOf(scope.repoId).set(path, originVersion);
     return {
       path,
       source: 'local',
@@ -502,6 +570,7 @@ export class MockContextDocStore implements ContextDocStore {
 
   async deleteLocal(scope: ContextDocScope, path: string): Promise<void> {
     if (!this.localDocs.get(scope.repoId)?.delete(path)) throw new ContextDocError('not_found', { path });
+    this.origins.get(scope.repoId)?.delete(path);
   }
 
   async deleteLocalFolder(scope: ContextDocScope, path: string): Promise<void> {
@@ -517,6 +586,7 @@ export class MockContextDocStore implements ContextDocStore {
   async removeRepoLocal(repoId: string): Promise<void> {
     this.localDocs.delete(repoId);
     this.localFolders.delete(repoId);
+    this.origins.delete(repoId);
   }
 
   matchesGlobs(path: string): boolean {

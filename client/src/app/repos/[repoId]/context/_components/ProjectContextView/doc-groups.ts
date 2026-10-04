@@ -29,7 +29,11 @@ export interface DocSelection {
 export const sameDoc = (d: ContextDocEntry, sel: DocSelection | null) =>
   !!sel && d.path === sel.path && d.source === sel.source;
 
-/** Resolves `?doc=` (+ optional source) to a listed document; falls back to the first one. */
+/**
+ * Resolves `?doc=` (+ optional source) to a listed document; falls back to the first one.
+ * An explicit `repo`/`local` source matches path+source exactly; without it the effective
+ * document wins: the entry that is not `overridden` (the override copy), else any (AC-13).
+ */
 export function resolveSelection(
   docs: ContextDocEntry[],
   path: string | null,
@@ -37,11 +41,10 @@ export function resolveSelection(
 ): ContextDocEntry | null {
   if (docs.length === 0) return null;
   if (path) {
-    const wanted: ContextDocSource = source === "local" ? "local" : "repo";
-    const exact = docs.find((d) => d.path === path && d.source === wanted);
-    // Without `source`, the effective (repo) document wins over a shadowed local one.
-    const any = docs.find((d) => d.path === path);
-    if (exact ?? any) return (exact ?? any) as ContextDocEntry;
+    const explicit = source === "repo" || source === "local" ? source : null;
+    const exact = explicit ? docs.find((d) => d.path === path && d.source === explicit) : undefined;
+    const found = exact ?? docs.find((d) => d.path === path && !d.overridden) ?? docs.find((d) => d.path === path);
+    if (found) return found;
   }
   return docs[0] as ContextDocEntry;
 }

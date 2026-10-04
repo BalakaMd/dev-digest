@@ -7,8 +7,11 @@ Read this before touching the `context-docs` module, the `## Project context`
 prompt section, or the Context tabs in the studio.
 
 Requirements: [`specs/project-context-folder/spec.md`](../specs/project-context-folder/spec.md)
-(SPEC-01). Automatic selection of documents from the content of a PR is **not**
-part of this feature; every attachment is picked by hand.
+(SPEC-01) and [`specs/context-doc-local-override/spec.md`](../specs/context-doc-local-override/spec.md)
+(SPEC-02, "Edit a copy": a local copy overrides a repository document; it supersedes
+SPEC-01's precedence and read-only rules for repository documents). Automatic
+selection of documents from the content of a PR is **not** part of this feature;
+every attachment is picked by hand.
 
 ## What it does
 
@@ -18,11 +21,15 @@ part of this feature; every attachment is picked by hand.
   each one as untrusted data and passes it to the engine for the
   `## Project context` section of the prompt. No extra LLM call is made.
 - The run trace records which documents were read, where from (`repo` or `local`),
-  and what each cost in tokens. A finding may cite an attached document by path;
-  the server drops any citation to a document that was not in the run.
+  whether a local document overrode a repository one, and what each cost in tokens.
+  A finding may cite an attached document by path; the server drops any citation to
+  a document that was not in the run.
 - Besides the repository's own files, a repository can have **local documents**:
   markdown the user writes or uploads in the studio. They live outside the clone,
   are never committed, and are deleted with the repository.
+- A local document at the path of a repository document is an **override copy**
+  ("Edit a copy"): agents, skills and runs use the copy instead of the repository
+  text, without re-attaching anything. The repository document is never written.
 
 ## Where it lives
 
@@ -69,7 +76,11 @@ flowchart LR
 [`modules/index.ts`](../server/src/modules/index.ts). The reader is a port,
 `ContextDocStore` ([`types.ts`](../server/src/adapters/context-docs/types.ts)), with
 one production adapter, `FsContextDocStore`, and an in-memory `MockContextDocStore`
-in `adapters/mocks.ts`. The container exposes them as `container.contextDocs` (the
+in `adapters/mocks.ts`. Besides `list`, `read` and the local writes, the port has
+`readEffective` (the document a run uses, with an override indicator) and
+`keepOrigin` ("Keep my copy"); the origin record of override copies is kept by
+`OriginStore` ([`origin-store.ts`](../server/src/adapters/context-docs/origin-store.ts)).
+The container exposes them as `container.contextDocs` (the
 store) and `container.contextDocsService` (the use cases behind the routes); the
 `reviews` and `repos` modules reach the store only through the container.
 
@@ -87,6 +98,7 @@ copy and the repository's local-document folder.
 | Symlinks | Symlinked files and directories are skipped while listing, and refused when read (`unsafe`). Every path is resolved with `realpath` and must stay inside its root. |
 | Size | Over 65,536 bytes: listed with `too_large: true`, no token count, and never returned to the studio or a run. |
 | Tokens | The server tokenizer's count of `wrapUntrusted(path, content)`, i.e. of the block that would be injected, cached by a hash of path and content. |
+| Override marks | Derived on every list from the two full walks, only when the clone exists: a local entry whose path a repository document also holds has `overrides_repo: true`; that repository entry has `overridden: true`; `repo_changed: true` marks a copy whose recorded origin differs from the current repository text (see below). All three are `false` without a clone. |
 | Cap | 1,000 documents, sorted by path (repo before local on a tie); `truncated: true` beyond that. |
 | No clone | `state: "not_cloned"`, distinct from `state: "ok"` with an empty list. Local documents are still listed. |
 | Content | Treated as data: never executed, links never fetched, includes and front matter never resolved. |
@@ -107,14 +119,19 @@ flowchart TB
     R["repository documents (read-only)"]
   end
   subgraph overlay["DEVDIGEST_CONTEXT_DIR/repoId (default ~/.devdigest/context)"]
-    L["local documents + empty folders"]
+    L["local documents, override copies, empty folders"]
+    O[".origins.json: sha256 of the repository text per copy"]
   end
   Sync["Sync with GitHub: fetch + reset --hard"] --> clone
-  Studio["studio: edit, new file, new folder, upload"] --> overlay
+  Studio["studio: edit, edit a copy, keep my copy, revert, new file, new folder, upload"] --> overlay
   List["reader: merged list"] --> R
   List --> L
+  List -->|"compare with the repository text, record a missing origin"| O
   Remove["repository removed"] --> overlay
 ```
+
+The overlay folder holds the documents and one sidecar file; nothing in the clone is
+ever written, not even by "Edit a copy".
 
 - Local documents are stored under `<DEVDIGEST_CONTEXT_DIR>/<repoId>/` (default
   `~/.devdigest/context`), outside every clone, so a sync neither changes nor
@@ -122,16 +139,84 @@ flowchart TB
 - Local documents follow the same rules as repository documents: path, glob, size,
   UTF-8 and symlink checks. Writes are atomic (temporary file, then rename) and stay
   inside the repository's folder.
-- **The repository wins on a path clash.** The Context tabs and runs use only the
-  repository document for that path; the Project Context page still lists the local
-  one with a "Shadowed" badge. Creating or uploading onto a path already taken by
-  either source is rejected with 422 naming the path.
 - Updating a local document sends the `version` (SHA-256 of the stored bytes) it was
   loaded with as `base_version`. A stale save is rejected with 409 and carries the
   stored content and version, which the page shows as "changed elsewhere".
 - Deleting a local document or an **empty** local folder is allowed; attachments to
   that path stay and render as "Missing" unless a repository document has the same
-  path.
+  path (as after a revert, below).
+
+### Override copies ("Edit a copy")
+
+- **The local copy wins on a path clash.** The reader returns the local document as
+  the effective one: the Context tabs, the skills' inherited rows and runs use only
+  its text. The repository document at that path is `overridden`: it is still listed
+  and previewed, read-only, but not used. A local document that already shared a path
+  with a repository document, or whose path a sync later adds to the repository,
+  becomes an override without any action; the older "Shadowed" state no longer exists.
+  Attachments stay plain repo-relative paths, so creating, editing or reverting a copy
+  changes no agent or skill and bumps no version; the copy is used from the next run on.
+- **Creating a copy needs an explicit intent.** `PUT …/local` without `base_version`
+  onto a path held by a repository document succeeds only with `override_repo: true`
+  and `origin_version` (the SHA-256 of the repository text that was loaded into the
+  editor). Without the intent, and for every New file, New folder and upload, the
+  request is rejected with 422 naming the path; so is an intent create when a local
+  document already exists at the path. With the intent but no repository document at
+  the path (removed meanwhile, or no clone), a plain local document is stored and no
+  origin is recorded. The repository text is never compared with the copy's text: a
+  copy identical to the repository document is stored like any other.
+- **The origin record.** When a copy is created, the origin version is stored in
+  `.origins.json` in the repository's overlay folder: `{ "version": 1, "origins": {
+  "<path>": "<sha256>" } }`, written atomically (temporary file, then rename, mode
+  `0600`) and serialised per repository. It lives only inside
+  `<DEVDIGEST_CONTEXT_DIR>/<repoId>/`, never in the clone, and is not a document (the
+  walk skips it and local counts ignore it). A missing or malformed file reads as "no
+  origins". The origin is deleted with its copy, and the whole file with the overlay
+  folder when the repository is removed.
+- **"Repository changed".** `repo_changed` is `true` while the current repository
+  text's SHA-256 differs from the copy's origin. The copy stays effective. A save of
+  the copy does not touch the origin, so only "Keep my copy" or a revert clears the
+  mark. An override found without an origin (a former "Shadowed" document, a path
+  added by a sync, an orphan whose path the repository re-adds) gets the current
+  repository version recorded as its origin when the list or an effective read first
+  sees it, so it shows no mark until the repository text changes again. Recording is
+  best-effort: a failure leaves `repo_changed` `false` and never fails the request or
+  a run. This makes `GET …/context-docs` write to the overlay, never anywhere else.
+- **"Keep my copy"** (`POST …/local/keep-copy {path}`) records the server's current
+  repository version as the copy's origin and leaves the text untouched. The request
+  carries only the path; the server hashes the repository text itself. 404 without a
+  copy or without a repository document at the path, 409 without a working copy.
+- **Revert to repository version** is the existing `DELETE …/local?path` on the copy:
+  the copy and its origin are removed and the repository document is effective again.
+- **Orphans.** When the repository document at a copy's path disappears (deleted or
+  renamed upstream, then synced), the copy stays effective and is listed as a plain
+  local document (all three marks `false`) that can be deleted. Its origin is dropped
+  the next time the list sees the clone without that path; a clone that is missing
+  never drops origins.
+- **Unreadable copy.** A copy that cannot be read (not valid UTF-8, over 64 KiB,
+  unsafe path) is an error, never a reason to read the repository text instead: a run
+  skips the path with the reason. Only a missing local file falls back to the
+  repository document.
+
+The lifecycle of one path:
+
+```mermaid
+stateDiagram-v2
+  state "Repository document only" as RepoOnly
+  state "Override copy" as Override
+  state "Override copy, repository changed" as Changed
+  state "Orphan: plain local document" as Orphan
+  [*] --> RepoOnly
+  RepoOnly --> Override : first Save of Edit a copy
+  Override --> Changed : repository text differs from the origin
+  Changed --> Override : Keep my copy
+  Override --> RepoOnly : Revert to repository version
+  Changed --> RepoOnly : Revert to repository version
+  Override --> Orphan : repository document removed
+  Changed --> Orphan : repository document removed
+  Orphan --> Override : repository adds the path again
+  Orphan --> [*] : Delete
+```
 - When a repository is removed, `RepoService.remove` deletes its overlay folder after
   the database row is gone (best-effort: a failure is swallowed so the removal still
   succeeds). The shell's removal confirmation asks the API for the local-document
@@ -163,8 +248,8 @@ sequenceDiagram
   participant LLM as LLMProvider
   participant DB as Postgres
   Exec->>Exec: collectPaths(agent docs, then enabled skills in link order, first wins)
-  Exec->>Store: read(path) for each path, in parallel
-  Store-->>Exec: content + source, or a failure reason
+  Exec->>Store: readEffective(path) for each path, in parallel
+  Store-->>Exec: content + source + overrides_repo, or a failure reason
   Exec->>Exec: in order, skip unreadable or over-budget documents whole
   Exec->>Engine: specs = injected documents (path + content)
   Engine->>LLM: system + guard, user with Project context block
@@ -183,12 +268,16 @@ The helpers are pure functions in
 - **Order and de-duplication.** The agent's documents in their order, then the
   documents of each linked and globally enabled skill in link order; the first
   occurrence of a path wins.
-- **Source.** Each path is read as the effective document: the repository copy
-  first, otherwise the local one. A local document is still injected when the
-  repository has no working copy; a repository path then fails with
-  `no_working_copy`.
+- **Source.** Each path is read as the effective document through `readEffective`:
+  the local document first (an override copy wins over the repository document at
+  that path), otherwise the repository one. A local document is still injected when
+  the repository has no working copy; a repository path then fails with
+  `no_working_copy`. The result says whether a local document overrode a repository
+  document in the working copy (`overrides_repo`), which ends up in the trace.
 - **Skips, never failures.** An unreadable document is skipped with a fixed reason:
-  `not_found`, `no_working_copy`, `not_utf8`, `too_large` or `unsafe_path`. A document
+  `not_found`, `no_working_copy`, `not_utf8`, `too_large` or `unsafe_path`. An
+  override copy that exists but cannot be read is skipped with its own reason; the
+  repository document at that path is not injected in its place. A document
   whose wrapped block would take the total over **8,000 tokens** is skipped whole
   (`over_budget`) and later documents are still tried.
 - **Independent of repo-intel.** Documents are injected regardless of the agent's
@@ -240,9 +329,13 @@ Run log lines (live over SSE and persisted):
 
 - `specs_read` stays a list of strings: the paths of the injected documents in prompt
   order.
-- `context` (new, nullable, absent on old traces):
-  `{ docs: [{ path, source, tokens }], tokens, skipped: [{ path, reason }] }`.
-  It is `null` when nothing was injected or skipped.
+- `context` (nullable, absent on old traces):
+  `{ docs: [{ path, source, tokens, overrides_repo? }], tokens, skipped: [{ path, reason }] }`.
+  It is `null` when nothing was injected or skipped. `overrides_repo: true` is
+  written only for a local document injected while a repository document with the
+  same path exists in the working copy; the key is omitted otherwise (including a
+  local document of a repository with no clone) and on traces written before
+  SPEC-02.
 - A failed or cancelled run still persists the documents read before the failure,
   because the context is held outside the `try` block.
 
@@ -258,22 +351,25 @@ are addressed by repo-relative `path` and `source` (`repo` | `local`) only.
 
 | Route | Purpose |
 |-------|---------|
-| `GET /repos/:id/context-docs` | List: `state`, `docs`, `local_folders` (empty local folders), `truncated`, `search_globs` (the literal folder names from the globs), `limits`, `scanned_at`. |
-| `GET /repos/:id/context-docs/content?path&source?` | One document with `content` and `version`. Without `source`, the effective one. |
+| `GET /repos/:id/context-docs` | List: `state`, `docs` (each entry carries `overrides_repo`, `overridden` and `repo_changed`, all booleans), `local_folders` (empty local folders), `truncated`, `search_globs` (the literal folder names from the globs), `limits`, `scanned_at`. May record a missing origin in the overlay. |
+| `GET /repos/:id/context-docs/content?path&source?` | One document with `content` and `version`. Without `source`, the effective one: the local document, else the repository one. `source=repo` reads the repository text of an overridden path (its `version` is the value to send as `origin_version`). |
 | `GET /repos/:id/context-docs/usage?path` | `attached_by_agents`, `attached_by_skills`, `used_by_agents`, `enabled_agents`, `coverage_pct`. |
 | `POST /repos/:id/context-docs/sync` | `git fetch` then `reset --hard` to the default branch tip through the git adapter; returns `{ head }`. 409 when there is no working copy, 502 with a fixed message on failure. |
 | `GET /repos/:id/context-docs/local-count` | `{ count }` of local documents. |
-| `PUT /repos/:id/context-docs/local` | Create (no `base_version`) or update one local document. |
+| `PUT /repos/:id/context-docs/local` | Create (no `base_version`) or update one local document. `override_repo: true` with `origin_version` (lowercase SHA-256 hex) is the explicit intent to create an override copy at a repository path; the two fields come together and only on a create. |
+| `POST /repos/:id/context-docs/local/keep-copy` | `{ path }` → `{ ok: true }`. Records the current repository text's version as the copy's origin ("Keep my copy"). |
 | `POST /repos/:id/context-docs/local/upload` | Up to 50 base64 files into one folder; each file is validated on its own and the result lists `stored` and `rejected` (name and reason). Body limit 8 MiB. |
 | `POST /repos/:id/context-docs/local/folders` | Create a local folder (kept while empty). |
-| `DELETE /repos/:id/context-docs/local?path` | Delete a local document. |
+| `DELETE /repos/:id/context-docs/local?path` | Delete a local document; for an override copy this is "Revert to repository version". |
 | `DELETE /repos/:id/context-docs/local/folders?path` | Delete an empty local folder. |
 
 Errors from the store map to: `not_found` 404; `stale` and `not_cloned` 409 (a stale
 save carries `current_content` and `current_version` in `details`); `io_error` (a
 disk failure such as EACCES or ENOSPC, reported with a fixed message and no
 filesystem path) 500; everything else (`invalid_path`, `too_large`, `not_utf8`,
-`conflict`, `unsafe`, `not_empty`) 422 with `details.reason` and the path.
+`conflict`, `unsafe`, `not_empty`) 422 with `details.reason` and the path. A create
+onto a path held by a repository document without the override intent is a
+`conflict`, as is any create onto an existing local document.
 
 **Usage and coverage.** An enabled agent "uses" a document when it is attached to the
 agent directly or to a linked, globally enabled skill. `used_by_agents` counts those
@@ -295,8 +391,10 @@ Both tabs render the shared picker
   skills, then the rest by path. Each row has a checkbox labelled by its path, name,
   folder, type badge, a "Local" badge for local documents, token count and Preview.
   Badges: "Too large" (checkbox disabled), "Missing" (attached but present nowhere;
-  stays checked and counted, uncheck to detach). Shadowed local documents are not
-  shown.
+  stays checked and counted, uncheck to detach), "Overrides repo" (with a tooltip) on
+  an override copy. An overridden path is **one** row: the copy, with the copy's
+  token count and size state, so the budget bar counts the copy's tokens; the
+  overridden repository document is not shown. Preview of that row reads the copy.
 - Every check, uncheck or reorder saves the **full ordered list** and updates the
   "N of M attached" counter (the skill tab shows "N attached") and the budget bar. A
   failed save restores the last saved state and shows an alert. The checkbox is
@@ -327,17 +425,49 @@ Both tabs render the shared picker
 WORKSPACE group of the sidebar (breadcrumb "<repo> › Project Context").
 Implementation: `app/repos/[repoId]/context/_components/ProjectContextView`.
 
-- **Left panel:** documents grouped by folder, with "Local", "Shadowed" and
-  "Too large" badges, empty local folders, and a toolbar: New file, New folder,
+- **Left panel:** documents grouped by folder, with text badges "Local", "Overrides
+  repo", "Repository changed", "Overridden" and "Too large" (each override badge has a
+  tooltip explaining it), empty local folders, and a toolbar: New file, New folder,
   Upload, Refresh, Sync with GitHub. Footer: "Indexed: N files · scanned <relative
-  time>".
+  time>". An overridden path is two rows: the copy ("Local" + "Overrides repo", plus
+  "Repository changed" when `repo_changed`) and the repository document
+  ("Overridden"). An orphaned copy has "Local" only.
 - **Right panel:** file name, Preview / Edit toggle, the rendered document, "Used by N
-  agents" and a Coverage ring (`—` when no agent is enabled). The selected document
-  is kept in the URL as `?doc=<path>`; a missing or unlisted value selects the first
-  document. A shadowed local document is addressed with an additional `source=local`.
-- **Editing** is possible for local documents only (Save / Cancel); the Edit toggle is
-  disabled for repository documents with an explanation. A new file asks for a name
-  and a folder and opens in Edit mode; it exists only after its first Save. A stale
+  agents" and a Coverage ring (`—` when no agent is enabled). For the overridden
+  repository row they are replaced by "Not used — overridden by a local copy". The
+  selected document is kept in the URL as `?doc=<path>`; a missing or unlisted value
+  selects the first document. Without a source, an overridden path selects the copy;
+  selecting the overridden repository row adds `source=repo`, and opening that URL
+  selects the repository row. Every other row has no `source` in the URL.
+- **What the viewer offers** depends on the kind of document (`doc-kind.ts`):
+  - *Repository document, not overridden:* read-only preview. The Edit toggle is
+    replaced by **Edit a copy**, with the hint that the copy is stored in DevDigest
+    only and the repository is not changed. It is disabled, with "Too large" or "Not
+    valid UTF-8" as its accessible description, when the repository document is over
+    64 KiB or not valid UTF-8.
+  - *Overridden repository document:* preview from the working copy, Edit toggle
+    disabled and described by "A local copy overrides this document.", and an **Open
+    local copy** button that selects the copy (through the unsaved-changes guard).
+  - *Override copy:* Edit works as for any local document (Save / Cancel); **Revert to
+    repository version** replaces Delete. While `repo_changed`, the header shows a
+    "Repository changed" badge and **Keep my copy**; saving does not clear it.
+  - *Plain local document* (including an orphaned copy): as before, with Delete.
+- **Edit a copy** fetches the repository text fresh (`source=repo`) and opens the
+  editor at once, prefilled with it, with no confirmation dialog. A notice above the
+  editor names the agents and skills that attach the path and says they use the copy
+  from their next run on, or says that none attaches it. The copy does not exist yet:
+  the first Save sends `PUT …/local` with `override_repo: true` and `origin_version`
+  (the version of the text that was loaded, so a sync between opening and saving shows
+  "Repository changed" right after the save); Cancel before it sends nothing. After
+  the save the page selects the copy.
+- **Revert to repository version** opens a confirmation dialog: the copy's edits are
+  discarded, and the agents and skills that attach the path will use the repository
+  document again (or none attaches it). Confirming deletes the copy; attachments
+  stay. Cancel changes nothing.
+- **Editing** is possible for local documents and override copies (Save / Cancel);
+  repository documents are never edited in place. A new file asks for a name and a
+  folder and opens in Edit mode; it exists only after its first Save. New file, New
+  folder and Upload onto a repository path are rejected with 422, as before. A stale
   save shows the "changed elsewhere" notice with the newer content, offering to load
   it or keep and overwrite.
 - **Unsaved edits** are guarded: leaving Edit mode, selecting another document,
@@ -347,21 +477,27 @@ Implementation: `app/repos/[repoId]/context/_components/ProjectContextView`.
   GitHub). **Sync with GitHub** asks for confirmation, then calls `POST …/sync` with
   the action disabled while it runs, and refetches the list when it finishes. On
   failure it shows the error with a retry and keeps the previous list.
-- **Delete** (local documents and empty local folders) opens a dialog listing the
-  agents and skills that attach the path.
-- Results of save, upload, refresh, sync and delete are announced in a polite live
-  region; icon-only controls carry accessible names; the Coverage ring exposes its
-  value as text.
+- **Delete** (plain local documents and empty local folders) opens a dialog listing the
+  agents and skills that attach the path. An override copy has no Delete; it is
+  removed by the revert above.
+- Results of save, upload, refresh, sync, delete, creating a copy, "Keep my copy" and
+  reverting are announced in a polite live region; icon-only controls carry accessible
+  names; "Edit a copy", "Keep my copy", "Open local copy" and "Revert to repository
+  version" are buttons whose accessible names include the document path; the Coverage
+  ring exposes its value as text.
 
 ### Where the results show up
 
 - **Run trace drawer** (`RunTraceDrawer`): "Specs read" in the Configuration section
-  lists the injected documents and marks local ones; the Prompt assembly section shows
+  lists the injected documents and marks local ones ("Local", or "Local · overrides
+  repository" when the trace has `overrides_repo`); the Prompt assembly section shows
   the block as "Project context — attached specs (untrusted)" with its token count,
-  followed by per-document token counts and the skipped documents with a readable
-  reason.
+  followed by per-document token counts (with the same mark) and the skipped
+  documents with a readable reason. Traces without `overrides_repo` render as before.
 - **Finding card:** each entry of `cited_docs` is a chip with the path that opens the
-  document preview drawer.
+  document preview drawer. The drawer reads the current effective document, which
+  after a copy was edited or reverted can differ from the text the run used (see
+  Known gaps).
 
 ## Tests
 
@@ -375,6 +511,13 @@ document for a violated rule is a manual or e2e check, not a unit test.
 ## Known gaps
 
 - Document types are not filterable on any list; the type is shown as a badge only.
+- A citation chip, and the trace, do not identify the exact document version a run
+  read. The chip opens the current effective document, so after the copy is edited or
+  reverted it can show different text than the run saw.
+- A "Repository changed" copy is never merged or rebased onto the new repository
+  text, and there is no diff between the two; the choices are to keep the copy
+  ("Keep my copy"), edit it, or revert. The mark appears on the Project Context page
+  only, not in a run log or trace.
 - The 8,000-token budget exists twice, as `CONTEXT_DOC_TOKEN_BUDGET` in the shared
   contract (used by the list and the studio) and as `CONTEXT_BUDGET_TOKENS` in
   `reviews/context-docs.ts` (used by runs); keep both equal.

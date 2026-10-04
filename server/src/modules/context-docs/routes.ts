@@ -8,6 +8,7 @@ import {
   ContextDocPathQuery,
   ContextDocSyncResult,
   ContextDocUsage,
+  KeepCopyBody,
   LocalDocCount,
   LocalDocUploadBody,
   LocalDocUploadResult,
@@ -20,7 +21,9 @@ import { UPLOAD_BODY_LIMIT_BYTES } from './constants.js';
 
 /**
  * Project context documents (SPEC-01). All routes are workspace-scoped and
- * address documents by repo-relative path + source only.
+ * address documents by repo-relative path + source only. A local document at a
+ * repo document's path overrides it (local wins); the list derives the marks and
+ * may record a missing origin (overlay only) on a GET. Revert = DELETE …/local.
  *
  *   GET    /repos/:id/context-docs                → list (repo + local), `state:'not_cloned'` when no clone
  *   GET    /repos/:id/context-docs/content        → ?path&source? one document's content
@@ -28,6 +31,8 @@ import { UPLOAD_BODY_LIMIT_BYTES } from './constants.js';
  *   POST   /repos/:id/context-docs/sync           → sync the working copy with GitHub → {head}
  *   GET    /repos/:id/context-docs/local-count    → {count} of local documents
  *   PUT    /repos/:id/context-docs/local          → create / update one local document
+ *                                                   (`override_repo` + `origin_version` = "Edit a copy" of a repo doc, SPEC-02)
+ *   POST   /repos/:id/context-docs/local/keep-copy → {path} record the repo text as the copy's origin → {ok}
  *   POST   /repos/:id/context-docs/local/upload   → store several files (per-file result)
  *   POST   /repos/:id/context-docs/local/folders  → create an (empty) local folder
  *   DELETE /repos/:id/context-docs/local          → ?path delete a local document
@@ -104,6 +109,16 @@ export default async function contextDocsRoutes(appBase: FastifyInstance) {
     async (req) => {
       const { workspaceId } = await getContext(c, req);
       return service.upload(workspaceId, req.params.id, req.body);
+    },
+  );
+
+  app.post(
+    `${base}/local/keep-copy`,
+    { schema: { params: IdParams, body: KeepCopyBody, response: { 200: Ok } } },
+    async (req) => {
+      const { workspaceId } = await getContext(c, req);
+      await service.keepCopy(workspaceId, req.params.id, req.body.path);
+      return { ok: true as const };
     },
   );
 

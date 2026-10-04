@@ -141,14 +141,50 @@ describe("ContextDocPicker — list", () => {
     expect(screen.getByRole("checkbox", { name: "specs/api.md" })).toBeEnabled();
   });
 
-  it("does not offer a shadowed local document (the repository copy is the effective one) (AC-65)", async () => {
+  it("shows one row for an overridden path, with the Local and Overrides repo badges (AC-16)", async () => {
     installFetch({
-      [`GET ${LIST_PATH}`]: listOf([entry("docs/a.md"), entry("docs/a.md", { source: "local", shadowed: true })]),
+      [`GET ${LIST_PATH}`]: listOf([
+        entry("docs/a.md", { overridden: true }),
+        entry("docs/a.md", { source: "local", overrides_repo: true }),
+      ]),
     });
     renderPicker({ initial: [] });
     await screen.findByTestId("context-row-docs/a.md");
     expect(screen.getAllByTestId("context-row-docs/a.md")).toHaveLength(1);
-    expect(screen.queryByText("Local")).not.toBeInTheDocument();
+    const r = within(row("docs/a.md"));
+    expect(r.getByText("Local")).toBeInTheDocument();
+    expect(r.getByText("Overrides repo")).toBeInTheDocument();
+  });
+
+  it("counts the override copy's tokens, not the repository document's, in the row and the budget bar (AC-16)", async () => {
+    installFetch({
+      [`GET ${LIST_PATH}`]: listOf([
+        entry("docs/a.md", { overridden: true, tokens: 10 }),
+        entry("docs/a.md", { source: "local", overrides_repo: true, tokens: 42 }),
+      ]),
+    });
+    renderPicker({ initial: ["docs/a.md"] });
+    const r = within(await screen.findByTestId("context-row-docs/a.md"));
+    expect(r.getByText("42 tokens")).toBeInTheDocument();
+    expect(r.queryByText("10 tokens")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+  });
+
+  it('shows "Too large" with both badges on an override copy over the limit, and its checkbox is disabled (AC-16, NFR-2)', async () => {
+    installFetch({
+      [`GET ${LIST_PATH}`]: listOf([
+        entry("docs/a.md", { overridden: true }),
+        entry("docs/a.md", { source: "local", overrides_repo: true, too_large: true, tokens: null, size_bytes: 70_000 }),
+      ]),
+    });
+    renderPicker({ initial: [] });
+    const r = within(await screen.findByTestId("context-row-docs/a.md"));
+    expect(r.getByText("Too large")).toBeInTheDocument();
+    expect(r.getByText("Local")).toBeInTheDocument();
+    const badge = r.getByText("Overrides repo");
+    expect(badge).toHaveAttribute("title"); // tooltip explains it; the text itself is not colour-only
+    expect(badge.getAttribute("title")).not.toBe("");
+    expect(r.getByRole("checkbox", { name: "docs/a.md" })).toBeDisabled();
   });
 
   it('shows a "Too large" badge and a disabled checkbox for a document over the limit (AC-6)', async () => {
@@ -529,5 +565,21 @@ describe("ContextDocPicker — preview", () => {
     await screen.findByText("local text");
     const read = net.requests.find((r) => r.path === `${LIST_PATH}/content`)!;
     expect(new URLSearchParams(read.search).get("source")).toBe("local");
+  });
+
+  it("previews the override copy's text (source local), not the repository document's (AC-16)", async () => {
+    const net = installFetch({
+      [`GET ${LIST_PATH}`]: listOf([
+        entry("docs/a.md", { overridden: true }),
+        entry("docs/a.md", { source: "local", overrides_repo: true }),
+      ]),
+      [`GET ${LIST_PATH}/content`]: { path: "docs/a.md", source: "local", content: "copy text", version: "v1", size_bytes: 9 },
+    });
+    renderPicker({ initial: [] });
+    fireEvent.click(await screen.findByRole("button", { name: "Preview docs/a.md" }));
+    await screen.findByText("copy text");
+    const reads = net.requests.filter((r) => r.path === `${LIST_PATH}/content`);
+    expect(reads).toHaveLength(1);
+    expect(new URLSearchParams(reads[0]!.search).get("source")).toBe("local");
   });
 });

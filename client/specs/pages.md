@@ -17,7 +17,7 @@ the same commit.
 | `/skills/[id]` | skill editor — Config, Context, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion`, `useSetSkillContextDocs` |
 | `/agents` | agent grid | `useAgents` → `GET /agents` |
 | `/agents/[id]` | agent editor — Config, Skills, Context | `useAgent`, `useUpdateAgent`, `useProviderModels`, `useSkills`, `useAgentSkills`, `useSetAgentSkills`, `useSetAgentContextDocs` |
-| `/repos/[repoId]/context` | Project Context — documents, preview, local editing, usage | `useContextDocs`, `useContextDocContent`, `useContextDocUsage`, `useSyncRepoDocs`, `useSaveLocalDoc`, `useUploadLocalDocs`, `useCreateLocalFolder`, `useDeleteLocalDoc`, `useDeleteLocalFolder` |
+| `/repos/[repoId]/context` | Project Context — documents, preview, local editing, "Edit a copy" overrides of repository documents, usage | `useContextDocs`, `useContextDocContent`, `useContextDocUsage`, `useSyncRepoDocs`, `useSaveLocalDoc`, `useKeepLocalCopy`, `useUploadLocalDocs`, `useCreateLocalFolder`, `useDeleteLocalDoc`, `useDeleteLocalFolder` |
 | `/settings/[section]` | API keys, models | `useSettings`, `useUpdateSettings`, `useSecretsStatus`, `useTestConnection` |
 
 ## PR list

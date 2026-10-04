@@ -353,3 +353,45 @@ describe('toTraceContext (AC-37, AC-38, AC-78)', () => {
     expect(parsed.success).toBe(true);
   });
 });
+
+describe('override indicator of a local copy (SPEC-02 AC-17)', () => {
+  const count = (_path: string, content: string) => content.length;
+  const copy = (path: string, overridesRepo?: boolean): ReadResult => ({
+    ok: true,
+    doc: { path, source: 'local', content: `copy of ${path}`, ...(overridesRepo === undefined ? {} : { overridesRepo }) },
+  });
+
+  it('flows from the read through resolveContextDocs into the trace, only for the copy that overrides a repository document', async () => {
+    const res = await resolveContextDocs({
+      paths: ['docs/over.md', 'docs/plain-local.md', 'docs/repo.md', 'docs/false.md'],
+      read: async (p) =>
+        p === 'docs/over.md'
+          ? copy(p, true)
+          : p === 'docs/false.md'
+            ? copy(p, false)
+            : p === 'docs/repo.md'
+              ? ok(p)
+              : copy(p),
+      count,
+    });
+    expect(res.injected.map((d) => [d.path, d.overridesRepo])).toEqual([
+      ['docs/over.md', true],
+      ['docs/plain-local.md', undefined],
+      ['docs/repo.md', undefined],
+      ['docs/false.md', undefined],
+    ]);
+
+    const context = toTraceContext(res)!;
+    expect(context.docs.find((d) => d.path === 'docs/over.md')).toEqual({
+      path: 'docs/over.md',
+      source: 'local',
+      tokens: 'copy of docs/over.md'.length,
+      overrides_repo: true,
+    });
+    // omitted (not `false`) for every other document, so old and plain traces keep their shape
+    for (const d of context.docs.filter((x) => x.path !== 'docs/over.md')) {
+      expect(d).not.toHaveProperty('overrides_repo');
+    }
+    expect(RunTrace.shape.context.unwrap().unwrap().shape.docs.safeParse(context.docs).success).toBe(true);
+  });
+});

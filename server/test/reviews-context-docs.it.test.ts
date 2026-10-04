@@ -455,7 +455,7 @@ d('project context documents in a review run', () => {
     expect(second.trace.prompt_assembly.user).not.toContain('LOCAL-v1');
   });
 
-  it('the repository document wins over a local document at the same path (AC-65)', async () => {
+  it('the local copy wins over a repository document at the same path and the trace marks the override (SPEC-02 AC-1, AC-17)', async () => {
     const fx = await setup();
     fx.put('docs/x.md', 'REPO-text');
     fx.putLocal('docs/x.md', 'LOCAL-text');
@@ -464,9 +464,9 @@ d('project context documents in a review run', () => {
 
     const { trace } = await run(fx.pr.id, agent.id);
 
-    expect(trace.prompt_assembly.user).toContain('REPO-text');
-    expect(trace.prompt_assembly.user).not.toContain('LOCAL-text');
-    expect(trace.context?.docs[0]).toMatchObject({ path: 'docs/x.md', source: 'repo' });
+    expect(trace.prompt_assembly.user).toContain('LOCAL-text');
+    expect(trace.prompt_assembly.user).not.toContain('REPO-text');
+    expect(trace.context?.docs[0]).toMatchObject({ path: 'docs/x.md', source: 'local', overrides_repo: true });
   });
 
   it('a path attached while looking at repo A is resolved against the repo of the PR being reviewed (AC-9)', async () => {

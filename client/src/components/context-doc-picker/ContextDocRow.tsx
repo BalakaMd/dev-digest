@@ -118,6 +118,11 @@ export function ContextDocRow({
         </span>
       )}
       {row.local && <span style={s.badge("var(--text-secondary)")}>{t("picker.local")}</span>}
+      {row.overridesRepo && (
+        <span style={s.badge("var(--accent)")} title={t("picker.overridesRepoTitle")}>
+          {t("picker.overridesRepo")}
+        </span>
+      )}
       {row.type && (
         <span className="mono" style={s.badge(TYPE_COLORS[row.type])}>
           {row.type}

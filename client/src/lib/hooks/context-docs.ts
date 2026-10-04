@@ -94,6 +94,34 @@ export function useSaveLocalDoc(repoId: string) {
   });
 }
 
+/** "Keep my copy": the server records the current repo text's version as the copy's origin. */
+export function useKeepLocalCopy(repoId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (path: string) =>
+      api.post<{ ok: boolean }>(`${base(repoId)}/local/keep-copy`, { path }),
+    onSuccess: () => invalidateDocs(qc, repoId),
+  });
+}
+
+/** Fresh (never cached) read of one document — prefill of an "Edit a copy" draft. */
+export function fetchContextDocContent(
+  qc: QueryClient,
+  repoId: string,
+  path: string,
+  source?: ContextDocSource,
+): Promise<ContextDocContent> {
+  return qc.fetchQuery({
+    queryKey: ["context-docs", repoId, "content", path, source ?? null],
+    queryFn: () => {
+      const qs = new URLSearchParams({ path });
+      if (source) qs.set("source", source);
+      return api.get<ContextDocContent>(`${base(repoId)}/content?${qs}`);
+    },
+    staleTime: 0,
+  });
+}
+
 export function useUploadLocalDocs(repoId: string) {
   const qc = useQueryClient();
   return useMutation({

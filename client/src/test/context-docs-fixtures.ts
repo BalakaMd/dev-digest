@@ -16,7 +16,9 @@ export function entry(path: string, over: Partial<ContextDocEntry> = {}): Contex
     size_bytes: 1200,
     tokens: 100,
     too_large: false,
-    shadowed: false,
+    overrides_repo: false,
+    overridden: false,
+    repo_changed: false,
     ...over,
   };
 }

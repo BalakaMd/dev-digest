@@ -113,6 +113,50 @@ describe("TraceBody — project context (AC-40)", () => {
   });
 });
 
+describe("TraceBody — a local document that overrides a repository one (SPEC-02 AC-17)", () => {
+  const OVERRIDE: RunTrace = {
+    ...WITH_CONTEXT,
+    context: {
+      ...WITH_CONTEXT.context!,
+      docs: [
+        { path: "docs/guide.md", source: "local", tokens: 120, overrides_repo: true },
+        { path: "notes.md", source: "local", tokens: 80 },
+      ],
+    },
+  };
+
+  it('labels the override "Local · overrides repository" in "Specs read" and in the project context summary, and a plain local one just "Local"', () => {
+    renderBody(OVERRIDE);
+    const label = "Local · overrides repository";
+
+    const specsRow = screen.getByText("Specs read").parentElement!;
+    const guideChip = within(specsRow).getByText("docs/guide.md").parentElement!;
+    const notesChip = within(specsRow).getByText("notes.md").parentElement!;
+    expect(within(guideChip).getByText(label)).toBeInTheDocument();
+    expect(within(notesChip).queryByText(label)).not.toBeInTheDocument();
+    expect(within(notesChip).getByText("Local")).toBeInTheDocument();
+
+    openPromptAssembly();
+    const guide = screen.getAllByText("docs/guide.md").at(-1)!.parentElement!;
+    expect(guide).toHaveTextContent("120 tokens");
+    expect(within(guide).getByText(label)).toBeInTheDocument();
+    const notes = screen.getAllByText("notes.md").at(-1)!.parentElement!;
+    expect(within(notes).queryByText(label)).not.toBeInTheDocument();
+    expect(within(notes).getByText("Local")).toBeInTheDocument();
+    expect(screen.getAllByText(label)).toHaveLength(2);
+  });
+
+  it("a repository document never carries the override label, even when the flag is set", () => {
+    renderBody({
+      ...WITH_CONTEXT,
+      context: { ...WITH_CONTEXT.context!, docs: [{ path: "docs/guide.md", source: "repo", tokens: 120, overrides_repo: true }] },
+    });
+    openPromptAssembly();
+    expect(screen.queryByText("Local · overrides repository")).not.toBeInTheDocument();
+    expect(screen.queryByText("Local")).not.toBeInTheDocument();
+  });
+});
+
 describe("TraceBody — traces without a context field (AC-38 on the client)", () => {
   it("falls back to the plain specs_read list, with no Local marks and no skipped list", () => {
     renderBody({ ...BASE, specs_read: ["spec-0", "spec-1"], prompt_assembly: { ...BASE.prompt_assembly, specs: "legacy specs text" } });

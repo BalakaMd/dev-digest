@@ -1,6 +1,8 @@
-/* DocViewer — right panel: file name, Preview/Edit toggle (Edit only for local
-   documents — repository documents are read-only, AC-67), "Used by N agents",
-   Coverage ring and the rendered document or the editor. Mounted with a key of
+/* DocViewer — right panel: file name, Preview/Edit toggle, "Used by N agents", Coverage ring
+   and the rendered document or the editor. What it offers depends on the document kind
+   (doc-kind.ts): a repository document is read-only with "Edit a copy"; an overridden one is a
+   preview with a link to its copy; an override copy edits like a local document and offers
+   "Revert to repository version"; a plain local document offers Delete. Mounted with a key of
    `source:path`, so the mode resets when another document is selected. */
 "use client";
 
@@ -13,6 +15,9 @@ import { useContextDocUsage } from "@/lib/hooks/context-docs";
 import { fileName } from "../../doc-groups";
 import { CoverageRing } from "../CoverageRing";
 import { DocEditor } from "../DocEditor";
+import { CopyStatus } from "./_components/CopyStatus";
+import { EditCopyButton, type CopySeed } from "./_components/EditCopyButton";
+import { docKind } from "./doc-kind";
 
 const seg = (active: boolean, disabled?: boolean): React.CSSProperties => ({
   padding: "4px 12px",
@@ -33,15 +38,34 @@ export interface DocViewerProps {
   guard: (leave: () => void) => void;
   onDirtyChange: (dirty: boolean) => void;
   onDelete: (doc: ContextDocEntry) => void;
+  /** "Edit a copy": the page opens the copy draft with the repository text. */
+  onEditCopy: (doc: ContextDocEntry, seed: CopySeed) => void;
+  onRevert: (doc: ContextDocEntry) => void;
+  onOpenCopy: (doc: ContextDocEntry) => void;
+  onKeptCopy: (doc: ContextDocEntry) => void;
   onSaved: () => void;
   onConflict: () => void;
 }
 
-export function DocViewer({ repoId, doc, guard, onDirtyChange, onDelete, onSaved, onConflict }: DocViewerProps) {
+export function DocViewer({
+  repoId,
+  doc,
+  guard,
+  onDirtyChange,
+  onDelete,
+  onEditCopy,
+  onRevert,
+  onOpenCopy,
+  onKeptCopy,
+  onSaved,
+  onConflict,
+}: DocViewerProps) {
   const t = useTranslations("projectContext");
-  const usage = useContextDocUsage(repoId, doc.path);
+  const kind = docKind(doc);
+  // An overridden repository document is not used, so its usage is not looked up.
+  const usage = useContextDocUsage(repoId, kind === "overridden" ? null : doc.path);
   const [editing, setEditing] = React.useState(false);
-  const isLocal = doc.source === "local";
+  const canEdit = kind === "copy" || kind === "local";
   const hintId = React.useId();
 
   return (
@@ -71,38 +95,70 @@ export function DocViewer({ repoId, doc, guard, onDirtyChange, onDelete, onSaved
           >
             {t("viewer.preview")}
           </button>
-          <button
-            type="button"
-            style={seg(editing, !isLocal)}
-            aria-pressed={editing}
-            disabled={!isLocal}
-            aria-describedby={isLocal ? undefined : hintId}
-            title={isLocal ? undefined : t("viewer.editUnavailable")}
-            onClick={() => setEditing(true)}
-          >
-            {t("viewer.edit")}
-          </button>
+          {/* A plain repository document has "Edit a copy" in place of the toggle (AC-4). */}
+          {kind !== "repo" && (
+            <button
+              type="button"
+              style={seg(editing, !canEdit)}
+              aria-pressed={editing}
+              disabled={!canEdit}
+              aria-describedby={kind === "overridden" ? hintId : undefined}
+              onClick={() => setEditing(true)}
+            >
+              {t("viewer.edit")}
+            </button>
+          )}
         </div>
-        {!isLocal && (
-          <span id={hintId} style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            {t("viewer.editUnavailable")}
-          </span>
+        {kind === "repo" && <EditCopyButton repoId={repoId} doc={doc} onEditCopy={(seed) => onEditCopy(doc, seed)} />}
+        {kind === "overridden" && (
+          <>
+            <span id={hintId} style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              {t("viewer.overriddenHint")}
+            </span>
+            <Button
+              kind="ghost"
+              size="sm"
+              aria-label={t("viewer.openLocalCopyLabel", { path: doc.path })}
+              onClick={() => onOpenCopy(doc)}
+            >
+              {t("viewer.openLocalCopy")}
+            </Button>
+          </>
         )}
-        {isLocal && !editing && (
+        {kind === "copy" && doc.repo_changed && (
+          <CopyStatus repoId={repoId} path={doc.path} onKept={() => onKeptCopy(doc)} />
+        )}
+        {kind === "copy" && !editing && (
+          <Button
+            kind="ghost"
+            size="sm"
+            aria-label={t("viewer.revertLabel", { path: doc.path })}
+            onClick={() => onRevert(doc)}
+          >
+            {t("viewer.revert")}
+          </Button>
+        )}
+        {kind === "local" && !editing && (
           <Button kind="ghost" size="sm" icon="Trash" onClick={() => onDelete(doc)}>
             {t("viewer.delete")}
           </Button>
         )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)" }}>
-            <Icon.Cpu size={14} />
-            {usage.data
-              ? t("viewer.usedBy", { count: usage.data.used_by_agents })
-              : usage.isError
-                ? t("viewer.usageError")
-                : t("viewer.usageLoading")}
-          </span>
-          {usage.data && <CoverageRing pct={usage.data.coverage_pct} />}
+          {kind === "overridden" ? (
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{t("viewer.notUsedOverridden")}</span>
+          ) : (
+            <>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)" }}>
+                <Icon.Cpu size={14} />
+                {usage.data
+                  ? t("viewer.usedBy", { count: usage.data.used_by_agents })
+                  : usage.isError
+                    ? t("viewer.usageError")
+                    : t("viewer.usageLoading")}
+              </span>
+              {usage.data && <CoverageRing pct={usage.data.coverage_pct} />}
+            </>
+          )}
         </div>
       </header>
       {editing ? (

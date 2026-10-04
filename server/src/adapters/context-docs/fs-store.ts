@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readdir, readFile, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
@@ -9,12 +10,14 @@ import {
 } from '@devdigest/shared';
 import { wrapUntrusted } from '@devdigest/reviewer-core';
 import { compileGlobs, docTypeOf, searchRoots } from './glob.js';
+import { ORIGINS_FILE, OriginStore } from './origin-store.js';
 import { assertRegularFile, assertSafeFolder, assertSafeRelative, resolveInside } from './path-guard.js';
 import {
   ContextDocError,
   type ContextDocListResult,
   type ContextDocScope,
   type ContextDocStore,
+  type EffectiveContextDoc,
   type LocalDocWrite,
 } from './types.js';
 
@@ -72,6 +75,7 @@ export class FsContextDocStore implements ContextDocStore {
   private readonly matches: (path: string) => boolean;
   private readonly roots: string[];
   private readonly tokenCache = new Map<string, number>();
+  private readonly origins = new OriginStore((repoId) => this.localRoot(repoId));
 
   constructor(private readonly opts: FsContextDocStoreOptions) {
     this.matches = compileGlobs(opts.globs);
@@ -119,6 +123,7 @@ export class FsContextDocStore implements ContextDocStore {
       let seen = 0;
       for (const e of entries) {
         if (e.isSymbolicLink()) continue;
+        if (!rel && e.name === ORIGINS_FILE) continue; // origin sidecar is never a document
         const childRel = rel ? `${rel}/${e.name}` : e.name;
         if (e.isDirectory()) {
           if (e.name === '.git') continue;
@@ -158,16 +163,112 @@ export class FsContextDocStore implements ContextDocStore {
     }
   }
 
+  /** sha256 of a file's bytes, streamed (any size); null when unreadable. */
+  private async hashFile(abs: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      const h = createHash('sha256');
+      const stream = createReadStream(abs);
+      stream.on('data', (chunk) => h.update(chunk));
+      stream.on('error', () => resolve(null));
+      stream.on('end', () => resolve(h.digest('hex')));
+    });
+  }
+
+  /** Version of the repository text at `path` (= `ContextDocContent.version` of `source=repo`). */
+  private async repoVersion(repoRoot: string, path: string): Promise<string | null> {
+    try {
+      const abs = await resolveInside(repoRoot, path);
+      await assertRegularFile(abs, path);
+      return await this.hashFile(abs);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Record the origin of an override that has none (best-effort, never throws). */
+  private async ensureOrigin(repoId: string, repoRoot: string, path: string): Promise<void> {
+    try {
+      if ((await this.origins.get(repoId)).has(path)) return;
+      const version = await this.repoVersion(repoRoot, path);
+      if (!version) return;
+      await this.origins.update(repoId, (m) => {
+        if (m.has(path)) return false;
+        m.set(path, version);
+        return true;
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  /**
+   * Derive `repo_changed` for every override pair, record missing origins and
+   * drop the origins of orphans. All origin I/O is best-effort: a failure
+   * leaves the affected copy without a "Repository changed" mark.
+   */
+  private async deriveOverrideState(
+    repoId: string,
+    repoRoot: string,
+    repoPaths: Set<string>,
+    localPaths: string[],
+  ): Promise<Set<string>> {
+    const changed = new Set<string>();
+    try {
+      const origins = await this.origins.get(repoId);
+      const pairs = localPaths.filter((p) => repoPaths.has(p));
+      const fresh = new Map<string, string>();
+      for (let i = 0; i < pairs.length; i += READ_CONCURRENCY) {
+        await Promise.all(
+          pairs.slice(i, i + READ_CONCURRENCY).map(async (path) => {
+            const version = await this.repoVersion(repoRoot, path);
+            if (!version) return;
+            const origin = origins.get(path);
+            if (origin === undefined) fresh.set(path, version);
+            else if (origin !== version) changed.add(path);
+          }),
+        );
+      }
+      const orphans: string[] = [];
+      for (const path of origins.keys()) {
+        if (!repoPaths.has(path) && localPaths.includes(path) && !(await this.repoHas(repoRoot, path))) {
+          orphans.push(path);
+        }
+      }
+      if (fresh.size > 0 || orphans.length > 0) {
+        await this.origins.update(repoId, (m) => {
+          let dirty = false;
+          for (const [path, version] of fresh) {
+            if (!m.has(path)) {
+              m.set(path, version);
+              dirty = true;
+            }
+          }
+          for (const path of orphans) dirty = m.delete(path) || dirty;
+          return dirty;
+        });
+      }
+    } catch {
+      /* best-effort */
+    }
+    return changed;
+  }
+
   async list(scope: ContextDocScope): Promise<ContextDocListResult> {
     const repoRoot = await this.repoRoot(scope);
     const localRoot = this.localRoot(scope.repoId);
     const repo = repoRoot ? (await this.walk(repoRoot)).files : [];
     const local = await this.walk(localRoot);
 
+    // Marks come from the full (pre-truncation) path sets, on every call (AC-2).
     const repoPaths = new Set(repo.map((c) => c.path));
+    const localPaths = new Set(local.files.map((c) => c.path));
+    const changed = repoRoot
+      ? await this.deriveOverrideState(scope.repoId, repoRoot, repoPaths, [...localPaths])
+      : new Set<string>();
+
     const merged = [
-      ...repo.map((c) => ({ ...c, source: 'repo' as const, shadowed: false })),
-      ...local.files.map((c) => ({ ...c, source: 'local' as const, shadowed: repoPaths.has(c.path) })),
+      ...repo.map((c) => ({ ...c, source: 'repo' as const })),
+      ...local.files.map((c) => ({ ...c, source: 'local' as const })),
     ].sort((a, b) => byCodeUnit(a.path, b.path) || (a.source === b.source ? 0 : a.source === 'repo' ? -1 : 1));
 
     const truncated = merged.length > MAX_DOCS;
@@ -180,6 +281,7 @@ export class FsContextDocStore implements ContextDocStore {
           const tooLarge = c.size > CONTEXT_DOC_MAX_BYTES;
           const root = c.source === 'repo' ? repoRoot! : localRoot;
           const slash = c.path.lastIndexOf('/');
+          const isRepo = c.source === 'repo';
           docs[i + j] = {
             path: c.path,
             source: c.source,
@@ -188,7 +290,9 @@ export class FsContextDocStore implements ContextDocStore {
             size_bytes: c.size,
             tokens: tooLarge ? null : await this.tokensFor(root, c),
             too_large: tooLarge,
-            shadowed: c.shadowed,
+            overrides_repo: !isRepo && repoPaths.has(c.path),
+            overridden: isRepo && localPaths.has(c.path),
+            repo_changed: !isRepo && changed.has(c.path),
           };
         }),
       );
@@ -220,34 +324,58 @@ export class FsContextDocStore implements ContextDocStore {
   }
 
   async read(scope: ContextDocScope, path: string, source?: ContextDocSource): Promise<ContextDocContent> {
+    if (source === undefined) {
+      const { overrides_repo: _overrides, ...doc } = await this.readEffective(scope, path);
+      return doc;
+    }
+    assertSafeRelative(path);
+    if (!this.matches(path)) throw new ContextDocError('invalid_path');
+    if (source === 'local') return this.readFrom(this.localRoot(scope.repoId), path, 'local');
+    const repoRoot = await this.repoRoot(scope);
+    if (!repoRoot) throw new ContextDocError('not_cloned');
+    return this.readFrom(repoRoot, path, 'repo');
+  }
+
+  /**
+   * Effective document: the local copy first; the repository only when the
+   * local side is `not_found`. Any other local failure (too_large, not_utf8,
+   * unsafe, io_error) propagates and never falls back to the repository (AC-18).
+   */
+  async readEffective(scope: ContextDocScope, path: string): Promise<EffectiveContextDoc> {
     assertSafeRelative(path);
     if (!this.matches(path)) throw new ContextDocError('invalid_path');
     const localRoot = this.localRoot(scope.repoId);
-
-    if (source === 'local') return this.readFrom(localRoot, path, 'local');
-
     const repoRoot = await this.repoRoot(scope);
-    if (source === 'repo') {
-      if (!repoRoot) throw new ContextDocError('not_cloned');
-      return this.readFrom(repoRoot, path, 'repo');
-    }
 
-    // Effective document: repository first (AC-65), else the local one.
-    if (repoRoot) {
-      try {
-        return await this.readFrom(repoRoot, path, 'repo');
-      } catch (err) {
-        if (!(err instanceof ContextDocError) || err.code !== 'not_found') throw err;
-      }
-    }
+    let local: ContextDocContent | null = null;
     try {
-      return await this.readFrom(localRoot, path, 'local');
+      local = await this.readFrom(localRoot, path, 'local');
     } catch (err) {
-      if (!repoRoot && err instanceof ContextDocError && err.code === 'not_found') {
-        throw new ContextDocError('not_cloned');
-      }
-      throw err;
+      if (!(err instanceof ContextDocError) || err.code !== 'not_found') throw err;
     }
+    if (local) {
+      const overrides = repoRoot !== null && (await this.repoHas(repoRoot, path));
+      if (overrides) await this.ensureOrigin(scope.repoId, repoRoot!, path);
+      return { ...local, overrides_repo: overrides };
+    }
+    if (!repoRoot) throw new ContextDocError('not_cloned');
+    return { ...(await this.readFrom(repoRoot, path, 'repo')), overrides_repo: false };
+  }
+
+  async keepOrigin(scope: ContextDocScope, path: string): Promise<void> {
+    assertSafeRelative(path);
+    if (!this.matches(path)) throw new ContextDocError('invalid_path');
+    const localRoot = this.localRoot(scope.repoId);
+    await assertRegularFile(await resolveInside(localRoot, path), path); // not_found without a copy
+    const repoRoot = await this.repoRoot(scope);
+    if (!repoRoot) throw new ContextDocError('not_cloned');
+    const version = await this.repoVersion(repoRoot, path);
+    if (!version) throw new ContextDocError('not_found', { path });
+    await this.origins.update(scope.repoId, (m) => {
+      if (m.get(path) === version) return false;
+      m.set(path, version);
+      return true;
+    });
   }
 
   // ── local writes ───────────────────────────────────────────────────────
@@ -276,10 +404,16 @@ export class FsContextDocStore implements ContextDocStore {
     const abs = await resolveInside(root, path);
 
     const existing = await this.readStored(root, path);
+    let recordOrigin = false;
     if (baseVersion === undefined) {
       if (existing) throw new ContextDocError('conflict', { path });
       const repoRoot = await this.repoRoot(scope);
-      if (repoRoot && (await this.repoHas(repoRoot, path))) throw new ContextDocError('conflict', { path });
+      if (repoRoot && (await this.repoHas(repoRoot, path))) {
+        // Only an explicit override intent may take a repository path (AC-7).
+        if (!input.override) throw new ContextDocError('conflict', { path });
+        recordOrigin = true;
+      }
+      // Intent without a repository document (gone / no clone): a plain local doc, no origin.
     } else {
       if (!existing) throw new ContextDocError('not_found', { path });
       if (existing.version !== baseVersion) {
@@ -293,12 +427,30 @@ export class FsContextDocStore implements ContextDocStore {
 
     await guardFs(path, () => mkdir(dirname(abs), { recursive: true }));
     await resolveInside(root, path); // re-check after creating directories
+    let previousOrigin: string | undefined;
+    if (recordOrigin) {
+      const originVersion = input.override!.originVersion;
+      await this.origins.update(scope.repoId, (m) => {
+        previousOrigin = m.get(path);
+        m.set(path, originVersion);
+        return true;
+      });
+    }
     const tmp = join(dirname(abs), `.${name}.${process.pid}.${Date.now()}.tmp`);
     try {
       await writeFile(tmp, bytes, { flag: 'wx', mode: 0o600 });
       await rename(tmp, abs);
     } catch {
       await rm(tmp, { force: true }).catch(() => undefined);
+      if (recordOrigin) {
+        await this.origins
+          .update(scope.repoId, (m) => {
+            if (previousOrigin === undefined) return m.delete(path);
+            m.set(path, previousOrigin);
+            return true;
+          })
+          .catch(() => undefined);
+      }
       throw new ContextDocError('unsafe', { path });
     }
     return { path, source: 'local', content, version: sha256(bytes), size_bytes: bytes.length };
@@ -368,6 +520,8 @@ export class FsContextDocStore implements ContextDocStore {
     } catch {
       throw new ContextDocError('not_found', { path });
     }
+    // The copy is gone, so is its origin (best-effort; a leftover is dropped as an orphan).
+    await this.origins.update(scope.repoId, (m) => m.delete(path)).catch(() => undefined);
   }
 
   async deleteLocalFolder(scope: ContextDocScope, path: string): Promise<void> {

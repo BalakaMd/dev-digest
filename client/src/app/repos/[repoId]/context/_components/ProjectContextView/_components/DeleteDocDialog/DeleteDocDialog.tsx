@@ -11,6 +11,7 @@ import {
   useDeleteLocalDoc,
   useDeleteLocalFolder,
 } from "@/lib/hooks/context-docs";
+import { AttachedBy } from "../AttachedBy";
 
 export interface DeleteTarget {
   kind: "doc" | "folder";
@@ -57,26 +58,7 @@ export function DeleteDocDialog({
       {isDoc && usage.data && agents.length + skills.length > 0 && (
         <div>
           <p style={{ margin: "0 0 4px" }}>{t("attachedIntro")}</p>
-          {agents.length > 0 && (
-            <>
-              <strong>{t("agents")}</strong>
-              <ul style={{ margin: "2px 0 6px", paddingLeft: 18 }}>
-                {agents.map((a) => (
-                  <li key={a.id}>{a.name}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          {skills.length > 0 && (
-            <>
-              <strong>{t("skills")}</strong>
-              <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>
-                {skills.map((k) => (
-                  <li key={k.id}>{k.name}</li>
-                ))}
-              </ul>
-            </>
-          )}
+          <AttachedBy agents={agents} skills={skills} />
         </div>
       )}
       {error && (

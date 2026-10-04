@@ -20,6 +20,8 @@ export interface DocRow {
   folder: string;
   type: ContextDocType | null;
   local: boolean;
+  /** A local copy that overrides the repository document at the same path. */
+  overridesRepo: boolean;
   /** Wrapped-block tokens; null when unknown (too large or missing). */
   tokens: number | null;
   tooLarge: boolean;
@@ -40,16 +42,17 @@ function folderOf(path: string): string {
 }
 
 /**
- * Attached rows in order → inherited rows → the rest by path. A shadowed local
- * document is not shown (the repository copy is the effective one). An attached
- * path with no document becomes a checked "Missing" row.
+ * Attached rows in order → inherited rows → the rest by path. An overridden
+ * repository document is not shown: its local copy is the effective one and
+ * the single row for that path. An attached path with no document becomes a
+ * checked "Missing" row.
  */
 export function buildRows(input: {
   docs: ContextDocEntry[];
   attached: string[];
   inherited?: InheritedDoc[];
 }): DocRow[] {
-  const known = new Map(input.docs.filter((d) => !d.shadowed).map((d) => [d.path, d]));
+  const known = new Map(input.docs.filter((d) => !d.overridden).map((d) => [d.path, d]));
   const attached = new Set(input.attached);
   const via = new Map<string, string>();
   for (const i of input.inherited ?? []) if (!via.has(i.path)) via.set(i.path, i.via);
@@ -62,6 +65,7 @@ export function buildRows(input: {
       folder: d?.folder ?? folderOf(path),
       type: d?.type ?? null,
       local: d?.source === "local",
+      overridesRepo: d?.overrides_repo ?? false,
       tokens: d?.tokens ?? null,
       tooLarge: d?.too_large ?? false,
       missing: !d,

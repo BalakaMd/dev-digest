@@ -8,4 +8,5 @@ export {
   wrapUntrusted,
   type PromptParts,
   type AssembledPrompt,
+  type PromptSpec,
 } from '@devdigest/reviewer-core';

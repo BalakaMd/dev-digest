@@ -27,7 +27,7 @@ pnpm typecheck                                    # tsc --noEmit
   Fastify plugin + one import and one entry in `modules/index.ts`. Nothing else.
 - **Everything goes through the DI container** (`platform/container.ts`): `git`,
   `codeIndex`, `repoIntel`, `depgraph`, `tokenizer`, `priceBook`, `secrets`,
-  `auth`, `jobs`, `runBus`. Never construct an adapter inline — tests swap them
+  `auth`, `jobs`, `runBus`, `contextDocs`. Never construct an adapter inline — tests swap them
   via `adapters/mocks.ts`.
 - **Validation is schema-first.** Routes declare Zod `params`/`body` from
   `@devdigest/shared` via `fastify-type-provider-zod`; the same schema also

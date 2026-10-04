@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   Review,
   Finding,
@@ -16,7 +16,19 @@ import {
   Settings,
   Repo,
   PrDetail,
+  Agent,
+  Skill,
+  AgentVersionConfig,
+  ContextDocPaths,
+  TourLanguage,
+  SettingsUpdate,
+  OnboardingTour,
+  OnboardingTourState,
+  OnboardingBlocked,
 } from '@devdigest/shared';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../src/app.js';
+import { loadConfig } from '../src/platform/config.js';
 
 /**
  * Contract tests — parse/round-trip the fixtures from data.jsx/data2.jsx
@@ -255,5 +267,252 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+/**
+ * SPEC-01 contract additions (AC-24/25/26/37/38/48/75). Every new field is
+ * optional or defaulted so legacy documents keep parsing.
+ */
+describe('project-context contracts', () => {
+  const findingBase = {
+    id: 'f1',
+    severity: 'WARNING' as const,
+    category: 'bug' as const,
+    title: 'Direct db import',
+    file: 'api/users.ts',
+    start_line: 3,
+    end_line: 3,
+    rationale: 'r',
+    confidence: 0.8,
+  };
+
+  const traceBase = {
+    config: { agent: 'A', version: 'v1', model: 'gpt-4.1', pr: 1, source: 'local' },
+    stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, cost_usd: 0, findings: 0, grounding: '0/0 passed' },
+    prompt_assembly: { system: 's', user: 'u' },
+    tool_calls: [],
+    raw_output: '{}',
+    memory_pulled: [],
+    log: [],
+  };
+
+  it('Finding carries an optional cited_docs list (AC-48)', () => {
+    expect(Finding.parse(findingBase).cited_docs).toBeUndefined();
+    expect(Finding.parse({ ...findingBase, cited_docs: null }).cited_docs).toBeNull();
+    expect(Finding.parse({ ...findingBase, cited_docs: ['specs/a.md', 'docs/b.md'] }).cited_docs).toEqual([
+      'specs/a.md',
+      'docs/b.md',
+    ]);
+    expect(() => Finding.parse({ ...findingBase, cited_docs: [1] })).toThrow();
+  });
+
+  it('a legacy RunTrace without `context` still parses; specs_read stays a list of strings (AC-37)', () => {
+    const legacy = RunTrace.parse({ ...traceBase, specs_read: ['specs/a.md'] });
+    expect(legacy.context).toBeUndefined();
+    expect(legacy.specs_read).toEqual(['specs/a.md']);
+    // `specs_read` must not turn into per-document objects.
+    expect(() => RunTrace.parse({ ...traceBase, specs_read: [{ path: 'specs/a.md' }] })).toThrow();
+  });
+
+  it('RunTrace.context holds per-document path/source/tokens, the block total and skipped docs (AC-38)', () => {
+    const trace = RunTrace.parse({
+      ...traceBase,
+      specs_read: ['specs/a.md', '.devdigest/docs/b.md'],
+      context: {
+        docs: [
+          { path: 'specs/a.md', source: 'repo', tokens: 12 },
+          { path: '.devdigest/docs/b.md', source: 'local', tokens: 30 },
+        ],
+        tokens: 42,
+        skipped: [{ path: 'docs/c.md', reason: 'over_budget' }],
+      },
+    });
+    expect(trace.context?.tokens).toBe(42);
+    expect(trace.context?.docs.map((d) => d.source)).toEqual(['repo', 'local']);
+    expect(trace.context?.skipped).toEqual([{ path: 'docs/c.md', reason: 'over_budget' }]);
+    expect(RunTrace.parse({ ...traceBase, specs_read: [], context: null }).context).toBeNull();
+    // source is a closed set
+    expect(() =>
+      RunTrace.parse({
+        ...traceBase,
+        specs_read: [],
+        context: { docs: [{ path: 'a.md', source: 'remote', tokens: 1 }], tokens: 1, skipped: [] },
+      }),
+    ).toThrow();
+  });
+
+  it('Agent and Skill keep context_docs in order and tolerate its absence (AC-25)', () => {
+    const agent = {
+      id: 'a1',
+      name: 'Reviewer',
+      description: 'd',
+      provider: 'openai',
+      model: 'gpt-4.1',
+      system_prompt: 'p',
+      enabled: true,
+      version: 1,
+    };
+    const parsedAgent = Agent.safeParse({ ...agent, context_docs: ['docs/z.md', 'specs/a.md'] });
+    expect(parsedAgent.success).toBe(true);
+    if (parsedAgent.success) expect(parsedAgent.data.context_docs).toEqual(['docs/z.md', 'specs/a.md']);
+    const withoutDocs = Agent.safeParse(agent);
+    expect(withoutDocs.success).toBe(true);
+    if (withoutDocs.success) expect(withoutDocs.data.context_docs).toBeUndefined();
+
+    const skill = {
+      id: 's1',
+      workspace_id: 'w1',
+      name: 'rubric',
+      description: 'd',
+      type: 'rubric',
+      body: 'b',
+      source: 'manual',
+      enabled: true,
+      version: 1,
+    };
+    const parsedSkill = Skill.safeParse({ ...skill, context_docs: ['docs/b.md', 'docs/a.md'] });
+    expect(parsedSkill.success).toBe(true);
+    if (parsedSkill.success) expect(parsedSkill.data.context_docs).toEqual(['docs/b.md', 'docs/a.md']);
+    expect(Skill.safeParse(skill).success).toBe(true);
+  });
+
+  it('an old agent-version snapshot without context_docs parses with [] (AC-75)', () => {
+    const legacy = AgentVersionConfig.parse({
+      provider: 'openai',
+      model: 'gpt-4.1',
+      system_prompt: 'p',
+      strategy: 'single-pass',
+      ci_fail_on: 'never',
+      repo_intel: true,
+      skills: [],
+    });
+    expect(legacy.context_docs).toEqual([]);
+    const current = AgentVersionConfig.parse({
+      provider: 'openai',
+      model: 'gpt-4.1',
+      system_prompt: 'p',
+      strategy: 'single-pass',
+      ci_fail_on: 'never',
+      repo_intel: true,
+      skills: [],
+      context_docs: ['specs/a.md', 'specs/b.md'],
+    });
+    expect(current.context_docs).toEqual(['specs/a.md', 'specs/b.md']);
+  });
+
+  describe('ContextDocPaths (AC-4, AC-26)', () => {
+    it('accepts repo-relative .md paths, including hidden folders, and keeps order', () => {
+      const paths = ['.devdigest/specs/a.md', 'docs/specs/x.md', 'insights/notes.md'];
+      expect(ContextDocPaths.parse(paths)).toEqual(paths);
+      expect(ContextDocPaths.parse([])).toEqual([]);
+    });
+
+    it.each([
+      ['absolute path', '/etc/passwd.md'],
+      ['windows drive path', 'C:/docs/a.md'],
+      ['parent segment', 'docs/../a.md'],
+      ['leading parent segment', '../a.md'],
+      ['NUL byte', 'docs/a\0.md'],
+      ['backslash', 'docs\\a.md'],
+      ['wrong extension', 'docs/a.txt'],
+      ['no extension', 'docs/a'],
+      ['empty path', ''],
+      ['empty segment', 'docs//a.md'],
+      ['over 512 chars', `docs/${'a'.repeat(510)}.md`],
+    ])('rejects %s', (_label, path) => {
+      expect(ContextDocPaths.safeParse([path]).success).toBe(false);
+    });
+
+    it('rejects a duplicate path and a 21st path, accepts exactly 20', () => {
+      expect(ContextDocPaths.safeParse(['docs/a.md', 'docs/a.md']).success).toBe(false);
+      const many = Array.from({ length: 21 }, (_, i) => `docs/${i}.md`);
+      expect(ContextDocPaths.safeParse(many).success).toBe(false);
+      expect(ContextDocPaths.safeParse(many.slice(0, 20)).success).toBe(true);
+    });
+  });
+});
+
+/**
+ * SPEC-03 — Onboarding Tour contracts. `tour_language` is a fixed enum because
+ * it is injected into the LLM prompt (AC-38, AC-42).
+ */
+describe('Onboarding Tour contracts', () => {
+  it('TourLanguage accepts exactly English, Ukrainian, Hebrew', () => {
+    expect(TourLanguage.options).toEqual(['English', 'Ukrainian', 'Hebrew']);
+    expect(TourLanguage.safeParse('French').success).toBe(false);
+    expect(TourLanguage.safeParse('english').success).toBe(false);
+  });
+
+  it('Settings defaults tour_language to English; SettingsUpdate rejects another value (AC-38, AC-42)', () => {
+    expect(Settings.parse({}).tour_language).toBe('English');
+    expect(SettingsUpdate.parse({ tour_language: 'Hebrew' }).tour_language).toBe('Hebrew');
+    expect(() => SettingsUpdate.parse({ tour_language: 'French' })).toThrow();
+  });
+
+  it('OnboardingTour round-trips with nullable sections and an always-present run.commands', () => {
+    const tour = OnboardingTour.parse({
+      generated_at: '2026-10-04T10:00:00.000Z',
+      language: 'Ukrainian',
+      indexed_files: 42,
+      provider: 'openrouter',
+      model: 'm',
+      architecture: null,
+      critical_paths: [{ path: 'src/a.ts', reason: null, imported_by: 3, imports: 1 }],
+      run: { commands: [] },
+      reading_path: null,
+      first_tasks: null,
+    });
+    expect(tour.run.commands).toEqual([]);
+    expect(tour.critical_paths![0]!.reason).toBeNull();
+    expect(OnboardingTour.safeParse({ ...tour, run: undefined }).success).toBe(false);
+    expect(OnboardingTour.safeParse({ ...tour, language: 'French' }).success).toBe(false);
+  });
+
+  it('OnboardingBlocked / OnboardingTourState accept the documented reasons and reject unknown ones', () => {
+    const blocked = {
+      reason: 'partial',
+      message: 'm',
+      index_status: 'partial',
+      files_indexed: 3,
+    };
+    expect(OnboardingBlocked.parse(blocked).reason).toBe('partial');
+    expect(OnboardingBlocked.safeParse({ ...blocked, reason: 'other' }).success).toBe(false);
+
+    const state = OnboardingTourState.parse({
+      tour: null,
+      generation: { status: 'idle', started_at: null, error: null },
+      blocked: null,
+      missing_key: { provider: 'openrouter' },
+      tour_language: 'English',
+      language_changed: false,
+      index_changed: false,
+      repo: { full_name: 'o/r', default_branch: 'main' },
+    });
+    expect(state.missing_key?.provider).toBe('openrouter');
+  });
+});
+
+describe('PUT /settings — tour_language validation (AC-42, 422 shape)', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await buildApp({
+      config: loadConfig({ ...process.env, NODE_ENV: 'test' } as NodeJS.ProcessEnv),
+    });
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('rejects a language outside the enum with 422 validation_error before the handler runs', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/settings',
+      payload: { tour_language: 'French' },
+    });
+    expect(res.statusCode).toBe(422);
+    const body = res.json();
+    expect(body.error.code).toBe('validation_error');
+    expect(JSON.stringify(body.error.details)).toContain('tour_language');
   });
 });

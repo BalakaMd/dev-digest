@@ -2,6 +2,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { MockGitHubClient, MockLLMProvider } from '../src/adapters/mocks.js';
+import { ContextDocsService } from '../src/modules/context-docs/service.js';
 
 /**
  * No-DB route smoke tests via app.inject(). `/health` and the validation/error
@@ -68,6 +69,22 @@ describe('routes (no DB)', () => {
   it('GET /repos/:id/pulls/:number → 422 on a non-uuid repo id', async () => {
     const app = await buildApp({ config });
     const res = await app.inject({ method: 'GET', url: '/repos/not-a-uuid/pulls/1' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe('validation_error');
+    await app.close();
+  });
+
+  it('context-docs routes are served by the container\'s lazy contextDocsService (no DB needed to boot)', async () => {
+    const app = await buildApp({ config });
+    // the module plugin resolves `container.contextDocsService` while registering;
+    // booting at all proves the getter assembles without touching the database,
+    // and the same instance is handed to every consumer.
+    // (boolean assertions: a failing object diff would dump the whole container)
+    expect(app.container.contextDocsService instanceof ContextDocsService).toBe(true);
+    expect(app.container.contextDocsService === app.container.contextDocsService).toBe(true);
+
+    // the list route is registered and its schema runs before the handler (422, not 404)
+    const res = await app.inject({ method: 'GET', url: '/repos/not-a-uuid/context-docs' });
     expect(res.statusCode).toBe(422);
     expect(res.json().error.code).toBe('validation_error');
     await app.close();

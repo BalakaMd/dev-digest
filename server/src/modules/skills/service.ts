@@ -51,9 +51,11 @@ export interface UpdateSkillInput {
 
 export class SkillsService {
   private repo: SkillsRepository;
+  private matchesGlobs: (path: string) => boolean;
 
   constructor(container: Container) {
     this.repo = new SkillsRepository(container.db);
+    this.matchesGlobs = (path) => container.contextDocs.matchesGlobs(path);
   }
 
   async list(workspaceId: string): Promise<SkillSummary[]> {
@@ -86,6 +88,20 @@ export class SkillsService {
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined> {
     const row = await this.repo.update(workspaceId, id, patch);
+    return row ? toSkillDto(row) : undefined;
+  }
+
+  /** Replace the skill's attached documents; the skill version is unchanged. */
+  async setContextDocs(
+    workspaceId: string,
+    id: string,
+    paths: string[],
+  ): Promise<Skill | undefined> {
+    const bad = paths.find((p) => !this.matchesGlobs(p));
+    if (bad !== undefined) {
+      throw new ValidationError(`Path does not match the context document globs: ${bad}`);
+    }
+    const row = await this.repo.setContextDocs(workspaceId, id, paths);
     return row ? toSkillDto(row) : undefined;
   }
 

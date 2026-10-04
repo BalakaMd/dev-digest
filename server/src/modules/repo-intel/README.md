@@ -41,6 +41,7 @@ touch the pipeline internals:
 - `getBlastRadius(repoId, files)` → impacted symbols / callers (used by L04).
 - `getUnresolvedReferences(repoId, …)` → phantom-symbol detection (used by L06).
 - `getConventionSamples(repoId)` → top-ranked files for convention extraction (L02).
+- `getOnboardingFacts(repoId, { readingPath, criticalPaths })` → ranked facts for the Onboarding Tour: the full ranked path list, the reading path (top N by rank, tests/configs/migrations excluded) and the critical files with import counts; empty lists when `REPO_INTEL_ENABLED` is off (see [docs/onboarding-tour.md](../../../../docs/onboarding-tour.md)).
 
 In the starter, `getRepoMap` / `getFileRank` / `getCallerSignatures` are wired
 into `modules/reviews/run-executor.ts`, which adds the repo map and a

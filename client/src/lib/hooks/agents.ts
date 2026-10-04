@@ -89,3 +89,17 @@ export function useProviderModels(provider: Provider | null | undefined) {
     staleTime: 5 * 60_000,
   });
 }
+
+/** Replace the agent's whole ordered list of attached context documents. */
+export function useSetAgentContextDocs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, paths }: { id: string; paths: string[] }) =>
+      api.put<Agent>(`/agents/${id}/context-docs`, { paths }),
+    onSuccess: (agent) => {
+      qc.setQueryData(["agent", agent.id], agent);
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: ["context-doc-usage"] });
+    },
+  });
+}

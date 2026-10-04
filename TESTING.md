@@ -37,10 +37,13 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 
 **client** — components render and react to interaction (React Testing Library
 + jsdom). `fetch` is mocked; no API, DB, or browser. Covers the PR-review
-surface (list, diff, findings, run controls) and the agent editor.
+surface (list, diff, findings, run controls) and the agent editor, plus the
+Onboarding Tour guards (markdown without raw HTML or links, GitHub URL encoding,
+the sidebar item).
 
 **server-unit** — the DB-free majority: adapters, prompt assembly, grounding,
-repo-intel ranking & indexing, pricing, route smoke. The `typecheck` job also
+repo-intel ranking & indexing, the onboarding module (assembly, run sources,
+one-request generation), pricing, route smoke. The `typecheck` job also
 runs on Windows, which doubles as the `@ast-grep/napi` prebuilt gate (install
 fails there if the win32 prebuilt is missing).
 

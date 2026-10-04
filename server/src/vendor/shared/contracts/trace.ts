@@ -99,6 +99,22 @@ export const RunTrace = z.object({
   raw_output: z.string(),
   memory_pulled: z.array(MemoryPulled),
   specs_read: z.array(z.string()),
+  /** Per-document detail of the injected `## Project context` block; absent on old traces. */
+  context: z
+    .object({
+      docs: z.array(
+        z.object({
+          path: z.string(),
+          source: z.enum(['repo', 'local']),
+          tokens: z.number().int(),
+          /** Local document injected while a repository document has the same path; omitted otherwise. */
+          overrides_repo: z.boolean().optional(),
+        }),
+      ),
+      tokens: z.number().int(),
+      skipped: z.array(z.object({ path: z.string(), reason: z.string() })),
+    })
+    .nullish(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;

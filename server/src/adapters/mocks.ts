@@ -33,7 +33,21 @@ import type {
   AuthWorkspace,
   SecretsProvider,
   SecretKey,
+  ContextDocContent,
+  ContextDocEntry,
+  ContextDocSource,
 } from '@devdigest/shared';
+import { CONTEXT_DOC_MAX_BYTES } from '@devdigest/shared';
+import {
+  ContextDocError,
+  type ContextDocListResult,
+  type ContextDocScope,
+  type ContextDocStore,
+  type EffectiveContextDoc,
+  type LocalDocWrite,
+} from './context-docs/types.js';
+import { DEFAULT_CONTEXT_GLOBS, compileGlobs, docTypeOf, searchRoots } from './context-docs/glob.js';
+import { createHash } from 'node:crypto';
 import { parseUnifiedDiff } from './git/diff-parser.js';
 
 /**
@@ -359,5 +373,227 @@ export class MockSecretsProvider implements SecretsProvider {
   constructor(private secrets: Partial<Record<string, string>> = {}) {}
   async get(key: SecretKey): Promise<string | undefined> {
     return this.secrets[key as string];
+  }
+}
+
+
+/**
+ * In-memory `ContextDocStore`. Seed repository documents with `setRepoDoc`
+ * (a repo counts as cloned once it has a doc or `setCloned(repoId, true)`),
+ * local documents go through the same `writeLocal` API as the real store.
+ */
+export class MockContextDocStore implements ContextDocStore {
+  private repoDocs = new Map<string, Map<string, string>>();
+  private localDocs = new Map<string, Map<string, string>>();
+  private localFolders = new Map<string, Set<string>>();
+  private cloned = new Set<string>();
+  /** repoId → (path → repository-text version recorded for an override copy). */
+  private origins = new Map<string, Map<string, string>>();
+  private readonly matches: (p: string) => boolean;
+  private readonly roots: string[];
+
+  constructor(globs: string[] = DEFAULT_CONTEXT_GLOBS) {
+    this.matches = compileGlobs(globs);
+    this.roots = searchRoots(globs);
+  }
+
+  setCloned(repoId: string, cloned: boolean): void {
+    if (cloned) this.cloned.add(repoId);
+    else this.cloned.delete(repoId);
+  }
+
+  setRepoDoc(repoId: string, path: string, content: string): void {
+    this.cloned.add(repoId);
+    const m = this.repoDocs.get(repoId) ?? new Map<string, string>();
+    m.set(path, content);
+    this.repoDocs.set(repoId, m);
+  }
+
+  private static version(content: string): string {
+    return createHash('sha256').update(content).digest('hex');
+  }
+
+  private originsOf(repoId: string): Map<string, string> {
+    const m = this.origins.get(repoId) ?? new Map<string, string>();
+    this.origins.set(repoId, m);
+    return m;
+  }
+
+  private entry(
+    path: string,
+    content: string,
+    source: ContextDocSource,
+    marks: { overrides_repo: boolean; overridden: boolean; repo_changed: boolean },
+  ): ContextDocEntry {
+    const size = Buffer.byteLength(content);
+    const tooLarge = size > CONTEXT_DOC_MAX_BYTES;
+    const slash = path.lastIndexOf('/');
+    return {
+      path,
+      source,
+      type: docTypeOf(path),
+      folder: slash === -1 ? '' : path.slice(0, slash),
+      size_bytes: size,
+      tokens: tooLarge ? null : Math.ceil(content.length / 4),
+      too_large: tooLarge,
+      ...marks,
+    };
+  }
+
+  async list(scope: ContextDocScope): Promise<ContextDocListResult> {
+    const repo = this.repoDocs.get(scope.repoId) ?? new Map<string, string>();
+    const local = this.localDocs.get(scope.repoId) ?? new Map<string, string>();
+    const cloned = this.cloned.has(scope.repoId);
+    const repoHas = (p: string): boolean => cloned && repo.has(p) && this.matches(p);
+    const origins = this.originsOf(scope.repoId);
+    const repoChanged = (p: string, localHas: boolean): boolean => {
+      if (!localHas || !repoHas(p)) return false;
+      const version = MockContextDocStore.version(repo.get(p)!);
+      const origin = origins.get(p);
+      if (origin === undefined) {
+        origins.set(p, version);
+        return false;
+      }
+      return origin !== version;
+    };
+    if (cloned) for (const p of [...origins.keys()]) if (local.has(p) && !repo.has(p)) origins.delete(p);
+    const docs = [
+      ...[...repo]
+        .filter(([p]) => this.matches(p))
+        .map(([p, c]) =>
+          this.entry(p, c, 'repo', { overrides_repo: false, overridden: cloned && local.has(p), repo_changed: false }),
+        ),
+      ...[...local].map(([p, c]) =>
+        this.entry(p, c, 'local', {
+          overrides_repo: repoHas(p),
+          overridden: false,
+          repo_changed: repoChanged(p, true),
+        }),
+      ),
+    ].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.source === 'repo' ? -1 : 1));
+    return {
+      state: cloned ? 'ok' : 'not_cloned',
+      docs: docs.slice(0, 1000),
+      local_folders: [...(this.localFolders.get(scope.repoId) ?? [])].sort(),
+      truncated: docs.length > 1000,
+    };
+  }
+
+  async read(scope: ContextDocScope, path: string, source?: ContextDocSource): Promise<ContextDocContent> {
+    if (source === undefined) {
+      const { overrides_repo: _overrides, ...doc } = await this.readEffective(scope, path);
+      return doc;
+    }
+    if (!this.matches(path)) throw new ContextDocError('invalid_path');
+    const cloned = this.cloned.has(scope.repoId);
+    const text =
+      source === 'local' ? this.localDocs.get(scope.repoId)?.get(path) : cloned ? this.repoDocs.get(scope.repoId)?.get(path) : undefined;
+    if (text === undefined) {
+      throw new ContextDocError(source === 'repo' && !cloned ? 'not_cloned' : 'not_found', { path });
+    }
+    return this.content(path, source, text);
+  }
+
+  private content(path: string, source: ContextDocSource, text: string): ContextDocContent {
+    const size = Buffer.byteLength(text);
+    if (size > CONTEXT_DOC_MAX_BYTES) throw new ContextDocError('too_large', { path });
+    return { path, source, content: text, version: MockContextDocStore.version(text), size_bytes: size };
+  }
+
+  async readEffective(scope: ContextDocScope, path: string): Promise<EffectiveContextDoc> {
+    if (!this.matches(path)) throw new ContextDocError('invalid_path');
+    const cloned = this.cloned.has(scope.repoId);
+    const repoText = cloned ? this.repoDocs.get(scope.repoId)?.get(path) : undefined;
+    const localText = this.localDocs.get(scope.repoId)?.get(path);
+    if (localText !== undefined) {
+      const doc = this.content(path, 'local', localText);
+      if (repoText !== undefined) {
+        const origins = this.originsOf(scope.repoId);
+        if (!origins.has(path)) origins.set(path, MockContextDocStore.version(repoText));
+      }
+      return { ...doc, overrides_repo: repoText !== undefined };
+    }
+    if (repoText === undefined) throw new ContextDocError(cloned ? 'not_found' : 'not_cloned', { path });
+    return { ...this.content(path, 'repo', repoText), overrides_repo: false };
+  }
+
+  async keepOrigin(scope: ContextDocScope, path: string): Promise<void> {
+    if (!this.matches(path)) throw new ContextDocError('invalid_path');
+    if (!this.localDocs.get(scope.repoId)?.has(path)) throw new ContextDocError('not_found', { path });
+    if (!this.cloned.has(scope.repoId)) throw new ContextDocError('not_cloned');
+    const repoText = this.repoDocs.get(scope.repoId)?.get(path);
+    if (repoText === undefined) throw new ContextDocError('not_found', { path });
+    this.originsOf(scope.repoId).set(path, MockContextDocStore.version(repoText));
+  }
+
+  async writeLocal(scope: ContextDocScope, input: LocalDocWrite): Promise<ContextDocContent> {
+    const path = input.folder ? `${input.folder}/${input.name}` : input.name;
+    if (!input.name.endsWith('.md') || !this.matches(path)) throw new ContextDocError('invalid_path', { path });
+    const size = Buffer.byteLength(input.content);
+    if (size > CONTEXT_DOC_MAX_BYTES) throw new ContextDocError('too_large', { path });
+    const local = this.localDocs.get(scope.repoId) ?? new Map<string, string>();
+    const existing = local.get(path);
+    let originVersion: string | undefined;
+    if (input.baseVersion === undefined) {
+      if (existing !== undefined) throw new ContextDocError('conflict', { path });
+      const repoHas = this.cloned.has(scope.repoId) && this.repoDocs.get(scope.repoId)?.has(path);
+      if (repoHas) {
+        if (!input.override) throw new ContextDocError('conflict', { path });
+        originVersion = input.override.originVersion;
+      }
+    } else {
+      if (existing === undefined) throw new ContextDocError('not_found', { path });
+      const cur = MockContextDocStore.version(existing);
+      if (cur !== input.baseVersion) {
+        throw new ContextDocError('stale', { path, currentContent: existing, currentVersion: cur });
+      }
+    }
+    local.set(path, input.content);
+    this.localDocs.set(scope.repoId, local);
+    if (originVersion !== undefined) this.originsOf(scope.repoId).set(path, originVersion);
+    return {
+      path,
+      source: 'local',
+      content: input.content,
+      version: MockContextDocStore.version(input.content),
+      size_bytes: size,
+    };
+  }
+
+  async createLocalFolder(scope: ContextDocScope, path: string): Promise<string> {
+    if (!this.matches(`${path}/x.md`)) throw new ContextDocError('invalid_path', { path });
+    const set = this.localFolders.get(scope.repoId) ?? new Set<string>();
+    set.add(path);
+    this.localFolders.set(scope.repoId, set);
+    return path;
+  }
+
+  async deleteLocal(scope: ContextDocScope, path: string): Promise<void> {
+    if (!this.localDocs.get(scope.repoId)?.delete(path)) throw new ContextDocError('not_found', { path });
+    this.origins.get(scope.repoId)?.delete(path);
+  }
+
+  async deleteLocalFolder(scope: ContextDocScope, path: string): Promise<void> {
+    const docs = [...(this.localDocs.get(scope.repoId)?.keys() ?? [])];
+    if (docs.some((p) => p.startsWith(`${path}/`))) throw new ContextDocError('not_empty', { path });
+    if (!this.localFolders.get(scope.repoId)?.delete(path)) throw new ContextDocError('not_found', { path });
+  }
+
+  async countLocal(repoId: string): Promise<number> {
+    return this.localDocs.get(repoId)?.size ?? 0;
+  }
+
+  async removeRepoLocal(repoId: string): Promise<void> {
+    this.localDocs.delete(repoId);
+    this.localFolders.delete(repoId);
+    this.origins.delete(repoId);
+  }
+
+  matchesGlobs(path: string): boolean {
+    return this.matches(path);
+  }
+
+  searchRoots(): string[] {
+    return [...this.roots];
   }
 }

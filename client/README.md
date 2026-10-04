@@ -27,15 +27,17 @@ flowchart TD
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
-  SKILLS["/skills<br/>grid · preview drawer"] --> SKILL["/skills/:id<br/>config · preview · versioning"]
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills)"]
-  SETTINGS["/settings/:section<br/>API keys · models"]
+  SKILLS["/skills<br/>grid · preview drawer"] --> SKILL["/skills/:id<br/>config · context · preview · versioning"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills · context)"]
+  SETTINGS["/settings/:section<br/>API keys · feature models · workspace"]
+  TOUR["/repos/:repoId/onboarding-tour<br/>stored tour · generate"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments · /pulls/:id/blast · /pulls/:id/history<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
   SKILLS -->|"/skills · /skills/import · /skills/:id/versions"| API
   AGENTS -->|"/agents · /agents/:id · /agents/:id/skills"| API
   SETTINGS -->|"/settings · /providers"| API
+  TOUR -->|"GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"| API
 ```
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,

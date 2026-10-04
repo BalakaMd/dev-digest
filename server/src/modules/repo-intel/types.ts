@@ -134,6 +134,24 @@ export interface RepoMapResult {
   reason?: DegradedReason;
 }
 
+export interface RankedFileRow {
+  path: string;
+  rank: number;
+  /** Number of files importing this one. */
+  importedBy: number;
+  /** Number of files this one imports. */
+  imports: number;
+}
+
+export interface OnboardingFacts {
+  /** Every indexed path, rank DESC / path ASC. */
+  indexedPaths: string[];
+  /** Top ranked non-junk files. */
+  readingPath: RankedFileRow[];
+  /** Distinct files of the critical dependency chains, rank DESC / path ASC. */
+  criticalPaths: RankedFileRow[];
+}
+
 /**
  * The facade. Studio (T2+) serves reads purely from the Postgres cache; T1 and
  * CI may parse diff-scoped on the hot path. Indexing runs through
@@ -174,4 +192,12 @@ export interface RepoIntel {
     opts?: { exclude?: string[] },
   ): Promise<string[]>;
   getCriticalPaths(repoId: string): Promise<string[][]>;
+  /**
+   * Deterministic ranked facts for the onboarding tour. Empty lists when the
+   * repo-intel flag is off or nothing is indexed.
+   */
+  getOnboardingFacts(
+    repoId: string,
+    opts: { readingPath: number; criticalPaths: number },
+  ): Promise<OnboardingFacts>;
 }

@@ -14,10 +14,12 @@ the same commit.
 | `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast`, `usePrHistory` → `GET /pulls/:id/history` |
 | `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
-| `/skills/[id]` | skill editor — Config, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion` |
+| `/skills/[id]` | skill editor — Config, Context, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion`, `useSetSkillContextDocs` |
 | `/agents` | agent grid | `useAgents` → `GET /agents` |
-| `/agents/[id]` | agent editor — Config, Skills | `useAgent`, `useUpdateAgent`, `useProviderModels`, `useSkills`, `useAgentSkills`, `useSetAgentSkills` |
-| `/settings/[section]` | API keys, models | `useSettings`, `useUpdateSettings`, `useSecretsStatus`, `useTestConnection` |
+| `/agents/[id]` | agent editor — Config, Skills, Context | `useAgent`, `useUpdateAgent`, `useProviderModels`, `useSkills`, `useAgentSkills`, `useSetAgentSkills`, `useSetAgentContextDocs` |
+| `/repos/[repoId]/context` | Project Context — documents, preview, local editing, "Edit a copy" overrides of repository documents, usage | `useContextDocs`, `useContextDocContent`, `useContextDocUsage`, `useSyncRepoDocs`, `useSaveLocalDoc`, `useKeepLocalCopy`, `useUploadLocalDocs`, `useCreateLocalFolder`, `useDeleteLocalDoc`, `useDeleteLocalFolder` |
+| `/repos/[repoId]/onboarding-tour` | Onboarding Tour — stored tour, Generate / Regenerate, blocked and missing-key notices, Share link | `useOnboardingTour` → `GET /repos/:id/onboarding` (polls every 2 s while generating); `useGenerateOnboardingTour` → `POST /repos/:id/onboarding/generate` |
+| `/settings/[section]` | API keys, feature models, workspace (Tour language) | `useSettings`, `useUpdateSettings`, `useSecretsStatus`, `useTestConnection` |
 
 ## PR list
 
@@ -149,7 +151,7 @@ source `extracted`) and then navigates to `/skills`.
 
 Five agents ship seeded: General, Security, Performance, and the two
 skills-experiment agents (Test Quality, API Contract — disabled, no skills). The
-editor has exactly two tabs. **Config** owns `model`, `system_prompt`, strategy
+editor has three tabs: **Config**, **Skills** and **Context**. **Config** owns `model`, `system_prompt`, strategy
 and the per-agent `repo_intel` toggle; `useProviderModels` lists models for the
 selected provider, so the model field is a choice, not free text.
 
@@ -162,6 +164,24 @@ by their handle (pointer events, not HTML5 DnD) or moved with ↑/↓, which ste
 over disabled rows; reordering is off while the name filter is active. Every change
 posts the full ordered id list (`POST /agents/:id/skills`), which also bumps the
 agent's version. Agent delete goes through a confirmation dialog.
+
+**Context** attaches project documents (specs/docs/insights markdown) to the agent:
+rows for the active repository's documents, drag or ↑/↓ ordering, a budget bar and
+"via <skill>" rows inherited from the agent's skills. Each change posts the full ordered
+list (`PUT /agents/:id/context-docs`), which bumps the agent's version. The skill editor
+has the same list under "Project context to use" (`PUT /skills/:id/context-docs`, no
+version bump). How the documents reach a run is described in
+[docs/project-context.md](../../docs/project-context.md).
+
+## Onboarding Tour
+
+Per repo, under **WORKSPACE** in the sidebar. The page shows a stored tour (five
+sections) or an empty state with **Generate onboarding tour**; opening it never
+calls the LLM. Generate is disabled while a generation runs, when the repository
+cannot be toured (not indexed, partial or degraded index, no clone, no source
+files) and when the API key is missing — the reason is shown. The tour language
+comes from **Settings → Workspace**. How the tour is built and every state are
+described in [docs/onboarding-tour.md](../../docs/onboarding-tour.md).
 
 ## Settings
 

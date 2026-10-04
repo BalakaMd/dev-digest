@@ -7,7 +7,7 @@ Adapters (LLM, GitHub, git, ast-grep, …) sit behind a DI container so they can
 swapped for mocks in tests.
 
 > This is the **starter** module set. Later course lessons add their own modules
-> (skills, intent/smart-diff, brief/context/onboarding, eval/ci/hooks,
+> (skills, intent/smart-diff, brief/context, eval/ci/hooks,
 > memory, plugins, …) — each is a self-contained `modules/<name>/` plugin plus,
 > usually, a slot it starts feeding the reviewer prompt. The DB schema already
 > contains **every** table; the unused ones simply sit empty until a lesson fills
@@ -73,12 +73,14 @@ flowchart TB
     intent["intent<br/>GET/POST /pulls/:id/intent"]
   end
   subgraph Agents["Agents"]
-    agents["agents<br/>/agents · /agents/:id"]
+    agents["agents<br/>/agents · /agents/:id · /agents/:id/context-docs"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
     blast["blast<br/>GET /pulls/:id/blast"]
     history["history<br/>GET /pulls/:id/history"]
+    contextDocs["context-docs<br/>/repos/:id/context-docs (list · content · usage · sync · local · local/keep-copy)"]
+    onboarding["onboarding<br/>GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"]
   end
   subgraph Platform["Platform"]
     settings["settings<br/>/settings · /providers"]
@@ -100,6 +102,8 @@ flowchart TB
 | `EMBEDDINGS_ENABLED` | `false` | memory/RAG embeddings (OpenAI); off → **zero** OpenAI calls |
 | `REPO_INTEL_ENABLED` | `true` | repo skeleton + callers in the prompt; `false` → ripgrep-only |
 | `DEVDIGEST_CLONE_DIR` | `./clones` | imported-repo checkouts (git-ignored) |
+| `CONTEXT_DOC_GLOBS` | `**/{specs,docs,insights}/**/*.md` | `;`-separated search globs for project context documents |
+| `DEVDIGEST_CONTEXT_DIR` | `~/.devdigest/context` | local (overlay) project documents, per repository |
 | `LOG_LEVEL` | `info` (`silent` in test) | pino level |
 | `NODE_ENV` | `development` | `test` → silent logs + global rate-limit disabled |
 

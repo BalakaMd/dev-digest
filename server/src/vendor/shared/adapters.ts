@@ -67,6 +67,11 @@ export interface StructuredRequest<T> {
    * the `session_id` body field; ignored by providers that don't support it.
    */
   sessionId?: string;
+  /**
+   * Exactly one provider attempt: no retry wrapper, no SDK retries, no
+   * reprompt loop. A failure or unparseable answer is thrown as-is.
+   */
+  singleAttempt?: boolean;
 }
 
 export interface StructuredResult<T> {

@@ -27,5 +27,10 @@ test-results/
 # PR self-review reports (regenerated per branch by the pr-self-review skill)
 .claude/pr-self-review/
 
-# Development plans written by the planner subagent (local, reused across sessions)
+# Development plans written by the implementation-planner subagent when a task has no spec
+# (local, reused across sessions); plans for a spec live beside it as specs/<slug>/plan.md
 .claude/plans/
+
+# Task inbox: materials for the current task, picked up by /dev-flow and /spec (only the README is tracked)
+inbox/*
+!inbox/README.md

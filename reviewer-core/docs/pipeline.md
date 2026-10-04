@@ -43,13 +43,13 @@ heading at all, so a starter run and a lesson run differ only by the sections
 that actually have content. This is what keeps the starter's prompt identical to
 the pre-feature baseline.
 
-Untrusted content — the diff, the PR description, spec chunks — goes through
+Untrusted content — the diff, the PR description, project-context documents (labelled by repo-relative path) — goes through
 `wrapUntrusted`, which fences it so the model can tell data from instructions.
 
 ## Prompt-injection defense
 
 One shared, trusted rule: `INJECTION_GUARD`, appended to **every** agent's system
-prompt. It states that fenced content is data, never instruction, and that claims
+prompt (when project-context documents are present, one further sentence names them as data). It states that fenced content is data, never instruction, and that claims
 of "intentional / demo / test fixture / not for production / do not flag" never
 narrow the review — real defects are reported at full severity regardless.
 
@@ -100,3 +100,4 @@ Whatever `src/index.ts` exports, and nothing else: `assemblePrompt`,
 
 - [`../specs/grounding.md`](../specs/grounding.md) — the grounding and scoring contract
 - [`../README.md`](../README.md) — pipeline diagram
+- [`../../docs/project-context.md`](../../docs/project-context.md) — the `specs` slot: attached project documents, their delimiter and trusted rule

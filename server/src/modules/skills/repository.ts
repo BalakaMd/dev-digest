@@ -142,6 +142,23 @@ export class SkillsRepository {
     });
   }
 
+  /**
+   * Replace the skill's attached documents. Writes only `context_docs`: the
+   * skill's version and snapshots are untouched (AC-76).
+   */
+  async setContextDocs(
+    workspaceId: string,
+    id: string,
+    paths: string[],
+  ): Promise<SkillRow | undefined> {
+    const [row] = await this.db
+      .update(t.skills)
+      .set({ contextDocs: paths })
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
+      .returning();
+    return row;
+  }
+
   /** Delete a skill; `agent_skills` and `skill_versions` cascade. */
   async deleteById(workspaceId: string, id: string): Promise<boolean> {
     const rows = await this.db

@@ -64,6 +64,12 @@ export const Finding = z.object({
   // Lethal-trifecta variant fields (present only when kind === 'lethal_trifecta')
   trifecta_components: z.array(TrifectaComponent).nullish(),
   evidence: z.array(TrifectaEvidence).nullish(),
+  cited_docs: z
+    .array(z.string())
+    .nullish()
+    .describe(
+      'Repo-relative paths of the attached project-context documents this finding relies on. List only paths that appear in the Project context section; omit when none.',
+    ),
   scope: FindingScope.nullish().describe(
     "Set only when a PR intent was available: 'in' when the finding concerns the stated intent or an in-scope item, 'out' otherwise.",
   ),

@@ -56,6 +56,11 @@ resolves context and passes it in:
 - `callers`, `repoMap`, `rankNote` — only when repo-intel is on for that agent
 - `prDescription` — only when the PR has a body; untrusted, wrapped downstream
 - `skills` — only when the agent has linked skills that are globally enabled
+- `specs` — only when the agent or its enabled skills attach project-context
+  documents; read once before the engine call from the PR repository's working
+  copy (default branch as last synced) or its local overlay, passed as
+  `{path, content}`; unreadable or over-budget (8,000 tokens) documents are skipped
+  with a log line (see [`docs/project-context.md`](../../docs/project-context.md))
 - `intent` — only when a PR intent is available (see below)
 
 The intent is resolved **once per batch**, before the per-agent loop, through
@@ -98,6 +103,9 @@ the findings that survive **both** gates. **The model's self-reported score is
 ignored.** This is mechanical, not advisory — see
 [`../../reviewer-core/specs/grounding.md`](../../reviewer-core/specs/grounding.md).
 
+A separate server-side step then removes every `cited_docs` path that was not
+injected in the run (the finding is kept); the grounding gate is not involved.
+
 ## Observability
 
 Events stream over the `runBus` to `GET /runs/:id/events` (SSE). The stream
@@ -106,7 +114,9 @@ that subscribes late still sees the whole run.
 
 Event kinds are exactly `info | tool | result | error`. The same lines are
 buffered into `run_traces` so the log survives a page reload, readable at
-`GET /runs/:id/trace`.
+`GET /runs/:id/trace`. The trace carries `specs_read` (paths of the injected
+project-context documents) and `context` (per-document tokens and skipped
+documents with a reason).
 
 Cancellation is cooperative: `checkCancelled` is polled between units of work and
 throws `RunCancelledError`, so a cancel lands between chunks rather than tearing

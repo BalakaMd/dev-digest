@@ -8,6 +8,16 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine, toPromptIntent, toSkillPromptBlock, withIntentStats, withSkillStats } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { wrapUntrusted } from '@devdigest/reviewer-core';
+import { readFailureReason } from '../../adapters/context-docs/types.js';
+import {
+  EMPTY_CONTEXT,
+  collectPaths,
+  filterCitations,
+  resolveContextDocs,
+  toTraceContext,
+  type ResolvedContext,
+} from './context-docs.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -156,6 +166,10 @@ export class ReviewRunExecutor {
     // (built from the buffer) includes them too.
     const runLog = parentLog.forRun(runId, { agent: agent.name });
 
+    // Project-context documents read for this run. Hoisted above the `try` so a
+    // failed/cancelled run still lists the documents read before the failure (AC-78).
+    let context: ResolvedContext = EMPTY_CONTEXT;
+
     runLog.info(`Starting review with agent "${agent.name}" (${agent.provider}/${agent.model})`);
 
     try {
@@ -194,6 +208,11 @@ export class ReviewRunExecutor {
       // byte-identical to the pre-skills one (assemblePrompt omits the section).
       const skills = await this.loadSkills(agent.id, runLog);
 
+      // Project context — attached documents (agent first, then skills in link
+      // order). Read ONCE here, before any LLM call, so later edits cannot change
+      // this run (AC-35); independent of the repo-intel toggles (AC-77).
+      context = await this.loadContextDocs(repo, agent, skills, runLog);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -208,6 +227,10 @@ export class ReviewRunExecutor {
         strategy: agent.strategy ?? REVIEW_STRATEGY,
         // Rendered `### name` blocks, in link order; omitted when there are none.
         ...(skills.length > 0 ? { skills: skills.map((s) => s.block) } : {}),
+        // Resolved `{path, content}` pairs; omitted when none → byte-identical prompt.
+        ...(context.injected.length > 0
+          ? { specs: context.injected.map(({ path, content }) => ({ path, content })) }
+          : {}),
         // T1.3 — pass the callers digest only when we built one. assemblePrompt
         // omits the section when this is empty/undefined.
         ...(callersDigest ? { callers: callersDigest } : {}),
@@ -229,7 +252,15 @@ export class ReviewRunExecutor {
       });
       const { tokensIn, tokensOut, costUsd, grounding } = outcome;
 
-      const keptFindings = outcome.review.findings;
+      // A finding may only cite documents that were injected in this run (AC-49).
+      const cited = filterCitations(
+        outcome.review.findings,
+        context.injected.map((d) => d.path),
+      );
+      for (const p of cited.removed) {
+        runLog.info(`Context citation removed: ${p} — not_injected`);
+      }
+      const keptFindings = cited.findings;
 
       // ---- Persist review + findings ----------------------------------------
       const review = await this.repo.insertReview({
@@ -299,7 +330,8 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: context.injected.map((d) => d.path),
+        context: toTraceContext(context),
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
@@ -328,7 +360,7 @@ export class ReviewRunExecutor {
         })
         .catch(() => undefined);
       await this.repo
-        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start))
+        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, context))
         .catch(() => undefined);
       this.container.runBus.complete(runId);
       throw err;
@@ -423,6 +455,54 @@ export class ReviewRunExecutor {
   }
 
   /**
+   * Resolve the project-context documents of a run: the agent's own, then each
+   * enabled skill's (link order), first occurrence wins. Unreadable or
+   * over-budget documents are skipped whole with a log line (never a run
+   * failure). Logs and trace carry repo-relative paths and fixed reason words
+   * only (AC-5). Best-effort: any unexpected failure yields no context.
+   */
+  private async loadContextDocs(
+    repo: typeof schema.repos.$inferSelect,
+    agent: AgentRow,
+    skills: Array<{ contextDocs: string[] }>,
+    runLog: RunLogger,
+  ): Promise<ResolvedContext> {
+    const paths = collectPaths(agent.contextDocs ?? [], skills);
+    if (paths.length === 0) return EMPTY_CONTEXT;
+    try {
+      const scope = { repoId: repo.id, repo: { owner: repo.owner, name: repo.name } };
+      const resolved = await resolveContextDocs({
+        paths,
+        read: async (path) => {
+          try {
+            const doc = await this.container.contextDocs.readEffective(scope, path);
+            return {
+              ok: true,
+              doc: { path, source: doc.source, content: doc.content, overridesRepo: doc.overrides_repo },
+            };
+          } catch (err) {
+            return { ok: false, reason: readFailureReason(err) };
+          }
+        },
+        count: (path, content) => this.container.tokenizer.count(wrapUntrusted(path, content)),
+      });
+      resolved.injected.forEach((d, i) =>
+        runLog.info(`Context ${i + 1}: ${d.path} (~${d.tokens} tokens)`),
+      );
+      if (resolved.injected.length > 0) {
+        runLog.info(
+          `Context: ${resolved.injected.length} document(s) attached (~${resolved.blockTokens} tokens)`,
+        );
+      }
+      for (const s of resolved.skipped) runLog.info(`Context skipped: ${s.path} — ${s.reason}`);
+      return resolved;
+    } catch {
+      runLog.error('Context: skipped — could not resolve project context documents');
+      return EMPTY_CONTEXT;
+    }
+  }
+
+  /**
    * Resolve the agent's prompt skills (linked AND globally enabled) into
    * rendered blocks, in link order, logging one line per skill so each enabled
    * skill is its own entry in the run log — a disabled one leaves no trace.
@@ -433,7 +513,7 @@ export class ReviewRunExecutor {
   private async loadSkills(
     agentId: string,
     runLog: RunLogger,
-  ): Promise<Array<{ name: string; block: string }>> {
+  ): Promise<Array<{ name: string; block: string; contextDocs: string[] }>> {
     try {
       // Through the container: `reviews` must not import another module's folder.
       const links = await this.container.agentsRepo.enabledSkillsForPrompt(agentId);
@@ -441,7 +521,7 @@ export class ReviewRunExecutor {
         runLog.info('Skills: none attached');
         return [];
       }
-      const skills = links.map((l) => ({ name: l.skill.name, block: toSkillPromptBlock(l.skill) }));
+      const skills = links.map((l) => ({ name: l.skill.name, block: toSkillPromptBlock(l.skill), contextDocs: l.skill.contextDocs ?? [] }));
       const count = (text: string) => this.container.tokenizer.count(text);
       skills.forEach((s, i) => runLog.info(`Skill ${i + 1}: ${s.name} (~${count(s.block)} tokens)`));
       runLog.info(
@@ -465,6 +545,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     grounding: string,
     durationMs = 0,
+    context: ResolvedContext = EMPTY_CONTEXT,
   ): RunTrace {
     return {
       config: {
@@ -480,7 +561,8 @@ export class ReviewRunExecutor {
       tool_calls: [],
       raw_output: '',
       memory_pulled: [],
-      specs_read: [],
+      specs_read: context.injected.map((d) => d.path),
+      context: toTraceContext(context),
       log: this.container.runBus.buffer(runId).map((e) => ({ t: e.t, kind: e.kind, msg: e.msg })),
     };
   }

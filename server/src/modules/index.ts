@@ -12,6 +12,8 @@ import conventions from './conventions/routes.js';
 import intent from './intent/routes.js';
 import blast from './blast/routes.js';
 import history from './history/routes.js';
+import contextDocs from './context-docs/routes.js';
+import onboarding from './onboarding/routes.js';
 
 /**
  * Module registry. Each feature module is a Fastify plugin in
@@ -23,7 +25,7 @@ import history from './history/routes.js';
  * bundler, and vitest — native dynamic import() of .ts files is not portable.)
  *
  * This is the Part-0 starter set. Each course lesson adds its own module here
- * (skills, intent/smart-diff, blast, brief/context/onboarding, eval/ci/hooks,
+ * (skills, intent/smart-diff, blast, brief/context, eval/ci/hooks,
  * memory, plugins, …) without touching any other module or the shared schema.
  */
 export const modules: Record<string, FastifyPluginAsync> = {
@@ -40,4 +42,6 @@ export const modules: Record<string, FastifyPluginAsync> = {
   intent,
   blast,
   history,
+  contextDocs,
+  onboarding,
 };

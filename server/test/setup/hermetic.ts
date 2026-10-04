@@ -30,3 +30,7 @@ process.env.DEVDIGEST_SECRETS_PATH = join(
   mkdtempSync(join(tmpdir(), 'devdigest-test-secrets-')),
   'secrets.json',
 );
+
+// Local context documents live under DEVDIGEST_CONTEXT_DIR; keep tests off
+// the developer's real ~/.devdigest/context.
+process.env.DEVDIGEST_CONTEXT_DIR = mkdtempSync(join(tmpdir(), 'devdigest-test-context-'));

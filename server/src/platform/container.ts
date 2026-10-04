@@ -31,6 +31,7 @@ import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import { type ContextDocStore, FsContextDocStore } from '../adapters/context-docs/index.js';
 import type { IntentFacade } from '../modules/intent/types.js';
 import { IntentRepository } from '../modules/intent/repository.js';
 import { IntentService } from '../modules/intent/service.js';
@@ -40,7 +41,12 @@ import { BlastService } from '../modules/blast/service.js';
 import type { HistoryFacade } from '../modules/history/types.js';
 import { HistoryRepository } from '../modules/history/repository.js';
 import { HistoryService } from '../modules/history/service.js';
+import { ContextDocsRepository } from '../modules/context-docs/repository.js';
+import { ContextDocsService } from '../modules/context-docs/service.js';
 import { resolveFeatureModel } from '../modules/settings/feature-models.js';
+import { SECRET_KEY_BY_PROVIDER } from '../modules/settings/constants.js';
+import { OnboardingRepository } from '../modules/onboarding/repository.js';
+import { OnboardingService } from '../modules/onboarding/service.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -63,6 +69,8 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  /** Context-document reader — tests inject `MockContextDocStore`. */
+  contextDocs?: ContextDocStore;
   /** Intent facade (S4) — tests inject a fake to skip DB/LLM/GitHub entirely. */
   intent?: IntentFacade;
   /** Blast-radius facade — tests inject a fake to skip DB/repo-intel entirely. */
@@ -94,10 +102,13 @@ export class Container {
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
+  private _contextDocs?: ContextDocStore;
+  private _contextDocsService?: ContextDocsService;
   private _priceBook?: PriceBook;
   private _intent?: IntentFacade;
   private _blast?: BlastFacade;
   private _history?: HistoryFacade;
+  private _onboarding?: OnboardingService;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -161,6 +172,18 @@ export class Container {
     return this._tokenizer;
   }
 
+  /** Project context-document reader (repo working copy + local overlay). */
+  get contextDocs(): ContextDocStore {
+    if (this.overrides.contextDocs) return this.overrides.contextDocs;
+    this._contextDocs ??= new FsContextDocStore({
+      globs: this.config.contextDocGlobs,
+      contextDir: this.config.contextDir,
+      clonePathFor: (repo) => this.git.clonePathFor(repo),
+      countTokens: (text) => this.tokenizer.count(text),
+    });
+    return this._contextDocs;
+  }
+
   /**
    * Intent facade (S4) — the ONLY way another module reaches the intent
    * classifier (`run-executor.ts` calls `container.intent.getForReview(...)`,
@@ -177,6 +200,31 @@ export class Container {
       resolveModel: (workspaceId) => resolveFeatureModel(this, workspaceId, 'review_intent'),
     });
     return this._intent;
+  }
+
+  /** Onboarding tour use cases (SPEC-03) — a singleton: it owns the in-memory generation registry. */
+  get onboarding(): OnboardingService {
+    this._onboarding ??= new OnboardingService({
+      repo: new OnboardingRepository(this.db),
+      repoIntel: this.repoIntel,
+      git: this.git,
+      llm: (id) => this.llm(id),
+      resolveModel: (workspaceId) => resolveFeatureModel(this, workspaceId, 'onboarding'),
+      hasSecret: async (provider) => Boolean(await this.secrets.get(SECRET_KEY_BY_PROVIDER[provider])),
+      now: () => new Date(),
+    });
+    return this._onboarding;
+  }
+
+  /** Project context documents use cases (SPEC-01) — assembled here so routes never touch `db`. */
+  get contextDocsService(): ContextDocsService {
+    this._contextDocsService ??= new ContextDocsService({
+      store: this.contextDocs,
+      git: this.git,
+      agents: this.agentsRepo,
+      repos: new ContextDocsRepository(this.db),
+    });
+    return this._contextDocsService;
   }
 
   /** Blast-radius facade — reads the persisted repo-intel index; no LLM, no GitHub. */

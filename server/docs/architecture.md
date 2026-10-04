@@ -48,6 +48,7 @@ resolved through `SecretsProvider` rather than config.
 | `repoIntel` | `RepoIntelService` | degrades to ripgrep-only when disabled |
 | `depgraph` | `DepCruiseGraph` | |
 | `tokenizer` | `TiktokenTokenizer` | |
+| `contextDocs` | `FsContextDocStore` | local overlay under `DEVDIGEST_CONTEXT_DIR` plus the clone's working copy; `contextDocsService` sits behind it |
 | `priceBook` | `PriceBook` | live OpenRouter prices, 6h TTL, static fallback |
 | `jobs` | `JobRunner` | p-queue; clone and re-index run here |
 | `runBus` | in-memory bus | fans run events out to SSE |
@@ -108,4 +109,5 @@ behave the same under tsx, vitest, and a bundler.
 
 - [`../specs/review-flow.md`](../specs/review-flow.md) — the review cycle contract
 - [`blast-radius.md`](blast-radius.md) — the `blast` and `history` modules
+- [`../../docs/project-context.md`](../../docs/project-context.md) — the `context-docs` module, the `contextDocs` port and the overlay store
 - [`../README.md`](../README.md) — API map and environment table

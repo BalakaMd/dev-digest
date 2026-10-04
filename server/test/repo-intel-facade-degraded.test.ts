@@ -96,6 +96,14 @@ describe('RepoIntel facade — degraded contract (flag off)', () => {
     await expect(svc.getCriticalPaths('r1')).resolves.toEqual([]);
   });
 
+  it('getOnboardingFacts → empty lists, without touching the index (SPEC-03)', async () => {
+    // The stubbed repository has no getRankedPaths / getEdges: reaching the index would throw.
+    const svc = buildDegradedService({ flag: false });
+    await expect(
+      svc.getOnboardingFacts('r1', { readingPath: 7, criticalPaths: 5 }),
+    ).resolves.toEqual({ indexedPaths: [], readingPath: [], criticalPaths: [] });
+  });
+
   it('indexRepo / refreshIndex → degraded T1 skeleton (never throws)', async () => {
     const svc = buildDegradedService({ flag: false });
     const a = await svc.indexRepo('r1');

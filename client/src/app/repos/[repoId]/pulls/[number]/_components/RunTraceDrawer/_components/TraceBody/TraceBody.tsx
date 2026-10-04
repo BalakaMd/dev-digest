@@ -14,12 +14,15 @@ import { TraceSection } from "../TraceSection";
 import { ToolCallRow } from "../ToolCallRow";
 import { PromptBlock } from "../PromptBlock";
 import { SkillsPromptBlock } from "../SkillsPromptBlock";
+import { ContextDocsSummary } from "../ContextDocsSummary";
 import { FindingsSection } from "../FindingsSection";
 import { Row, Stat } from "../atoms";
 
 export function TraceBody({ trace, findings }: { trace: RunTrace; findings: FindingRecord[] }) {
   const t = useTranslations("runs");
   const stats = trace.stats;
+  const ctx = trace.context ?? null;
+  const ctxDocs = ctx?.docs ?? [];
   return (
     <>
       <TraceSection icon="Settings" title={t("trace.configuration")}>
@@ -39,7 +42,20 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
           </Row>
           <Row label={t("trace.config.specsRead")}>
             <div style={s.specsWrap}>
-              {trace.specs_read.length === 0 ? (
+              {ctxDocs.length > 0 ? (
+                ctxDocs.map((d) => (
+                  <span key={`${d.source}:${d.path}`} style={s.specChip}>
+                    <span className="mono" style={s.spec}>
+                      {d.path}
+                    </span>
+                    {d.source === "local" && (
+                      <span style={s.localMark}>
+                        {d.overrides_repo ? t("trace.config.localOverride") : t("trace.config.local")}
+                      </span>
+                    )}
+                  </span>
+                ))
+              ) : trace.specs_read.length === 0 ? (
                 <span style={s.specsNone}>{t("trace.config.none")}</span>
               ) : (
                 trace.specs_read.map((sp, i) => (
@@ -84,8 +100,14 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
           <PromptBlock label={t("trace.prompt.repoMap")} text={trace.prompt_assembly.repo_map} color={PROMPT_COLORS.repoMap} />
         )}
         {trace.prompt_assembly.specs != null && (
-          <PromptBlock label={t("trace.prompt.specs")} text={trace.prompt_assembly.specs} color={PROMPT_COLORS.specs} />
+          <PromptBlock
+            label={t("trace.prompt.specs")}
+            text={trace.prompt_assembly.specs}
+            color={PROMPT_COLORS.specs}
+            meta={ctx ? t("trace.context.tokens", { count: ctx.tokens }) : undefined}
+          />
         )}
+        {ctx && (ctx.docs.length > 0 || ctx.skipped.length > 0) && <ContextDocsSummary context={ctx} />}
         {trace.prompt_assembly.callers != null && (
           <PromptBlock label={t("trace.prompt.callers")} text={trace.prompt_assembly.callers} color={PROMPT_COLORS.callers} />
         )}

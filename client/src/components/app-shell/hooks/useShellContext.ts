@@ -7,7 +7,8 @@ import { useTranslations } from "next-intl";
 import { type ShellContext } from "@devdigest/ui";
 import { useTheme } from "../../../lib/theme";
 import { useActiveRepo } from "../../../lib/repo-context";
-import { usePulls, useDeleteRepo } from "../../../lib/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePulls, useDeleteRepo, fetchLocalDocCount } from "../../../lib/hooks";
 import { activeKeyFor, toShellRepo } from "../helpers";
 
 interface ShellContextOptions {
@@ -27,6 +28,7 @@ export function useShellContext({ onOpenCommandPalette }: ShellContextOptions): 
   const { repoId, repos, activeRepo, setRepoId } = useActiveRepo();
   const { data: pulls } = usePulls(repoId);
   const deleteRepo = useDeleteRepo();
+  const qc = useQueryClient();
 
   const onSelectRepo = React.useCallback(
     (id: string) => {
@@ -39,10 +41,21 @@ export function useShellContext({ onOpenCommandPalette }: ShellContextOptions): 
   const onAddRepo = React.useCallback(() => router.push("/onboarding"), [router]);
 
   const onRemoveRepo = React.useCallback(
-    (id: string) => {
+    async (id: string) => {
       const target = repos.find((r) => r.id === id);
+      const name = target?.full_name ?? t("removeRepo.fallbackName");
+      // The repo's local documents are deleted with it — tell the user how many.
+      // A failed count falls back to the plain confirmation text.
+      let localDocs = 0;
+      try {
+        localDocs = (await fetchLocalDocCount(qc, id)).count;
+      } catch {
+        localDocs = 0;
+      }
       const ok = window.confirm(
-        t("removeRepo.confirm", { name: target?.full_name ?? t("removeRepo.fallbackName") }),
+        localDocs > 0
+          ? t("removeRepo.confirmWithLocalDocs", { name, count: localDocs })
+          : t("removeRepo.confirm", { name }),
       );
       if (!ok) return;
       deleteRepo.mutate(id, {
@@ -54,7 +67,7 @@ export function useShellContext({ onOpenCommandPalette }: ShellContextOptions): 
         },
       });
     },
-    [repos, repoId, t, deleteRepo, router],
+    [repos, repoId, t, deleteRepo, router, qc],
   );
 
   return React.useMemo<ShellContext>(

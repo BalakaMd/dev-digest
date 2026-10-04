@@ -37,7 +37,9 @@
       "memoryPulled": "Memory pulled",
       "specsRead": "Specs read",
       "items": "{count, plural, one {# item} other {# items}}",
-      "none": "none"
+      "none": "none",
+      "local": "Local",
+      "localOverride": "Local · overrides repository"
     },
     "stat": {
       "duration": "DURATION",
@@ -50,7 +52,7 @@
       "skills": "Skills",
       "memory": "Memory (dynamic)",
       "repoMap": "Repo skeleton — repo-intel (dynamic)",
-      "specs": "Project context (dynamic)",
+      "specs": "Project context — attached specs (untrusted)",
       "callers": "Callers of changed symbols — repo-intel (dynamic)",
       "intent": "PR intent (dynamic)",
       "user": "User / diff (dynamic)",
@@ -67,6 +69,19 @@
       "args": "args",
       "result": "result",
       "previewTruncated": "(preview truncated)"
+    },
+    "context": {
+      "tokens": "{count} tokens",
+      "docTokens": "{count} tokens",
+      "skippedTitle": "Skipped documents",
+      "reason": {
+        "not_found": "not found",
+        "no_working_copy": "repository not cloned",
+        "not_utf8": "not valid UTF-8",
+        "too_large": "too large",
+        "unsafe_path": "unsafe path",
+        "over_budget": "over the token budget"
+      }
     }
   },
   "drawer": {

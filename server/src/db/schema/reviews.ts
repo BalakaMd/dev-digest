@@ -41,6 +41,8 @@ export const findings = pgTable('findings', {
   confidence: doublePrecision('confidence').notNull(),
   kind: text('kind').notNull().default('finding'),
   trifectaComponents: jsonb('trifecta_components').$type<string[]>(),
+  /** Repo-relative paths of context documents the finding cites; null when none. */
+  citedDocs: jsonb('cited_docs').$type<string[]>(),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
   /** 'in' | 'out' | null — set only when a PR intent was available. A label

@@ -23,6 +23,8 @@ export const NAV: NavGroup[] = [
     section: "WORKSPACE",
     items: [
       { key: "pulls", label: "Pull Requests", icon: "GitPullRequest", href: "/repos/:repoId/pulls", gKey: "p" },
+      { key: "onboarding-tour", label: "Onboarding Tour", icon: "Target", href: "/repos/:repoId/onboarding-tour" },
+      { key: "context", label: "Project Context", icon: "Folder", href: "/repos/:repoId/context" },
     ],
   },
   {
@@ -52,6 +54,7 @@ export const SETTINGS_ITEM: NavItemDef = {
 export const SETTINGS_SECTIONS = [
   { key: "api-keys", label: "API Keys" },
   { key: "models", label: "Feature Models" },
+  { key: "workspace", label: "Workspace" },
 ] as const;
 
 /** Keyboard shortcut registry. Wiring is finalized by A6. */

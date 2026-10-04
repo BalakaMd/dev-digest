@@ -61,7 +61,9 @@ export function MermaidDiagram({ chart }: { chart: string }) {
   return (
     <div
       ref={ref}
+      dir="ltr"
       style={{
+        unicodeBidi: "isolate",
         display: state === "ok" ? "flex" : "none",
         justifyContent: "center",
         background: "var(--bg-elevated)",

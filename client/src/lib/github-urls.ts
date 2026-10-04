@@ -35,3 +35,12 @@ export function githubBlobUrl(
   }
   return url;
 }
+
+/**
+ * https://github.com/{owner}/{repo}/blob/{branch}/{path} — a file on the repo's
+ * default branch. Built only from the repo identity + an indexed path (never a
+ * model-supplied URL); branch and path segments are encoded, "/" kept.
+ */
+export function githubFileUrl(repoFullName: string, branch: string, path: string): string {
+  return `${HOST}/${repoFullName}/blob/${encPath(branch)}/${encPath(path)}`;
+}

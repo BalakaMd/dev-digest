@@ -81,4 +81,28 @@ describe("A5 Run Trace drawer (smoke)", () => {
     fireEvent.click(screen.getByText("Prompt assembly"));
     expect(screen.getByText("PR intent (dynamic)")).toBeInTheDocument();
   });
+
+  it('labels a local document that overrides a repository one "Local · overrides repository" (SPEC-02 AC-17)', () => {
+    currentTrace = {
+      ...BASE_TRACE,
+      specs_read: ["docs/guide.md"],
+      prompt_assembly: { ...BASE_TRACE.prompt_assembly, specs: "## Project context\n<untrusted>…</untrusted>" },
+      context: {
+        docs: [{ path: "docs/guide.md", source: "local", tokens: 120, overrides_repo: true }],
+        tokens: 120,
+        skipped: [],
+      },
+    };
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    expect(screen.getByText("Local · overrides repository")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Prompt assembly"));
+    expect(screen.getAllByText("Local · overrides repository")).toHaveLength(2);
+  });
+
+  it("a trace written before the feature (no context field) renders without any Local mark", () => {
+    currentTrace = { ...BASE_TRACE, specs_read: ["spec-0"] };
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    expect(screen.getByText("spec-0")).toBeInTheDocument();
+    expect(screen.queryByText(/^Local/)).not.toBeInTheDocument();
+  });
 });

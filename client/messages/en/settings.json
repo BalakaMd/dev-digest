@@ -30,7 +30,9 @@
   },
   "workspace": {
     "title": "Workspace",
-    "body": "Appearance and sync preferences for this workspace.",
+    "body": "Preferences that apply to this whole workspace.",
+    "tourLanguage": "Tour language",
+    "tourLanguageHint": "Language of generated Onboarding Tour text. Applies to every repository in this workspace; the next generation uses it.",
     "theme": "Theme",
     "themeHint": "Color scheme for the studio UI.",
     "themeDark": "Dark",

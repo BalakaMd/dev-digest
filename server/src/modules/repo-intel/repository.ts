@@ -433,7 +433,8 @@ export class RepoIntelRepository {
     return this.db
       .select({ fromFile: t.fileEdges.fromFile, toFile: t.fileEdges.toFile })
       .from(t.fileEdges)
-      .where(eq(t.fileEdges.repoId, repoId));
+      .where(eq(t.fileEdges.repoId, repoId))
+      .orderBy(asc(t.fileEdges.fromFile), asc(t.fileEdges.toFile));
   }
 
   /** `{path, percentile}` for the given paths (smart-diff / run-executor). */
@@ -454,7 +455,7 @@ export class RepoIntelRepository {
       .select({ path: t.fileRank.filePath, rank: t.fileRank.rank })
       .from(t.fileRank)
       .where(eq(t.fileRank.repoId, repoId))
-      .orderBy(desc(t.fileRank.rank))
+      .orderBy(desc(t.fileRank.rank), asc(t.fileRank.filePath))
       .limit(limit);
   }
 

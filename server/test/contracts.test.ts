@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   Review,
   Finding,
@@ -20,7 +20,15 @@ import {
   Skill,
   AgentVersionConfig,
   ContextDocPaths,
+  TourLanguage,
+  SettingsUpdate,
+  OnboardingTour,
+  OnboardingTourState,
+  OnboardingBlocked,
 } from '@devdigest/shared';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../src/app.js';
+import { loadConfig } from '../src/platform/config.js';
 
 /**
  * Contract tests — parse/round-trip the fixtures from data.jsx/data2.jsx
@@ -422,5 +430,89 @@ describe('project-context contracts', () => {
       expect(ContextDocPaths.safeParse(many).success).toBe(false);
       expect(ContextDocPaths.safeParse(many.slice(0, 20)).success).toBe(true);
     });
+  });
+});
+
+/**
+ * SPEC-03 — Onboarding Tour contracts. `tour_language` is a fixed enum because
+ * it is injected into the LLM prompt (AC-38, AC-42).
+ */
+describe('Onboarding Tour contracts', () => {
+  it('TourLanguage accepts exactly English, Ukrainian, Hebrew', () => {
+    expect(TourLanguage.options).toEqual(['English', 'Ukrainian', 'Hebrew']);
+    expect(TourLanguage.safeParse('French').success).toBe(false);
+    expect(TourLanguage.safeParse('english').success).toBe(false);
+  });
+
+  it('Settings defaults tour_language to English; SettingsUpdate rejects another value (AC-38, AC-42)', () => {
+    expect(Settings.parse({}).tour_language).toBe('English');
+    expect(SettingsUpdate.parse({ tour_language: 'Hebrew' }).tour_language).toBe('Hebrew');
+    expect(() => SettingsUpdate.parse({ tour_language: 'French' })).toThrow();
+  });
+
+  it('OnboardingTour round-trips with nullable sections and an always-present run.commands', () => {
+    const tour = OnboardingTour.parse({
+      generated_at: '2026-10-04T10:00:00.000Z',
+      language: 'Ukrainian',
+      indexed_files: 42,
+      provider: 'openrouter',
+      model: 'm',
+      architecture: null,
+      critical_paths: [{ path: 'src/a.ts', reason: null, imported_by: 3, imports: 1 }],
+      run: { commands: [] },
+      reading_path: null,
+      first_tasks: null,
+    });
+    expect(tour.run.commands).toEqual([]);
+    expect(tour.critical_paths![0]!.reason).toBeNull();
+    expect(OnboardingTour.safeParse({ ...tour, run: undefined }).success).toBe(false);
+    expect(OnboardingTour.safeParse({ ...tour, language: 'French' }).success).toBe(false);
+  });
+
+  it('OnboardingBlocked / OnboardingTourState accept the documented reasons and reject unknown ones', () => {
+    const blocked = {
+      reason: 'partial',
+      message: 'm',
+      index_status: 'partial',
+      files_indexed: 3,
+    };
+    expect(OnboardingBlocked.parse(blocked).reason).toBe('partial');
+    expect(OnboardingBlocked.safeParse({ ...blocked, reason: 'other' }).success).toBe(false);
+
+    const state = OnboardingTourState.parse({
+      tour: null,
+      generation: { status: 'idle', started_at: null, error: null },
+      blocked: null,
+      missing_key: { provider: 'openrouter' },
+      tour_language: 'English',
+      language_changed: false,
+      index_changed: false,
+      repo: { full_name: 'o/r', default_branch: 'main' },
+    });
+    expect(state.missing_key?.provider).toBe('openrouter');
+  });
+});
+
+describe('PUT /settings — tour_language validation (AC-42, 422 shape)', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await buildApp({
+      config: loadConfig({ ...process.env, NODE_ENV: 'test' } as NodeJS.ProcessEnv),
+    });
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('rejects a language outside the enum with 422 validation_error before the handler runs', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/settings',
+      payload: { tour_language: 'French' },
+    });
+    expect(res.statusCode).toBe(422);
+    const body = res.json();
+    expect(body.error.code).toBe('validation_error');
+    expect(JSON.stringify(body.error.details)).toContain('tour_language');
   });
 });

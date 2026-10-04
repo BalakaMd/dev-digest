@@ -13,6 +13,7 @@ import intent from './intent/routes.js';
 import blast from './blast/routes.js';
 import history from './history/routes.js';
 import contextDocs from './context-docs/routes.js';
+import onboarding from './onboarding/routes.js';
 
 /**
  * Module registry. Each feature module is a Fastify plugin in
@@ -42,4 +43,5 @@ export const modules: Record<string, FastifyPluginAsync> = {
   blast,
   history,
   contextDocs,
+  onboarding,
 };

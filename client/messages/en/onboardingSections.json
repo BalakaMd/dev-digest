@@ -1,0 +1,34 @@
+{
+  "toc": {
+    "title": "On this page",
+    "navLabel": "Tour sections"
+  },
+  "sections": {
+    "architecture": "Architecture overview",
+    "criticalPaths": "Critical paths",
+    "run": "How to run locally",
+    "readingPath": "Guided reading path",
+    "firstTasks": "First tasks"
+  },
+  "card": {
+    "collapse": "Collapse {title}",
+    "expand": "Expand {title}"
+  },
+  "open": {
+    "text": "Open",
+    "label": "Open {path} on GitHub (opens in a new tab)"
+  },
+  "copy": {
+    "done": "Copied",
+    "failed": "Copying failed. Select the text and copy it manually."
+  },
+  "noData": {
+    "text": "Not enough data for this section",
+    "regenerate": "Regenerate"
+  },
+  "run": {
+    "empty": "No run instructions found in the repository",
+    "copyAll": "Copy all",
+    "copyCommand": "Copy command {n}"
+  }
+}

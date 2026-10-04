@@ -36,6 +36,7 @@ import type {
   FileRankRow,
   IndexResult,
   IndexState,
+  OnboardingFacts,
   RefRow,
   RepoIntel,
   RepoMapResult,
@@ -52,6 +53,7 @@ import {
   RESYNC_JOB_KIND,
   SUPPORTED_EXT,
 } from './constants.js';
+import { buildOnboardingFacts, emptyOnboardingFacts } from './onboarding-facts.js';
 import { runFullIndex, type IndexPayload } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
 
@@ -755,6 +757,27 @@ export class RepoIntelService implements RepoIntel {
       paths.push(chain);
     }
     return paths;
+  }
+
+  /** Full ranked list + reading path + critical files with import counts. */
+  async getOnboardingFacts(
+    repoId: string,
+    opts: { readingPath: number; criticalPaths: number },
+  ): Promise<OnboardingFacts> {
+    if (!this.container.config.repoIntelEnabled) return emptyOnboardingFacts();
+    const [ranked, edges, chains] = await Promise.all([
+      this.repo.getRankedPaths(repoId, 100_000),
+      this.repo.getEdges(repoId),
+      this.getCriticalPaths(repoId),
+    ]);
+    return buildOnboardingFacts({
+      ranked,
+      edges,
+      chains,
+      isJunk: isJunkPath,
+      readingPath: opts.readingPath,
+      criticalPaths: opts.criticalPaths,
+    });
   }
 }
 

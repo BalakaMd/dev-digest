@@ -89,7 +89,8 @@ export class AnthropicProvider implements LLMProvider {
   async completeStructured<T>(req: StructuredRequest<T>): Promise<StructuredResult<T>> {
     const jsonSchema = toJsonSchema(req.schema, req.schemaName);
     const toolName = req.schemaName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const maxRetries = req.maxRetries ?? 2;
+    const single = req.singleAttempt === true;
+    const maxRetries = single ? 0 : (req.maxRetries ?? 2);
     const { system, rest } = splitSystem(req.messages);
     const messages: Anthropic.MessageParam[] = [...rest];
     let tokensIn = 0;
@@ -97,26 +98,30 @@ export class AnthropicProvider implements LLMProvider {
     let lastRaw = '';
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      const res = await withRetry(() =>
+      const call = () =>
         withTimeout(
-          this.client.messages.create({
-            model: req.model,
-            system: system || undefined,
-            messages,
-            max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-            temperature: req.temperature ?? 0,
-            tools: [
-              {
-                name: toolName,
-                description: `Return the result as ${req.schemaName}.`,
-                input_schema: jsonSchema.schema as Anthropic.Tool.InputSchema,
-              },
-            ],
-            tool_choice: { type: 'tool', name: toolName },
-          }),
+          this.client.messages.create(
+            {
+              model: req.model,
+              system: system || undefined,
+              messages,
+              max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+              temperature: req.temperature ?? 0,
+              tools: [
+                {
+                  name: toolName,
+                  description: `Return the result as ${req.schemaName}.`,
+                  input_schema: jsonSchema.schema as Anthropic.Tool.InputSchema,
+                },
+              ],
+              tool_choice: { type: 'tool', name: toolName },
+            },
+            // singleAttempt: exactly one HTTP call — no SDK-internal retry either.
+            single ? { maxRetries: 0 } : undefined,
+          ),
           req.timeoutMs ?? DEFAULT_TIMEOUT,
-        ),
-      );
+        );
+      const res = single ? await call() : await withRetry(call);
       tokensIn += res.usage.input_tokens;
       tokensOut += res.usage.output_tokens;
 

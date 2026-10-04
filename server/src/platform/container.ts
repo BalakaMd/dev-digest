@@ -44,6 +44,9 @@ import { HistoryService } from '../modules/history/service.js';
 import { ContextDocsRepository } from '../modules/context-docs/repository.js';
 import { ContextDocsService } from '../modules/context-docs/service.js';
 import { resolveFeatureModel } from '../modules/settings/feature-models.js';
+import { SECRET_KEY_BY_PROVIDER } from '../modules/settings/constants.js';
+import { OnboardingRepository } from '../modules/onboarding/repository.js';
+import { OnboardingService } from '../modules/onboarding/service.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -105,6 +108,7 @@ export class Container {
   private _intent?: IntentFacade;
   private _blast?: BlastFacade;
   private _history?: HistoryFacade;
+  private _onboarding?: OnboardingService;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -196,6 +200,20 @@ export class Container {
       resolveModel: (workspaceId) => resolveFeatureModel(this, workspaceId, 'review_intent'),
     });
     return this._intent;
+  }
+
+  /** Onboarding tour use cases (SPEC-03) — a singleton: it owns the in-memory generation registry. */
+  get onboarding(): OnboardingService {
+    this._onboarding ??= new OnboardingService({
+      repo: new OnboardingRepository(this.db),
+      repoIntel: this.repoIntel,
+      git: this.git,
+      llm: (id) => this.llm(id),
+      resolveModel: (workspaceId) => resolveFeatureModel(this, workspaceId, 'onboarding'),
+      hasSecret: async (provider) => Boolean(await this.secrets.get(SECRET_KEY_BY_PROVIDER[provider])),
+      now: () => new Date(),
+    });
+    return this._onboarding;
   }
 
   /** Project context documents use cases (SPEC-01) — assembled here so routes never touch `db`. */

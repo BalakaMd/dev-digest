@@ -27,6 +27,11 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-10-04 — [gotcha] Value imports from `@devdigest/shared` pass typecheck and vitest but blank the page in the browser
+**Symptom** — a route renders blank, console shows 500 and `Module not found: Can't resolve './contracts/*.js'` from `src/vendor/shared/index.ts`.
+**Cause** — the client may import only *types* from `@devdigest/shared`; a runtime use of a zod schema (`OnboardingBlocked.safeParse`, `TourLanguage.options`) makes webpack follow the `.js` re-exports it cannot resolve. `tsc` and vitest (which resolve differently) stay green.
+**Takeaway** — use `import type`, repeat enum values locally with a type guard (see `convention-categories.ts`). Only a real browser or `next build` catches a violation, so load the new route once.
+
 ## 2026-09-30 — [gotcha] `getByTitle` does not find an SVG `<title>` nested inside a `<g>`
 
 **Symptom** — a test using `screen.getByTitle("full label")` for tooltips of SVG graph nodes (`<g><title>…</title><rect/></g>`) fails with "Unable to find an element with the title", though the tooltip is in the DOM.

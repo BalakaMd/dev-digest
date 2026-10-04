@@ -87,27 +87,32 @@ export class OpenAIProvider implements LLMProvider {
 
   async completeStructured<T>(req: StructuredRequest<T>): Promise<StructuredResult<T>> {
     const jsonSchema = toJsonSchema(req.schema, req.schemaName);
-    const maxRetries = req.maxRetries ?? 2;
+    const single = req.singleAttempt === true;
+    const maxRetries = single ? 0 : (req.maxRetries ?? 2);
     const messages = [...req.messages];
     let tokensIn = 0;
     let tokensOut = 0;
     let lastRaw = '';
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      const res = await withRetry(() =>
+      const call = () =>
         withTimeout(
-          this.client.chat.completions.create({
-            model: req.model,
-            messages,
-            ...tuningParams(req.model, req.temperature, req.maxTokens),
-            response_format: {
-              type: 'json_schema',
-              json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
+          this.client.chat.completions.create(
+            {
+              model: req.model,
+              messages,
+              ...tuningParams(req.model, req.temperature, req.maxTokens),
+              response_format: {
+                type: 'json_schema',
+                json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
+              },
             },
-          }),
+            // singleAttempt: exactly one HTTP call — no SDK-internal retry either.
+            single ? { maxRetries: 0 } : undefined,
+          ),
           req.timeoutMs ?? DEFAULT_TIMEOUT,
-        ),
-      );
+        );
+      const res = single ? await call() : await withRetry(call);
       lastRaw = res.choices?.[0]?.message?.content ?? '';
       tokensIn += res.usage?.prompt_tokens ?? 0;
       tokensOut += res.usage?.completion_tokens ?? 0;

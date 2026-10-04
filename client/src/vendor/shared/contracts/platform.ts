@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Provider } from './knowledge.js';
+import { TourLanguage } from './onboarding-tour.js';
 
 /**
  * Platform / scaffolding DTOs owned by F1:
@@ -92,6 +93,8 @@ export const SettingsKnown = z.object({
   automatic_reviews: z.boolean().default(false),
   /** Per-feature model overrides (provider+model), keyed by FeatureModelId. */
   feature_models: z.record(FeatureModelId, FeatureModelChoice).default({}),
+  /** Language of generated Onboarding Tour prose (workspace-wide). */
+  tour_language: TourLanguage.default('English'),
 });
 export type SettingsKnown = z.infer<typeof SettingsKnown>;
 

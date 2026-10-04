@@ -22,3 +22,18 @@ type ReviewLike = { kind: string; verdict: string | null };
 export function latestVerdictReview<T extends ReviewLike>(reviews: readonly T[] | undefined): T | null {
   return reviews?.find((r) => r.kind === "review" && r.verdict != null) ?? null;
 }
+
+/** Compact count: 950 → "950", 8200 → "8.2K", 1_250_000 → "1.3M". */
+export function formatCompactCount(n: number): string {
+  const trim = (v: number) => String(Math.round(v * 10) / 10);
+  if (n >= 999_950) return `${trim(n / 1_000_000)}M`;
+  if (n >= 1000) return `${trim(n / 1000)}K`;
+  return String(n);
+}
+
+/** USD cost: 0.0142 → "$0.014", 2.5 → "$2.50", below a tenth of a cent → "<$0.001". */
+export function formatCostUsd(usd: number): string {
+  if (usd >= 1) return `$${usd.toFixed(2)}`;
+  if (usd > 0 && usd < 0.0005) return "<$0.001";
+  return `$${usd.toFixed(3)}`;
+}

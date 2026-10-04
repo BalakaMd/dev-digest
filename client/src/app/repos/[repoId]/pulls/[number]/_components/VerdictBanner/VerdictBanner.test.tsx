@@ -30,4 +30,30 @@ describe("VerdictBanner (smoke)", () => {
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(screen.getByText(/1 findings · 1 blockers/)).toBeInTheDocument();
   });
+
+  it("renders optional action, footer, meta and info slots", () => {
+    renderWithIntl(
+      <VerdictBanner
+        verdict="approve"
+        summary="ok"
+        score={90}
+        findingsCount={0}
+        blockers={0}
+        info="From Security Reviewer"
+        action={<button>ACT</button>}
+        footer={<div>FOOT</div>}
+        meta={<div>META</div>}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "ACT" })).toBeInTheDocument();
+    expect(screen.getByText("FOOT")).toBeInTheDocument();
+    expect(screen.getByText("META")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "From Security Reviewer" })).toBeInTheDocument();
+  });
+
+  it("renders none of the optional slots by default", () => {
+    renderWithIntl(<VerdictBanner verdict="comment" summary={null} score={null} findingsCount={0} blockers={0} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByText("PR SCORE")).toBeNull();
+  });
 });

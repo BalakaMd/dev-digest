@@ -14,6 +14,8 @@ import { BriefText } from "./_components/BriefText";
 import { RiskAreas } from "./_components/RiskAreas";
 import { ReviewFocus } from "./_components/ReviewFocus";
 import { BriefNotices, type BriefFailure } from "./_components/BriefNotices";
+import { BriefCost } from "./_components/BriefCost";
+import { ScoreColumn } from "../ScoreColumn";
 import { BriefProvenance } from "./_components/BriefProvenance";
 import { LiveRegion, useAnnouncer } from "./_components/LiveRegion";
 
@@ -45,6 +47,7 @@ export function PrBriefBlock({ prId, repoId, number, intent, blast }: PrBriefBlo
 
   const brief = data?.brief ?? null;
   const review = latestVerdictReview(reviews);
+  const hasVerdict = !!review?.verdict;
   const failure = toFailure(generate.error);
   const busyOrBlocked = !prId || generating || missingKey;
 
@@ -55,6 +58,20 @@ export function PrBriefBlock({ prId, repoId, number, intent, blast }: PrBriefBlo
       onError: () => announce(t("live.failed")),
     });
   };
+
+  const regenerate = (
+    <button
+      type="button"
+      style={{ ...layout.refresh, opacity: busyOrBlocked ? 0.5 : 1, cursor: busyOrBlocked ? "default" : "pointer" }}
+      disabled={busyOrBlocked}
+      aria-busy={generating}
+      aria-label={t("regenerate")}
+      title={t("regenerate")}
+      onClick={start}
+    >
+      <Icon.RefreshCw size={16} />
+    </button>
+  );
 
   return (
     <section style={layout.block} aria-labelledby="pr-brief-heading">
@@ -98,7 +115,19 @@ export function PrBriefBlock({ prId, repoId, number, intent, blast }: PrBriefBlo
           score={review.score}
           findingsCount={review.findings.length}
           blockers={review.findings.filter((f) => f.severity === "CRITICAL" && !f.dismissed_at).length}
-          agentName={review.agent_name}
+          info={review.agent_name ? t("verdictInfo", { agent: review.agent_name }) : undefined}
+          action={brief ? regenerate : undefined}
+          meta={brief ? <BriefCost brief={brief} /> : undefined}
+          footer={
+            brief && (
+              <div style={layout.verdictBrief}>
+                <p style={layout.summary}>
+                  <BriefText language={brief.language}>{brief.summary}</BriefText>
+                </p>
+                <BriefProvenance brief={brief} />
+              </div>
+            )
+          }
         />
       )}
 
@@ -110,25 +139,18 @@ export function PrBriefBlock({ prId, repoId, number, intent, blast }: PrBriefBlo
 
       {brief && (
         <>
-          <div style={layout.summaryCard}>
-            <div style={layout.summaryBody}>
-              <p style={layout.summary}>
-                <BriefText language={brief.language}>{brief.summary}</BriefText>
-              </p>
-              <BriefProvenance brief={brief} />
+          {!hasVerdict && (
+            <div style={layout.summaryCard}>
+              <div style={layout.summaryBody}>
+                <p style={layout.summary}>
+                  <BriefText language={brief.language}>{brief.summary}</BriefText>
+                </p>
+                <BriefProvenance brief={brief} />
+              </div>
+              <div style={layout.refreshSlot}>{regenerate}</div>
+              <ScoreColumn score={null} hint={t("scoreHint")} meta={<BriefCost brief={brief} />} />
             </div>
-            <Button
-              kind="ghost"
-              size="sm"
-              icon="RefreshCw"
-              loading={generating}
-              disabled={busyOrBlocked}
-              aria-busy={generating}
-              aria-label={t("regenerate")}
-              title={t("regenerate")}
-              onClick={start}
-            />
-          </div>
+          )}
           <div style={layout.columns}>
             <div style={layout.cell}>
               {intent(<RiskAreas risks={brief.risks} language={brief.language} repoId={repoId} number={number} />)}

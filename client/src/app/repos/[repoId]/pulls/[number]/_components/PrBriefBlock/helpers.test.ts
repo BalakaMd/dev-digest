@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { briefDiffHref, isRtl } from "./helpers";
+import { briefDiffHref, formatCompactCount, formatCostUsd, isRtl } from "./helpers";
 
 describe("briefDiffHref", () => {
   it("builds the Files-changed deep link with an encoded file and a numeric line", () => {
@@ -25,5 +25,22 @@ describe("isRtl", () => {
     expect(isRtl("Hebrew")).toBe(true);
     expect(isRtl("English")).toBe(false);
     expect(isRtl("Ukrainian")).toBe(false);
+  });
+});
+
+describe("formatCompactCount", () => {
+  it("keeps small numbers and abbreviates thousands and millions", () => {
+    expect(formatCompactCount(950)).toBe("950");
+    expect(formatCompactCount(8200)).toBe("8.2K");
+    expect(formatCompactCount(1300)).toBe("1.3K");
+    expect(formatCompactCount(1_250_000)).toBe("1.3M");
+  });
+});
+
+describe("formatCostUsd", () => {
+  it("uses three decimals under a dollar, two above, and marks tiny costs", () => {
+    expect(formatCostUsd(0.0142)).toBe("$0.014");
+    expect(formatCostUsd(2.5)).toBe("$2.50");
+    expect(formatCostUsd(0.0001)).toBe("<$0.001");
   });
 });

@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PrBrief, PrBriefResponse } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/brief.json";
+import prReviewMessages from "../../../../../../../../messages/en/prReview.json";
 import { PrBriefBlock } from "./PrBriefBlock";
 
 /** Real hooks + QueryClient against a mocked `fetch` (GET/POST /pulls/:id/brief). */
@@ -37,14 +38,25 @@ const BRIEF: PrBrief = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
+const REVIEW = {
+  id: "rev-1",
+  kind: "review",
+  verdict: "request_changes",
+  summary: "Secret committed.",
+  score: 61,
+  agent_name: "Security Reviewer",
+  findings: [{ severity: "CRITICAL", dismissed_at: null }, { severity: "WARNING", dismissed_at: null }],
+};
+
 let stored: PrBriefResponse;
+let reviews: unknown[];
 let fetchMock: ReturnType<typeof vi.fn>;
 
 function renderBlock() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" timeZone="UTC" messages={{ brief: messages }}>
+      <NextIntlClientProvider locale="en" timeZone="UTC" messages={{ brief: messages, prReview: prReviewMessages }}>
         <PrBriefBlock
           prId="pr-1"
           repoId="repo-1"
@@ -61,6 +73,7 @@ const posts = () => fetchMock.mock.calls.filter(([, init]) => (init as RequestIn
 
 beforeEach(() => {
   stored = { brief: null, stale: false };
+  reviews = [];
   fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const { pathname } = new URL(String(input));
     if (pathname === "/pulls/pr-1/brief") {
@@ -72,7 +85,7 @@ beforeEach(() => {
     }
     if (pathname === "/settings") return json({});
     if (pathname === "/settings/secrets-status") return json({ openai: true, anthropic: true, openrouter: true });
-    if (pathname === "/pulls/pr-1/reviews") return json([]);
+    if (pathname === "/pulls/pr-1/reviews") return json(reviews);
     throw new Error(`Unhandled fake fetch route: ${pathname}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -115,5 +128,54 @@ describe("PrBriefBlock", () => {
     expect(await screen.findByText("Adds token refresh to the auth flow.")).toBeInTheDocument();
     expect(posts()).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeInTheDocument();
+  });
+
+  it("merges verdict, brief summary, score, regenerate and cost into one card", async () => {
+    stored = { brief: BRIEF, stale: false };
+    reviews = [REVIEW];
+    renderBlock();
+
+    expect(await screen.findByText("Request changes")).toBeInTheDocument();
+    expect(screen.getByText("61")).toBeInTheDocument();
+    expect(screen.getByText("Adds token refresh to the auth flow.")).toBeInTheDocument();
+    expect(screen.getByText(/commit abcdef1 · gpt-test/)).toBeInTheDocument();
+    expect(screen.getByTitle("Cost of this run")).toHaveTextContent("$ $0.010");
+    expect(screen.getByText("100→50")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Regenerate brief" })).toHaveLength(1);
+    expect(screen.queryByText("Run a review to get a score")).toBeNull();
+    expect(screen.getAllByText("PR SCORE")).toHaveLength(1);
+  });
+
+  it("shows a tiny cost without a doubled dollar sign", async () => {
+    stored = { brief: { ...BRIEF, cost_usd: 0.0001 }, stale: false };
+    renderBlock();
+
+    expect(await screen.findByText("Adds token refresh to the auth flow.")).toBeInTheDocument();
+    expect(screen.getByTitle("Cost of this run")).toHaveTextContent(/^<\$0\.001$/);
+  });
+
+  it("without a verdict review still shows summary, regenerate and cost", async () => {
+    stored = { brief: { ...BRIEF, tokens_in: 8200, tokens_out: 1300, cost_usd: 0.0142 }, stale: false };
+    renderBlock();
+
+    expect(await screen.findByText("Adds token refresh to the auth flow.")).toBeInTheDocument();
+    expect(screen.getByTitle("Cost of this run")).toHaveTextContent("$ $0.014");
+    expect(screen.getByText("PR SCORE")).toBeInTheDocument();
+    expect(screen.queryByText("Run a review to get a score")).toBeNull();
+    expect(screen.getByRole("img", { name: /PR SCORE: Run a review to get a score/ })).toHaveAttribute(
+      "title",
+      "Run a review to get a score",
+    );
+    expect(screen.getByText("8.2K→1.3K")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeEnabled();
+  });
+
+  it("hides the cost line when cost and tokens are null", async () => {
+    stored = { brief: { ...BRIEF, cost_usd: null, tokens_in: null, tokens_out: null }, stale: false };
+    renderBlock();
+
+    expect(await screen.findByText("Adds token refresh to the auth flow.")).toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).toBeNull();
+    expect(screen.queryByText(/→/)).toBeNull();
   });
 });

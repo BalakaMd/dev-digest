@@ -52,5 +52,11 @@
     "blame": "blame",
     "noHistory": "No history available for this line.",
     "noCommits": "No commits found for this line."
-  }
+  },
+  "cost": {
+    "cost": "Cost of this run",
+    "tokens": "Tokens in → out"
+  },
+  "scoreHint": "Run a review to get a score",
+  "verdictInfo": "Verdict from the latest review by {agent}"
 }

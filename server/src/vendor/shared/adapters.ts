@@ -72,6 +72,12 @@ export interface StructuredRequest<T> {
    * reprompt loop. A failure or unparseable answer is thrown as-is.
    */
   singleAttempt?: boolean;
+  /**
+   * Caps hidden reasoning for reasoning models (sent as OpenRouter's
+   * `reasoning.effort`, `none` → `reasoning.enabled: false`; ignored elsewhere). Without it such a model can spend
+   * the whole `maxTokens` on reasoning and return an empty answer.
+   */
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
 }
 
 export interface StructuredResult<T> {

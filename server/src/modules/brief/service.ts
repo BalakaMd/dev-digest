@@ -207,6 +207,7 @@ export class BriefService implements BriefFacade {
       timeoutMs: BRIEF_TIMEOUT_MS,
       maxRetries: 0,
       singleAttempt: true,
+      reasoningEffort: 'none',
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: fit.user },

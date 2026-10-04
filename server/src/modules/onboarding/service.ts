@@ -208,6 +208,7 @@ export class OnboardingService {
         timeoutMs: ONBOARDING_TIMEOUT_MS,
         maxRetries: 0,
         singleAttempt: true,
+        reasoningEffort: 'none',
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },

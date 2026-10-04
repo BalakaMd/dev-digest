@@ -45,7 +45,7 @@
     "pollingHint": "How often to check GitHub for new PRs when automatic reviews are on.",
     "everyMin": "Every {n} min",
     "syncTitle": "Sync generated docs to a folder",
-    "syncOn": "On — onboarding tours and digests are written to the repo folder",
+    "syncOn": "On",
     "syncOff": "Off"
   },
   "github": {

@@ -17,6 +17,7 @@ layout is a Server Component, and most `page.tsx` files opt into
 | `/repos/[repoId]/pulls` | Client |
 | `/repos/[repoId]/pulls/[number]` | Client |
 | `/repos/[repoId]/context` | Client |
+| `/repos/[repoId]/onboarding-tour` | Client |
 | `/agents/[id]` | Client |
 | `/agents` | Server (delegates to a client view) |
 | `/settings/[section]` | Server (delegates to a client view) |
@@ -56,7 +57,7 @@ application/json".
 
 Hooks are grouped by domain in `src/lib/hooks/`: `core.ts` (repos, pulls,
 settings), `agents.ts`, `reviews.ts` (runs, findings, comments, SSE run events),
-`trace.ts`, `repo-intel.ts`, `context-docs.ts` (project documents), plus one file per PR-detail feature (`intent.ts`,
+`trace.ts`, `repo-intel.ts`, `context-docs.ts` (project documents), `onboarding-tour.ts` (Onboarding Tour state and generate), plus one file per PR-detail feature (`intent.ts`,
 `blast.ts`, `history.ts`, …). Mutations invalidate the query keys they affect —
 `["repos"]`, `["pulls", repoId]` and so on.
 

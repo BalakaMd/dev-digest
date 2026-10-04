@@ -807,7 +807,9 @@ const JUNK_PATH_PATTERNS = [
 ] as const;
 
 function isJunkPath(path: string): boolean {
-  const lower = path.toLowerCase();
+  // Leading "/" so root-level `test/…`, `tests/…`, `migrations/…` match the
+  // `/dir/` patterns the same way nested ones do.
+  const lower = `/${path.toLowerCase()}`;
   return JUNK_PATH_PATTERNS.some((p) => lower.includes(p));
 }
 

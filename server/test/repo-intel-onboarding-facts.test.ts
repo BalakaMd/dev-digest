@@ -4,6 +4,7 @@ import {
   emptyOnboardingFacts,
   type OnboardingFactsInput,
 } from '../src/modules/repo-intel/onboarding-facts.js';
+import { RepoIntelService } from '../src/modules/repo-intel/service.js';
 
 /**
  * SPEC-03 AC-7 / AC-11 / AC-12 / AC-29 — the pure part of
@@ -159,5 +160,37 @@ describe('buildOnboardingFacts — critical files (AC-7, AC-29)', () => {
 
   it('emptyOnboardingFacts has three empty lists', () => {
     expect(emptyOnboardingFacts()).toEqual({ indexedPaths: [], readingPath: [], criticalPaths: [] });
+  });
+});
+
+/**
+ * AC-11 regression — the REAL `isJunkPath` (via the facade, stubbed repository,
+ * no DB). Root-level `test/…`, `tests/…`, `migrations/…` used to slip into the
+ * reading path because the junk patterns are `/dir/` and the path had no
+ * leading slash. Substring look-alikes (`contest`, `latest`) must stay eligible.
+ */
+describe('RepoIntelService.getOnboardingFacts — junk filtering of root-level dirs (AC-11)', () => {
+  it('excludes root and nested test/tests/migrations paths, keeps look-alikes', async () => {
+    const ranked = [
+      { path: 'test/a.ts', rank: 9 },
+      { path: 'tests/a.ts', rank: 8 },
+      { path: 'migrations/0001.sql', rank: 7 },
+      { path: 'src/test/a.ts', rank: 6 },
+      { path: 'src/contest/a.ts', rank: 5 },
+      { path: 'src/latest.ts', rank: 4 },
+    ];
+    const svc = new RepoIntelService({
+      config: { repoIntelEnabled: true },
+      db: {} as never,
+    } as never);
+    (svc as unknown as { repo: Record<string, unknown> }).repo = {
+      getRankedPaths: async () => ranked,
+      getEdges: async () => [],
+    };
+
+    const facts = await svc.getOnboardingFacts('r1', { readingPath: 7, criticalPaths: 5 });
+
+    expect(facts.readingPath.map((r) => r.path)).toEqual(['src/contest/a.ts', 'src/latest.ts']);
+    expect(facts.indexedPaths).toHaveLength(6); // allow-list is not junk-filtered
   });
 });

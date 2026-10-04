@@ -106,5 +106,6 @@ rubric, the bar, and the dedup procedure.
 | [README.md](README.md) | you need the architecture diagram or the package map |
 | [TESTING.md](TESTING.md) | the question is about test strategy or CI workflows |
 | [docs/](docs/) | you need agent system prompts, model-selection guidance, or how project context documents reach a review ([project-context.md](docs/project-context.md)) |
+| [docs/onboarding-tour.md](docs/onboarding-tour.md) | you touch the onboarding module, `getOnboardingFacts`, `singleAttempt` or the tour page |
 | [specs/](specs/) | you are picking up a cross-package feature |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change — past traps are logged there |

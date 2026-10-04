@@ -48,12 +48,3 @@ export const FOLDER_RUN_SOURCE_FILES = [
   'compose.yml',
   'compose.yaml',
 ] as const;
-
-/** Section anchors (shared with the client page). */
-export const SECTION_ANCHORS = [
-  'architecture',
-  'critical-paths',
-  'run-locally',
-  'reading-path',
-  'first-tasks',
-] as const;

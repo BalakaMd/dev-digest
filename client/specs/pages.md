@@ -18,7 +18,8 @@ the same commit.
 | `/agents` | agent grid | `useAgents` → `GET /agents` |
 | `/agents/[id]` | agent editor — Config, Skills, Context | `useAgent`, `useUpdateAgent`, `useProviderModels`, `useSkills`, `useAgentSkills`, `useSetAgentSkills`, `useSetAgentContextDocs` |
 | `/repos/[repoId]/context` | Project Context — documents, preview, local editing, "Edit a copy" overrides of repository documents, usage | `useContextDocs`, `useContextDocContent`, `useContextDocUsage`, `useSyncRepoDocs`, `useSaveLocalDoc`, `useKeepLocalCopy`, `useUploadLocalDocs`, `useCreateLocalFolder`, `useDeleteLocalDoc`, `useDeleteLocalFolder` |
-| `/settings/[section]` | API keys, models | `useSettings`, `useUpdateSettings`, `useSecretsStatus`, `useTestConnection` |
+| `/repos/[repoId]/onboarding-tour` | Onboarding Tour — stored tour, Generate / Regenerate, blocked and missing-key notices, Share link | `useOnboardingTour` → `GET /repos/:id/onboarding` (polls every 2 s while generating); `useGenerateOnboardingTour` → `POST /repos/:id/onboarding/generate` |
+| `/settings/[section]` | API keys, feature models, workspace (Tour language) | `useSettings`, `useUpdateSettings`, `useSecretsStatus`, `useTestConnection` |
 
 ## PR list
 
@@ -171,6 +172,16 @@ list (`PUT /agents/:id/context-docs`), which bumps the agent's version. The skil
 has the same list under "Project context to use" (`PUT /skills/:id/context-docs`, no
 version bump). How the documents reach a run is described in
 [docs/project-context.md](../../docs/project-context.md).
+
+## Onboarding Tour
+
+Per repo, under **WORKSPACE** in the sidebar. The page shows a stored tour (five
+sections) or an empty state with **Generate onboarding tour**; opening it never
+calls the LLM. Generate is disabled while a generation runs, when the repository
+cannot be toured (not indexed, partial or degraded index, no clone, no source
+files) and when the API key is missing — the reason is shown. The tour language
+comes from **Settings → Workspace**. How the tour is built and every state are
+described in [docs/onboarding-tour.md](../../docs/onboarding-tour.md).
 
 ## Settings
 

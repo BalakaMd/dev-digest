@@ -25,7 +25,7 @@ import onboarding from './onboarding/routes.js';
  * bundler, and vitest — native dynamic import() of .ts files is not portable.)
  *
  * This is the Part-0 starter set. Each course lesson adds its own module here
- * (skills, intent/smart-diff, blast, brief/context/onboarding, eval/ci/hooks,
+ * (skills, intent/smart-diff, blast, brief/context, eval/ci/hooks,
  * memory, plugins, …) without touching any other module or the shared schema.
  */
 export const modules: Record<string, FastifyPluginAsync> = {

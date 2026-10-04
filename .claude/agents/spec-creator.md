@@ -4,7 +4,7 @@ description: Feature-spec author for spec-driven development. Use before plannin
 tools: Read, Grep, Glob, Write, Edit, Skill
 disallowedTools: Agent, Bash, NotebookEdit, WebFetch, WebSearch
 model: opus
-effort: high
+effort: medium
 permissionMode: acceptEdits
 maxTurns: 80
 color: pink

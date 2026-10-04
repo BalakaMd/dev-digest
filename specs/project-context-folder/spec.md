@@ -2,6 +2,7 @@
 Spec ID: SPEC-01
 Status: approved
 Supersedes: —
+Superseded by: SPEC-02 (specs/context-doc-local-override/spec.md) — in part
 
 ## Problem and user
 A workspace owner tunes review agents and skills in the studio. The rules a reviewer is supposed to

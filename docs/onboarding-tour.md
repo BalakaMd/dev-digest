@@ -287,7 +287,10 @@ stored.
 ([`SettingsWorkspace`](../client/src/app/settings/[section]/_components/SettingsView/_components/SettingsWorkspace/SettingsWorkspace.tsx)),
 with the options "English", "Українська" and "עברית"; an unset workspace is English. It is
 saved with `PUT /settings`; any other value fails the `SettingsUpdate` schema with 422 and
-the stored value stays. The panel holds only this setting.
+the stored value stays. The panel holds only this setting. The setting is not specific to
+the tour: the PR Brief on a pull request's Overview tab reads the same value when it
+generates, and shows its own "Language changed since this brief was generated" note (see
+[pr-brief.md](pr-brief.md)).
 
 Each generation reads the value when it starts and stores it as `tour.language`; changing
 the setting later raises "Tour language changed…" on the existing tour. The model is not
@@ -344,7 +347,7 @@ Everything the model wrote is untrusted and is shown as inert text:
   ([`onboarding-tour.ts`](../client/src/lib/hooks/onboarding-tour.ts)), query key
   `["onboarding-tour", repoId]`; the POST result is written into the cache.
 - **Settings:** Settings → Feature Models → "Onboarding Tour" selects the provider and
-  model; Settings → Workspace selects the language.
+  model; Settings → Workspace selects the language (shared with the PR Brief).
 
 ## Tests
 

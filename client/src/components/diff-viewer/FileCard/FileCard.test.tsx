@@ -1,5 +1,6 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import React from "react";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { PrFile } from "@/lib/types";
 import type { FileAnnotations } from "../annotations";
@@ -138,5 +139,51 @@ describe("FileCard openCommand", () => {
 
     rerender(renderWith({ open: false })); // a new request closes it again
     expect(screen.queryByText("const b = 2;")).not.toBeInTheDocument();
+  });
+});
+
+describe("FileCard deep-link target", () => {
+  // A big file starts collapsed (> AUTO_EXPAND_MAX_LINES); `const b` is new-side line 2.
+  const BIG: PrFile = { ...FILE, additions: 5000 };
+  const scrollIntoView = vi.fn();
+
+  function renderBig(target?: React.ComponentProps<typeof FileCard>["target"]) {
+    return (
+      <NextIntlClientProvider locale="en" messages={{ shell: shellMessages }}>
+        <FileCard file={BIG} target={target} />
+      </NextIntlClientProvider>
+    );
+  }
+
+  beforeEach(() => {
+    // jsdom has no scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView;
+    scrollIntoView.mockClear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it("expands a collapsed file, scrolls to and marks the target line (for at least 2 s), and focuses the header", () => {
+    const { rerender } = render(renderBig(null));
+    expect(screen.queryByText("const b = 2;")).not.toBeInTheDocument();
+
+    rerender(renderBig({ file: "src/foo.ts", line: 2, note: "outside", scrollMarginTop: "10px" }));
+
+    const row = screen.getByText("const b = 2;").closest("[data-target-line]") as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollIntoView.mock.contexts.at(-1)).toBe(row);
+    expect(screen.getByText("src/foo.ts").closest("[tabindex='-1']")).toBe(document.activeElement);
+    // the other line is not marked, and no "outside" note is shown for a visible line
+    expect(screen.getByText("const a = 1;").closest("[data-target-line]")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.getByText("const b = 2;").closest("[data-target-line]")).toBe(row);
   });
 });

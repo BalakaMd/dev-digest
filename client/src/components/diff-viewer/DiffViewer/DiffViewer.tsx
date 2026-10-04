@@ -10,17 +10,20 @@ import type { PrFile } from "@/lib/types";
 import { type DiffCommentApi } from "../comments";
 import { type FileAnnotations } from "../annotations";
 import { s } from "../styles";
-import { FileCard } from "../FileCard";
+import { FileCard, type DiffTarget } from "../FileCard";
 
 export function DiffViewer({
   files,
   commenting,
   annotationsFor,
+  target,
 }: {
   files: PrFile[];
   commenting?: DiffCommentApi;
   /** Per-file annotation slots (e.g. Smart Diff findings); optional. */
   annotationsFor?: (file: PrFile) => FileAnnotations | undefined;
+  /** Deep-link target: the matching file expands, scrolls into view and takes focus. */
+  target?: DiffTarget | null;
 }) {
   const t = useTranslations("shell");
   if (!files || files.length === 0) {
@@ -29,7 +32,13 @@ export function DiffViewer({
   return (
     <div style={s.list}>
       {files.map((f) => (
-        <FileCard key={f.path} file={f} commenting={commenting} annotations={annotationsFor?.(f)} />
+        <FileCard
+          key={f.path}
+          file={f}
+          commenting={commenting}
+          annotations={annotationsFor?.(f)}
+          target={target}
+        />
       ))}
     </div>
   );

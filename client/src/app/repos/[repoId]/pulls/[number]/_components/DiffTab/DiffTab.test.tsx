@@ -10,6 +10,7 @@ import type {
 } from "@devdigest/shared";
 import prReviewMessages from "../../../../../../../../messages/en/prReview.json";
 import shellMessages from "../../../../../../../../messages/en/shell.json";
+import briefMessages from "../../../../../../../../messages/en/brief.json";
 
 // ---- controllable hook state (reset in beforeEach) ----
 let reviewsData: ReviewRecord[] | undefined;
@@ -140,7 +141,7 @@ const REVIEW_WITH_FINDINGS: ReviewRecord = review({
 
 function renderTab(props: Partial<React.ComponentProps<typeof DiffTab>> = {}) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: prReviewMessages, shell: shellMessages }}>
+    <NextIntlClientProvider locale="en" messages={{ prReview: prReviewMessages, shell: shellMessages, brief: briefMessages }}>
       <DiffTab prId="pr1" filesCount={FILES.length} files={FILES} {...props} />
     </NextIntlClientProvider>,
   );
@@ -462,5 +463,26 @@ describe("DiffTab — Collapse all per group", () => {
     fireEvent.click(screen.getByRole("button", { name: /Expand all/ }));
     expect(screen.getByText("line5")).toBeInTheDocument();
     expect(screen.getByText("line3")).toBeInTheDocument();
+  });
+});
+
+describe("DiffTab — deep-link target", () => {
+  beforeEach(() => {
+    // jsdom has no scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it("opens the collapsed Docs group and its file, and marks the target line (Smart order)", () => {
+    const files = FILES.map((f) => (f.path === "README.md" ? prFile("README.md", "@@ -0,0 +1,2 @@\n+first doc\n+second doc") : f));
+    renderTab({ files, target: { file: "README.md", line: 2 } });
+
+    expect(screen.getByText("README.md")).toBeInTheDocument();
+    const marked = screen.getByText("second doc").closest("[data-target-line]");
+    expect(marked).not.toBeNull();
+    expect(screen.getByText("first doc").closest("[data-target-line]")).toBeNull();
+    expect(screen.getByText("README.md").closest("[tabindex='-1']")).toBe(document.activeElement);
   });
 });

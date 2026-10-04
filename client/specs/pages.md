@@ -11,7 +11,7 @@ the same commit.
 | `/` | entry; redirects to the active repo's PR list | `useRepos` → `GET /repos` |
 | `/onboarding` | add a repository by URL | `useAddRepo` → `POST /repos` |
 | `/repos/[repoId]/pulls` | PR list | `usePulls` → `GET /repos/:id/pulls`; `useRefreshRepo` → `POST /repos/:id/refresh` |
-| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast`, `usePrHistory` → `GET /pulls/:id/history` |
+| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace; query params `tab=diff&file=<path>&line=<n>` deep-link into Files changed | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast`, `usePrHistory` → `GET /pulls/:id/history`, `useBrief` → `GET /pulls/:id/brief`, `useGenerateBrief` → `POST /pulls/:id/brief`, `useBriefGenerating`, `useBriefSettings` |
 | `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
 | `/skills/[id]` | skill editor — Config, Context, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion`, `useSetSkillContextDocs` |
@@ -61,12 +61,22 @@ before they ever reach the client. A finding with `scope: "out"` (kept as the
 one out-of-scope signal the server allows through) carries an "Outside PR
 scope" tag next to its accept/dismiss state.
 
+`PrBriefBlock` (`useBrief` → `GET /pulls/:id/brief`, `useGenerateBrief` →
+`POST /pulls/:id/brief`) is the first section of **Overview**. It generates only on
+click (Generate / Regenerate brief) and shows the stored brief, the latest verdict
+banner, Risk areas and Review focus. Intent and Blast radius cards sit below it until a
+brief is stored, and inside it afterwards. Each risk file and Review focus item links to
+`?tab=diff&file=<path>[&line=<n>]`: the page opens Files changed at that file (expanding it
+and its Smart Diff group, scrolling, focusing the header, marking the line); a file that is
+not in the PR's diff falls back to Overview with "File not in this PR's diff". Details:
+[docs/pr-brief.md](../../docs/pr-brief.md).
+
 `IntentCard` (`usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` →
 `POST /pulls/:id/intent`) appears on both **Overview** and **Findings**. On
 Findings (the **Agent runs** tab) it renders above the tab body — it precedes
 the review results, and starting a run switches the tab to Findings so it still
 sits above them. On Overview it is the left card of a two-card row, next to the
-Blast radius card, and is always expanded; on Findings it starts
+Blast radius card (below the PR Brief block while no brief is stored; inside it once one is), and is always expanded; on Findings it starts
 collapsed to its header — title, confidence badge and a **Stale** badge when
 the intent is stale — and the body opens on click. States:
 `none` (a **Derive intent** button) · `derived` (quoted summary, IN SCOPE / OUT
@@ -80,7 +90,7 @@ automatically; after a review run finishes, `page.tsx` invalidates
 `server/specs/review-flow.md`) appears without a manual refresh.
 
 `BlastRadiusCard` (`usePrBlastRadius` → `GET /pulls/:id/blast`) is the right
-card of the Overview row. It reads the persisted repo index — no LLM, nothing
+card of the Overview row (below the PR Brief block while no brief is stored; inside it once one is). It reads the persisted repo index — no LLM, nothing
 is re-parsed. The header shows four counters: symbols, callers, endpoints and
 crons (endpoints and crons are counted once each). In the Tree view (the default) every changed symbol that has
 callers is a collapsible row (the first one starts open): each caller is a
@@ -200,5 +210,5 @@ All visible text resolves through `next-intl` — no literal strings in componen
 
 ## Not here yet
 
-Memory, eval, brief, multi-agent and the dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
-you will see `eval.json` or `memory.json` with no screen behind them.
+Memory, eval, multi-agent and the dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
+you will see `eval.json` or `memory.json` with no screen behind them. (The `brief` namespace is used by the PR Brief block on Overview.)

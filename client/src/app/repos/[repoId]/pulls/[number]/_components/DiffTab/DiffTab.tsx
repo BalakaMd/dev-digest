@@ -3,14 +3,21 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { SectionLabel, Button, Skeleton, Badge, SEV } from "@devdigest/ui";
-import { DiffViewer, FileCard, type DiffCommentApi, type FileAnnotations } from "@/components/diff-viewer";
+import {
+  DiffViewer,
+  FileCard,
+  type DiffCommentApi,
+  type DiffTarget,
+  type FileAnnotations,
+} from "@/components/diff-viewer";
 import { usePrComments, useCreatePrComment, usePrReviews, useFindingAction } from "@/lib/hooks/reviews";
 import { usePrSmartDiff } from "@/lib/hooks/smart-diff";
 import { notify } from "@/lib/toast";
 import type { FindingActionKind, PrFile } from "@devdigest/shared";
 import { SmartDiffGroup } from "./_components/SmartDiffGroup";
 import { InlineFinding } from "./_components/InlineFinding";
-import { COLLAPSED_ROLES, SEVERITY_LABEL_KEY } from "./constants";
+import { COLLAPSED_ROLES, GROUP_HEADER_HEIGHT_PX, SEVERITY_LABEL_KEY, TARGET_SCROLL_GAP_PX } from "./constants";
+import type { DiffTargetRequest } from "./diff-target";
 import {
   buildRoleGroups,
   countFilesWithFindings,
@@ -27,10 +34,13 @@ interface DiffTabProps {
   files: PrFile[];
   /** Inline commenting is offered only on open PRs (GitHub rejects otherwise). */
   canComment?: boolean;
+  /** Deep link into the diff (already validated against `files`); optional. */
+  target?: DiffTargetRequest | null;
 }
 
-export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
+export function DiffTab({ prId, filesCount, files, canComment, target }: DiffTabProps) {
   const t = useTranslations("prReview");
+  const tBrief = useTranslations("brief");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
   const reviewsQuery = usePrReviews(prId);
@@ -61,6 +71,20 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
     () => (smartQuery.data ? buildRoleGroups(smartQuery.data, files) : null),
     [smartQuery.data, files],
   );
+
+  const smartActive = order === "smart" && !!groups;
+  const targetFile = target?.file;
+  const targetLine = target?.line ?? null;
+  const diffTarget = React.useMemo<DiffTarget | null>(() => {
+    if (!targetFile) return null;
+    const stickyBelowHeader = smartActive ? GROUP_HEADER_HEIGHT_PX : 0;
+    return {
+      file: targetFile,
+      line: targetLine,
+      note: targetLine !== null ? tBrief("nav.lineOutside", { line: targetLine }) : undefined,
+      scrollMarginTop: `calc(var(--pr-header-h, 0px) + ${stickyBelowHeader + TARGET_SCROLL_GAP_PX}px)`,
+    };
+  }, [targetFile, targetLine, smartActive, tBrief]);
 
   const commenting: DiffCommentApi = {
     comments: comments ?? [],
@@ -163,13 +187,13 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
       {!hasReview && reviewsQuery.isFetched && <div style={s.hint}>{t("smartDiff.reviewNotRun")}</div>}
 
       {order === "original" ? (
-        <DiffViewer files={files} commenting={commenting} annotationsFor={annotationsFor} />
+        <DiffViewer files={files} commenting={commenting} annotationsFor={annotationsFor} target={diffTarget} />
       ) : smartQuery.isLoading ? (
         <Skeleton height={200} />
       ) : smartQuery.isError || !groups ? (
         <>
           <div style={s.hint}>{t("smartDiff.groupingUnavailable")}</div>
-          <DiffViewer files={files} commenting={commenting} annotationsFor={annotationsFor} />
+          <DiffViewer files={files} commenting={commenting} annotationsFor={annotationsFor} target={diffTarget} />
         </>
       ) : (
         <div style={s.groupsWrap}>
@@ -180,6 +204,7 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
               filesCount={g.files.length}
               filesWithFindings={hasReview ? countFilesWithFindings(g.files, byFile) : null}
               defaultCollapsed={COLLAPSED_ROLES.has(g.role)}
+              targetInGroup={diffTarget && g.files.some((f) => f.path === diffTarget.file) ? diffTarget : null}
             >
               {(openCommand) =>
                 g.files.map((file) => (
@@ -189,6 +214,7 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
                     commenting={commenting}
                     annotations={annotationsFor(file)}
                     openCommand={openCommand}
+                    target={diffTarget}
                   />
                 ))
               }

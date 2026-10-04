@@ -17,7 +17,7 @@ import {
   type DiffCommentApi,
 } from "../comments";
 import { partitionAnnotations, type FileAnnotations } from "../annotations";
-import { s, chevronFor } from "../styles";
+import { s, chevronFor, TARGET_OFFSET_VAR, targetScrollMargin } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
 
@@ -64,21 +64,43 @@ export interface FileOpenCommand {
   open: boolean;
 }
 
+/** A deep link into the diff. `line` is a new-side line number (or null for
+    the file only); `note` is the caller's text for a line that is not a row of
+    this diff (FileCard stays namespace-agnostic); `scrollMarginTop` keeps the
+    scrolled-to element below any sticky headers. Pass a stable object. */
+export interface DiffTarget {
+  file: string;
+  line: number | null;
+  note?: string;
+  scrollMarginTop?: string;
+}
+
 export function FileCard({
   file,
   commenting,
   annotations,
   openCommand,
+  target,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   annotations?: FileAnnotations;
   openCommand?: FileOpenCommand | null;
+  target?: DiffTarget | null;
 }) {
   const t = useTranslations("shell");
+  const activeTarget = target && target.file === file.path ? target : null;
   const [open, setOpen] = React.useState(
-    openCommand?.open ?? (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    activeTarget
+      ? true
+      : (openCommand?.open ?? (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES)
   );
+  // A new deep-link target for this file expands it during render (no effect).
+  const [appliedTarget, setAppliedTarget] = React.useState(activeTarget);
+  if (activeTarget !== appliedTarget) {
+    setAppliedTarget(activeTarget);
+    if (activeTarget) setOpen(true);
+  }
   // Apply a new command during render (no effect); the user can still toggle
   // the file by hand until the next command arrives.
   const [appliedCommand, setAppliedCommand] = React.useState(openCommand);
@@ -111,13 +133,39 @@ export function FileCard({
     return partitionAnnotations(annotations.byKey, renderedKeys);
   }, [annotations, renderedKeys]);
 
+  // The target row: a visible new-side row (added or context line).
+  const markedIndex =
+    activeTarget && activeTarget.line !== null
+      ? lines.findIndex((ln) => ln.newNo === activeTarget.line && (ln.kind === "add" || ln.kind === "ctx"))
+      : -1;
+  const showNote = !!activeTarget && activeTarget.line !== null && markedIndex < 0 && !!activeTarget.note;
+
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  // Syncs with the DOM (scroll + focus) once the expanded card has rendered.
+  React.useEffect(() => {
+    if (!activeTarget) return;
+    const row = rootRef.current?.querySelector("[data-target-line]");
+    (row ?? rootRef.current)?.scrollIntoView?.({ block: row ? "center" : "start" });
+    headerRef.current?.focus({ preventScroll: true });
+  }, [activeTarget]);
+
   const commentCount = commenting
     ? commenting.comments.filter((c) => c.path === file.path).length
     : 0;
 
   return (
-    <div style={s.fileCard}>
-      <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
+    <div
+      ref={rootRef}
+      style={{
+        ...s.fileCard,
+        ...targetScrollMargin,
+        ...(activeTarget?.scrollMarginTop
+          ? ({ [TARGET_OFFSET_VAR]: activeTarget.scrollMarginTop } as React.CSSProperties)
+          : null),
+      }}
+    >
+      <div ref={headerRef} tabIndex={-1} onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
         <span className="mono" style={s.filePath}>
@@ -137,6 +185,11 @@ export function FileCard({
           </span>
         )}
       </div>
+      {showNote && (
+        <div role="status" aria-live="polite" style={s.targetNote}>
+          {activeTarget?.note}
+        </div>
+      )}
       {open && (
         <div style={s.fileBody}>
           {lines.length === 0 ? (
@@ -151,6 +204,7 @@ export function FileCard({
                 commenting={commenting}
                 annotation={annotationForLine(ln, anchored)}
                 decor={decorForLine(ln, annotations?.lineDecor)}
+                marked={i === markedIndex}
               />
             ))
           )}

@@ -9,7 +9,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, Icon } from "@devdigest/ui";
 import type { SmartDiffRole } from "@devdigest/shared";
-import type { FileOpenCommand } from "@/components/diff-viewer";
+import type { DiffTarget, FileOpenCommand } from "@/components/diff-viewer";
 import { ROLE_I18N } from "../../constants";
 import { s, chevronFor } from "./styles";
 
@@ -18,6 +18,7 @@ export function SmartDiffGroup({
   filesCount,
   filesWithFindings,
   defaultCollapsed,
+  targetInGroup,
   children,
 }: {
   role: SmartDiffRole;
@@ -25,11 +26,19 @@ export function SmartDiffGroup({
   /** Files (not findings) in this group with >=1 finding; null before any review. */
   filesWithFindings: number | null;
   defaultCollapsed: boolean;
+  /** The deep-link target when it lies in this group; a new one opens the group. */
+  targetInGroup?: DiffTarget | null;
   /** Renders the group's files; `openCommand` is null until the user asks. */
   children: (openCommand: FileOpenCommand | null) => React.ReactNode;
 }) {
   const t = useTranslations("prReview");
-  const [open, setOpen] = React.useState(!defaultCollapsed);
+  const [open, setOpen] = React.useState(!defaultCollapsed || !!targetInGroup);
+  // A new target in this group opens it during render (no effect).
+  const [appliedTarget, setAppliedTarget] = React.useState(targetInGroup ?? null);
+  if ((targetInGroup ?? null) !== appliedTarget) {
+    setAppliedTarget(targetInGroup ?? null);
+    if (targetInGroup) setOpen(true);
+  }
   const [openCommand, setOpenCommand] = React.useState<FileOpenCommand | null>(null);
   // Offer "Expand all" only right after "Collapse all"; otherwise collapse.
   const filesCollapsed = openCommand?.open === false;

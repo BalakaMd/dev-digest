@@ -49,7 +49,7 @@ function renderBlock() {
           prId="pr-1"
           repoId="repo-1"
           number={7}
-          intent={<div>INTENT-SLOT</div>}
+          intent={(risks) => <div>INTENT-SLOT{risks}</div>}
           blast={<div>BLAST-SLOT</div>}
         />
       </NextIntlClientProvider>
@@ -89,7 +89,7 @@ describe("PrBriefBlock", () => {
 
     expect(await screen.findByText("Adds token refresh to the auth flow.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Risk areas" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Review focus (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Review focus — read these first 1" })).toBeInTheDocument();
     expect(screen.getByText("Unchecked token")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "src/auth.ts line 12" })).toHaveAttribute(
       "href",

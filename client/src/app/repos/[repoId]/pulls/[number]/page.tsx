@@ -184,7 +184,7 @@ export default function PRDetailPage() {
         {tab === "overview" && (
           <OverviewTab
             prBody={pr.body}
-            brief={<PrBriefBlock prId={prId} repoId={repoId} number={pr.number} intent={<IntentCard prId={prId} />} blast={blastCard} />}
+            brief={<PrBriefBlock prId={prId} repoId={repoId} number={pr.number} intent={(risks) => <IntentCard prId={prId} extra={risks} />} blast={blastCard} />}
             briefStored={!!briefRes?.brief}
             navNotice={diffTarget.kind === "missing" ? t("nav.fileNotInDiff") : null}
             intent={<IntentCard prId={prId} />}

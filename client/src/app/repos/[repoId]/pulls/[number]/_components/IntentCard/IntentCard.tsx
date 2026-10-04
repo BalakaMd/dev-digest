@@ -18,8 +18,11 @@ import { s } from "./styles";
 export function IntentCard({
   prId,
   collapsible = false,
+  extra,
 }: {
   prId: string | null;
+  /** Extra section rendered inside the card, under the scope lists (PR Brief puts Risk areas here). */
+  extra?: React.ReactNode;
   /** Start folded to the header; the body opens on click. */
   collapsible?: boolean;
 }) {
@@ -56,6 +59,7 @@ export function IntentCard({
             <Skeleton height={60} />
           </>
         )}
+        {extra && <div style={s.extra}>{extra}</div>}
       </Card>
     );
   }
@@ -72,6 +76,7 @@ export function IntentCard({
             </Button>
           </>
         )}
+        {extra && <div style={s.extra}>{extra}</div>}
       </Card>
     );
   }
@@ -102,6 +107,7 @@ export function IntentCard({
             </Button>
           </>
         )}
+        {extra && <div style={s.extra}>{extra}</div>}
       </Card>
     );
   }
@@ -182,6 +188,8 @@ export function IntentCard({
             </div>
             {unavailable.length > 0 && <p style={s.missingContext}>{t("missingContext")}</p>}
           </div>
+
+          {extra && <div style={s.extra}>{extra}</div>}
 
           {intent.stale && <p style={s.staleWarning}>{t("stale")}</p>}
           {mutationError && <p style={s.errorText}>{mutationError}</p>}

@@ -7,6 +7,7 @@
     "focus": "Review focus",
     "history": "PR history"
   },
+  "readFirst": "read these first",
   "generate": "Generate brief",
   "regenerate": "Regenerate brief",
   "regenerating": "Regenerating…",

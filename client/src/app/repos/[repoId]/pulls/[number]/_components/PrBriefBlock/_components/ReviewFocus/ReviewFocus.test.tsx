@@ -22,7 +22,7 @@ describe("ReviewFocus", () => {
       { file: "src/b.ts", line: 20, reason: "Second by file, first by importance." },
       { file: "src/a.ts", line: 3, reason: "Edge case." },
     ]);
-    expect(screen.getByRole("heading", { name: "Review focus (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Review focus — read these first 2" })).toBeInTheDocument();
     const links = screen.getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual(["src/b.ts:20", "src/a.ts:3"]);
     expect(links[0]).toHaveAccessibleName("src/b.ts line 20");

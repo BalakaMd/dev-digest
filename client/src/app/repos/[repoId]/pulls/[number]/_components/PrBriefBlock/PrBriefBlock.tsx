@@ -22,7 +22,7 @@ interface PrBriefBlockProps {
   repoId: string;
   number: number | string;
   /** Existing Intent card; shown inside the block once a brief is stored (AC-7). */
-  intent: React.ReactNode;
+  intent: (risks: React.ReactNode) => React.ReactNode;
   /** Existing Blast radius card; shown inside the block once a brief is stored (AC-7). */
   blast: React.ReactNode;
 }
@@ -66,16 +66,18 @@ export function PrBriefBlock({ prId, repoId, number, intent, blast }: PrBriefBlo
         </h2>
         <div style={layout.actions}>
           {generating && brief && <span style={layout.status}>{t("regenerating")}</span>}
-          <Button
-            kind={brief ? "secondary" : "primary"}
-            size="sm"
-            icon="RefreshCw"
-            disabled={busyOrBlocked}
-            aria-busy={generating}
-            onClick={start}
-          >
-            {brief ? t("regenerate") : t("generate")}
-          </Button>
+          {!brief && (
+            <Button
+              kind="primary"
+              size="sm"
+              icon="RefreshCw"
+              disabled={busyOrBlocked}
+              aria-busy={generating}
+              onClick={start}
+            >
+              {t("generate")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -102,24 +104,34 @@ export function PrBriefBlock({ prId, repoId, number, intent, blast }: PrBriefBlo
 
       {!brief && generating && (
         <div style={layout.skeleton} aria-hidden="true">
-          <Skeleton height={16} width="80%" />
-          <Skeleton height={120} />
-          <Skeleton height={80} />
+          <Skeleton height={96} />
         </div>
       )}
 
       {brief && (
         <>
-          <p style={layout.summary}>
-            <BriefText language={brief.language}>{brief.summary}</BriefText>
-          </p>
-          <BriefProvenance brief={brief} />
+          <div style={layout.summaryCard}>
+            <div style={layout.summaryBody}>
+              <p style={layout.summary}>
+                <BriefText language={brief.language}>{brief.summary}</BriefText>
+              </p>
+              <BriefProvenance brief={brief} />
+            </div>
+            <Button
+              kind="ghost"
+              size="sm"
+              icon="RefreshCw"
+              loading={generating}
+              disabled={busyOrBlocked}
+              aria-busy={generating}
+              aria-label={t("regenerate")}
+              title={t("regenerate")}
+              onClick={start}
+            />
+          </div>
           <div style={layout.columns}>
             <div style={layout.cell}>
-              {intent}
-              <div style={layout.panel}>
-                <RiskAreas risks={brief.risks} language={brief.language} repoId={repoId} number={number} />
-              </div>
+              {intent(<RiskAreas risks={brief.risks} language={brief.language} repoId={repoId} number={number} />)}
             </div>
             <div style={layout.cell}>{blast}</div>
           </div>

@@ -8,7 +8,6 @@ import type { PrBrief } from "@devdigest/shared";
 import { briefDiffHref } from "../../helpers";
 import { s } from "../../styles";
 import { BriefText, BriefCode } from "../BriefText";
-import { textDirection } from "../BriefText/direction";
 
 type Risk = PrBrief["risks"][number];
 
@@ -16,34 +15,36 @@ function RiskRow({ risk, repoId, number, language }: { risk: Risk; repoId: strin
   const t = useTranslations("brief");
   const [open, setOpen] = useState(false);
   const panelId = useId();
-  const rtl = textDirection(language) === "rtl";
   return (
-    <li style={s.row}>
-      <div style={s.rowHead}>
+    <li style={s.risk}>
+      <div style={s.riskHead}>
+        <Icon.AlertTriangle size={14} style={s.riskIcon(risk.severity)} />
+        <div style={s.riskMain}>
+          <BriefText language={language} style={{ ...s.wrap, fontWeight: 600, fontSize: 13 }}>
+            {risk.title}
+          </BriefText>
+          <ul style={s.refs}>
+            {risk.file_refs.map((file) => (
+              <li key={file}>
+                <Link href={briefDiffHref(repoId, number, file)} style={s.link}>
+                  <BriefCode>{file}</BriefCode>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <span style={s.severity}>{t(`severity.${risk.severity}`)}</span>
         <button
           type="button"
-          style={rtl ? { ...s.toggle, ...s.toggleGrow } : s.toggle}
+          style={s.riskToggle}
           aria-expanded={open}
           aria-controls={panelId}
           aria-label={`${open ? t("collapseRisk") : t("expandRisk")}: ${risk.title}`}
           onClick={() => setOpen((v) => !v)}
         >
           <Icon.ChevronDown size={14} style={s.chevron(open)} />
-          <BriefText language={language} style={{ ...s.wrap, fontWeight: 600, ...(rtl ? s.titleGrow : null) }}>
-            {risk.title}
-          </BriefText>
         </button>
-        <span style={s.severity}>{t(`severity.${risk.severity}`)}</span>
       </div>
-      <ul style={s.refs}>
-        {risk.file_refs.map((file) => (
-          <li key={file}>
-            <Link href={briefDiffHref(repoId, number, file)} style={s.link}>
-              <BriefCode>{file}</BriefCode>
-            </Link>
-          </li>
-        ))}
-      </ul>
       <p id={panelId} hidden={!open} style={s.explanation}>
         <BriefText language={language} style={s.wrap}>
           {risk.explanation}

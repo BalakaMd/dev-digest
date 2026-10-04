@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@devdigest/ui";
+import { notify } from "@/lib/toast";
 import { copyText } from "../clipboard";
 
 /** Copies `text` and announces the outcome through `announce` (polite live region). */
@@ -22,7 +23,11 @@ export function CopyButton({
   const t = useTranslations("onboardingSections");
   const onClick = async () => {
     const ok = await copyText(text);
-    announce(t(ok ? "copy.done" : "copy.failed"));
+    const message = t(ok ? "copy.done" : "copy.failed");
+    announce(message);
+    // Visible feedback too: the live region is screen-reader only.
+    if (ok) notify.success(message);
+    else notify.error(message);
   };
   return (
     <Button kind="secondary" size="sm" icon="Copy" aria-label={label} onClick={onClick}>

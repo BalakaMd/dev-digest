@@ -25,6 +25,7 @@ import { TourHeader } from "./_components/TourHeader";
 import { TourNotices } from "./_components/TourNotices";
 import { TourToc } from "./_components/TourToc";
 import { copyText } from "./_components/clipboard";
+import { notify } from "@/lib/toast";
 import { useAnnouncer } from "./_components/useAnnouncer";
 import { SECTIONS } from "./constants";
 import { rejectionFrom } from "./helpers";
@@ -89,7 +90,11 @@ export function OnboardingTourView({ repoId }: { repoId: string }) {
 
   const share = async () => {
     const ok = await copyText(nav.shareUrl());
-    announce(ok ? t("share.copied") : t("share.failed"));
+    const message = t(ok ? "share.copied" : "share.failed");
+    announce(message);
+    // Visible feedback too: the live region is screen-reader only.
+    if (ok) notify.success(message);
+    else notify.error(message);
   };
 
   const fullName = state?.repo.full_name ?? "";

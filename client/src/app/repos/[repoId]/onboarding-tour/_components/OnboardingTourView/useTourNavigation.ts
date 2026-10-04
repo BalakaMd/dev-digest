@@ -42,13 +42,20 @@ export function useTourNavigation(ids: readonly string[], ready: boolean) {
   // Capture phase, because the page may scroll inside an app-shell container.
   React.useEffect(() => {
     if (!ready) return;
-    const onScroll = () => {
+    const onScroll = (e: Event) => {
       if (Date.now() < lockUntil.current) return;
       const line = 120;
       let current = ids[0] ?? "";
       for (const id of ids) {
         const el = document.getElementById(id);
         if (el && el.getBoundingClientRect().top <= line) current = id;
+      }
+      // At the bottom the last sections can never reach the line: pick the last one.
+      const target = e.target;
+      const box =
+        target instanceof Element ? target : document.scrollingElement ?? document.documentElement;
+      if (box.scrollHeight > box.clientHeight && box.scrollTop + box.clientHeight >= box.scrollHeight - 2) {
+        current = ids[ids.length - 1] ?? current;
       }
       setActiveId((prev) => (prev === current ? prev : current));
     };

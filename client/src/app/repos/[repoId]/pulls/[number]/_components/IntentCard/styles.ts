@@ -149,6 +149,13 @@ export const s = {
     color: "var(--text-muted)",
     margin: "0 0 14px",
   } satisfies CSSProperties,
+  extra: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "var(--border)",
+  } satisfies CSSProperties,
   footer: {
     display: "flex",
     alignItems: "center",

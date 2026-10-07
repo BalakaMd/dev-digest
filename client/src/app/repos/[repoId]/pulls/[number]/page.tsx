@@ -13,12 +13,15 @@ import { RepoNotFound } from "@/components/repo-not-found";
 import { PrDetailHeader } from "./_components/PrDetailHeader";
 import { OverviewTab } from "./_components/OverviewTab";
 import { FindingsTab } from "./_components/FindingsTab";
-import { DiffTab } from "./_components/DiffTab";
+import { DiffTab, parseDiffTarget } from "./_components/DiffTab";
 import { IntentCard } from "./_components/IntentCard";
 import { BlastRadiusCard } from "./_components/BlastRadiusCard";
 import RunTraceDrawer from "./_components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { PrBriefBlock } from "./_components/PrBriefBlock";
+import { useBrief } from "../../../../../lib/hooks/brief";
 import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
 import { useActiveRepo, useRepoNotFound } from "../../../../../lib/repo-context";
 import { ApiError } from "../../../../../lib/api";
@@ -40,6 +43,8 @@ export default function PRDetailPage() {
 
   const isLoading = pullsLoading || (prId != null && detailLoading);
   const { data: reviews, refetch: refetchReviews } = usePrReviews(prId);
+  const t = useTranslations("brief");
+  const { data: briefRes } = useBrief(prId);
 
   // Live run tracking is SERVER-SOURCED (agent_runs status='running'): survives
   // navigation AND reload, and self-clears via polling when runs finish.
@@ -81,15 +86,29 @@ export default function PRDetailPage() {
     }
   }, [reviewRunning, prId, qc]);
 
-  const tab = search.get("tab") ?? "overview";
+  const requestedTab = search.get("tab") ?? "overview";
+  // Deep link into Files changed (?tab=diff&file=&line=); a file outside the PR's
+  // diff falls back to Overview with a message (AC-19).
+  const diffTarget =
+    requestedTab === "diff" && pr
+      ? parseDiffTarget(search.get("file"), search.get("line"), pr.files)
+      : ({ kind: "none" } as const);
+  const tab = diffTarget.kind === "missing" ? "overview" : requestedTab;
   const traceRunId = search.get("trace");
-  const setParam = (key: string, val: string | null) => {
+  const replaceParams = (change: (sp: URLSearchParams) => void) => {
     const sp = new URLSearchParams(search.toString());
-    if (val == null) sp.delete(key);
-    else sp.set(key, val);
+    change(sp);
     router.replace(`/repos/${repoId}/pulls/${number}${sp.toString() ? `?${sp.toString()}` : ""}`);
   };
-  const setTab = (t: string) => setParam("tab", t);
+  const setParam = (key: string, val: string | null) =>
+    replaceParams((sp) => (val == null ? sp.delete(key) : sp.set(key, val)));
+  // Switching tabs also drops the deep-link target.
+  const setTab = (next: string) =>
+    replaceParams((sp) => {
+      sp.set("tab", next);
+      sp.delete("file");
+      sp.delete("line");
+    });
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
   const runs = reviews ?? [];
@@ -144,6 +163,8 @@ export default function PRDetailPage() {
     );
   }
 
+  const blastCard = <BlastRadiusCard prId={prId} repoId={repoId} repoFullName={repoFullName} headSha={pr.head_sha} />;
+
   return (
     <AppShell crumb={crumb}>
       <PrDetailHeader
@@ -163,8 +184,11 @@ export default function PRDetailPage() {
         {tab === "overview" && (
           <OverviewTab
             prBody={pr.body}
+            brief={<PrBriefBlock prId={prId} repoId={repoId} number={pr.number} intent={(risks) => <IntentCard prId={prId} extra={risks} />} blast={blastCard} />}
+            briefStored={!!briefRes?.brief}
+            navNotice={diffTarget.kind === "missing" ? t("nav.fileNotInDiff") : null}
             intent={<IntentCard prId={prId} />}
-            blast={<BlastRadiusCard prId={prId} repoId={repoId} repoFullName={repoFullName} headSha={pr.head_sha} />}
+            blast={blastCard}
           />
         )}
 
@@ -201,6 +225,7 @@ export default function PRDetailPage() {
             filesCount={pr.files_count}
             files={pr.files}
             canComment={pr.status === "open"}
+            target={diffTarget.kind === "target" ? { file: diffTarget.file, line: diffTarget.line } : null}
           />
         )}
       </div>

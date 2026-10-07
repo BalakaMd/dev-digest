@@ -30,6 +30,11 @@ every attachment is picked by hand.
 - A local document at the path of a repository document is an **override copy**
   ("Edit a copy"): agents, skills and runs use the copy instead of the repository
   text, without re-attaching anything. The repository document is never written.
+- Review runs are not the only reader of the attached documents: the **PR Brief** of a
+  pull request reads the same attachments (the paths of every enabled agent and of its
+  enabled skills, de-duplicated, as the effective document) for its one model request.
+  It has its own 8,000-token budget for the whole model input and drops whole documents
+  from it first; see [pr-brief.md](pr-brief.md). This page describes review runs.
 
 ## Where it lives
 
@@ -82,7 +87,8 @@ in `adapters/mocks.ts`. Besides `list`, `read` and the local writes, the port ha
 `OriginStore` ([`origin-store.ts`](../server/src/adapters/context-docs/origin-store.ts)).
 The container exposes them as `container.contextDocs` (the
 store) and `container.contextDocsService` (the use cases behind the routes); the
-`reviews` and `repos` modules reach the store only through the container.
+`reviews` and `repos` modules reach the store only through the container, and so does the
+`brief` module (the container passes it a `readEffective` lambda).
 
 ## Documents: how they are found
 
@@ -520,4 +526,6 @@ document for a violated rule is a manual or e2e check, not a unit test.
   only, not in a run log or trace.
 - The 8,000-token budget exists twice, as `CONTEXT_DOC_TOKEN_BUDGET` in the shared
   contract (used by the list and the studio) and as `CONTEXT_BUDGET_TOKENS` in
-  `reviews/context-docs.ts` (used by runs); keep both equal.
+  `reviews/context-docs.ts` (used by runs); keep both equal. The PR Brief's
+  `BRIEF_INPUT_BUDGET_TOKENS` (also 8,000) is a separate, unrelated limit: it covers the
+  whole brief input, not the documents alone, and does not have to match these two.

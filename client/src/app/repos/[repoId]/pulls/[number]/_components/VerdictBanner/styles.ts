@@ -35,16 +35,6 @@ export const s = {
     color: "var(--text-secondary)",
     marginTop: 8,
   } satisfies CSSProperties,
-  scoreCol: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 5,
-    flexShrink: 0,
-  } satisfies CSSProperties,
-  scoreLabel: {
-    fontSize: 12,
-    color: "var(--text-muted)",
-    letterSpacing: "0.04em",
-  } satisfies CSSProperties,
+  info: { display: "inline-flex", color: "var(--text-muted)", cursor: "help" } satisfies CSSProperties,
+  action: { flexShrink: 0, alignSelf: "flex-start" } satisfies CSSProperties,
 } as const;

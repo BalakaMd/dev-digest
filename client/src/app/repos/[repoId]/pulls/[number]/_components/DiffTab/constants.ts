@@ -21,3 +21,9 @@ export const SEVERITY_LABEL_KEY: Record<Severity, "blocker" | "warning" | "sugge
   WARNING: "warning",
   SUGGESTION: "suggestion",
 };
+
+/** Height of a Smart-order group header (sticky under the PR header). */
+export const GROUP_HEADER_HEIGHT_PX = 48;
+
+/** Breathing room between the sticky stack and a deep-link target. */
+export const TARGET_SCROLL_GAP_PX = 8;

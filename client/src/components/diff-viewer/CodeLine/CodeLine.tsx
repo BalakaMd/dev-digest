@@ -5,7 +5,7 @@
 import React from "react";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { type Line } from "../helpers";
-import { s, lineRowFor, lineSignFor, lineDecorLabel } from "../styles";
+import { s, lineRowFor, lineSignFor, lineDecorLabel, markedRow, targetScrollMargin } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
 
@@ -16,6 +16,7 @@ export function CodeLine({
   commenting,
   annotation,
   decor,
+  marked,
 }: {
   ln: Line;
   path: string;
@@ -25,6 +26,8 @@ export function CodeLine({
   annotation?: React.ReactNode;
   /** Colours the line itself (left bar) and shows `label` at its right edge. */
   decor?: { color: string; label: React.ReactNode };
+  /** Deep-link target row: outlined and addressable via `data-target-line`. */
+  marked?: boolean;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -43,11 +46,12 @@ export function CodeLine({
 
   return (
     <div
-      style={cs.rowWrap}
+      style={marked ? { ...cs.rowWrap, ...targetScrollMargin } : cs.rowWrap}
+      data-target-line={marked ? "" : undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={lineRowFor(ln.kind, decor?.color)}>
+      <div style={marked ? { ...lineRowFor(ln.kind, decor?.color), ...markedRow } : lineRowFor(ln.kind, decor?.color)}>
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button

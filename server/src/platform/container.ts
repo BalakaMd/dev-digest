@@ -47,6 +47,12 @@ import { resolveFeatureModel } from '../modules/settings/feature-models.js';
 import { SECRET_KEY_BY_PROVIDER } from '../modules/settings/constants.js';
 import { OnboardingRepository } from '../modules/onboarding/repository.js';
 import { OnboardingService } from '../modules/onboarding/service.js';
+import { BriefRepository } from '../modules/brief/repository.js';
+import { BriefService } from '../modules/brief/service.js';
+import { selectLatestReviews } from '../modules/reviews/smart-diff/build.js';
+import { classifyFile } from '../modules/reviews/smart-diff/classify.js';
+import { collectPaths } from '../modules/reviews/context-docs.js';
+import { parseIntentLinks } from '../modules/intent/helpers.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -109,6 +115,7 @@ export class Container {
   private _blast?: BlastFacade;
   private _history?: HistoryFacade;
   private _onboarding?: OnboardingService;
+  private _brief?: BriefService;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -214,6 +221,46 @@ export class Container {
       now: () => new Date(),
     });
     return this._onboarding;
+  }
+
+  /** PR Brief use cases (SPEC-04) — a singleton: it owns the in-memory per-PR generation registry. */
+  get brief(): BriefService {
+    this._brief ??= new BriefService({
+      repo: new BriefRepository(this.db),
+      intent: this.intent,
+      blast: this.blast,
+      findings: async (_workspaceId, prId) => {
+        const rows = await this.reviewRepo.reviewsForPull(prId);
+        const latest = selectLatestReviews(
+          rows.map((r) => ({ kind: r.review.kind, agent_id: r.review.agentId, findings: r.findings })),
+        );
+        return latest.flatMap((r) =>
+          r.findings.map((f) => ({ file: f.file, line: f.startLine, title: f.title, severity: f.severity })),
+        );
+      },
+      specPaths: async (workspaceId) => {
+        const agents = await this.agentsRepo.listEnabled(workspaceId);
+        const paths = new Set<string>();
+        for (const agent of agents) {
+          const links = await this.agentsRepo.enabledSkillsForPrompt(agent.id);
+          const skills = links.map((l) => ({ contextDocs: l.skill.contextDocs ?? [] }));
+          for (const p of collectPaths(agent.contextDocs ?? [], skills)) paths.add(p);
+        }
+        return [...paths];
+      },
+      readSpecDoc: async (repo, path) =>
+        (await this.contextDocs.readEffective({ repoId: repo.id, repo: { owner: repo.owner, name: repo.name } }, path))
+          .content,
+      firstIssueRef: (body, repo) => parseIntentLinks(body, repo).issues[0] ?? null,
+      github: () => this.github(),
+      llm: (id) => this.llm(id),
+      resolveModel: (workspaceId) => resolveFeatureModel(this, workspaceId, 'risk_brief'),
+      hasSecret: async (provider) => Boolean(await this.secrets.get(SECRET_KEY_BY_PROVIDER[provider])),
+      classify: classifyFile,
+      countTokens: (text) => this.tokenizer.count(text),
+      now: () => new Date(),
+    });
+    return this._brief;
   }
 
   /** Project context documents use cases (SPEC-01) — assembled here so routes never touch `db`. */

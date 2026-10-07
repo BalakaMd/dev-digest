@@ -4,9 +4,10 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Icon, Badge, CircularScore } from "@devdigest/ui";
+import { Icon, Badge } from "@devdigest/ui";
 import type { Verdict } from "@devdigest/shared";
 import { VERDICT_META } from "./constants";
+import { ScoreColumn } from "../ScoreColumn";
 import { s } from "./styles";
 
 export function VerdictBanner({
@@ -16,6 +17,10 @@ export function VerdictBanner({
   findingsCount,
   blockers,
   agentName,
+  info,
+  action,
+  footer,
+  meta,
 }: {
   verdict: Verdict;
   summary: string | null;
@@ -23,6 +28,14 @@ export function VerdictBanner({
   findingsCount: number;
   blockers: number;
   agentName?: string | null;
+  /** Optional tooltip text; renders an info icon next to the title. */
+  info?: string;
+  /** Optional top-right slot (e.g. a regenerate button). */
+  action?: React.ReactNode;
+  /** Optional content under the summary, inside the card. */
+  footer?: React.ReactNode;
+  /** Optional content under the score, below a divider (e.g. run cost). */
+  meta?: React.ReactNode;
 }) {
   const t = useTranslations("prReview");
   const m = VERDICT_META[verdict] ?? VERDICT_META.comment;
@@ -44,15 +57,17 @@ export function VerdictBanner({
               {agentName}
             </Badge>
           )}
+          {info && (
+            <span style={s.info} title={info} role="img" aria-label={info}>
+              <Icon.Info size={14} />
+            </span>
+          )}
         </div>
         {summary && <p style={s.summary}>{summary}</p>}
+        {footer}
       </div>
-      {score != null && (
-        <div style={s.scoreCol}>
-          <CircularScore score={score} size={52} stroke={5} />
-          <span style={s.scoreLabel}>{t("verdict.prScore")}</span>
-        </div>
-      )}
+      {action && <div style={s.action}>{action}</div>}
+      {(score != null || meta) && <ScoreColumn score={score} meta={meta} />}
     </div>
   );
 }

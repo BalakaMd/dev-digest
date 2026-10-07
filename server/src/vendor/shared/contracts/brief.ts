@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { TourLanguage } from './onboarding-tour.js';
 
 /**
- * PR Brief building blocks: Intent, Blast radius, Risks, PR History,
- * Smart Diff. Composed into PrBrief.
+ * PR Brief building blocks (Intent, Blast radius, Risks, PR History, Smart Diff)
+ * and the stored `PrBrief` itself (SPEC-04): the model's answer + provenance.
  */
 
 // ---- Intent ----
@@ -150,11 +151,52 @@ export const SmartDiff = z.object({
 });
 export type SmartDiff = z.infer<typeof SmartDiff>;
 
-// ---- Composed PR Brief (pr_brief.json) ----
+// ---- PR Brief (pr_brief.json, SPEC-04) ----
+// One brief per PR, generated on demand from ONE model request over facts
+// (Intent, Blast radius, diff headers, findings, specs). The brief stores only
+// the model's answer plus provenance; it never embeds `intent`, `blast` or
+// `history` — the studio reads those live from their own endpoints.
+export const BriefReviewFocus = z.object({
+  file: z.string(),
+  line: z.number().int(),
+  reason: z.string(),
+});
+export type BriefReviewFocus = z.infer<typeof BriefReviewFocus>;
+
+export const BriefMissingInput = z.object({
+  input: z.enum(['intent', 'blast', 'specs', 'issue']),
+  reason: z.string(),
+});
+export type BriefMissingInput = z.infer<typeof BriefMissingInput>;
+
+export const BriefShortenedInput = z.object({
+  input: z.enum(['specs', 'issue', 'callers', 'description', 'files']),
+  action: z.enum(['shortened', 'left_out']),
+});
+export type BriefShortenedInput = z.infer<typeof BriefShortenedInput>;
+
 export const PrBrief = z.object({
-  intent: Intent,
-  blast: BlastRadius,
-  risks: Risks,
-  history: PrHistory,
+  summary: z.string(),
+  risks: z.array(Risk),
+  review_focus: z.array(BriefReviewFocus),
+  head_sha: z.string(),
+  generated_at: z.string(),
+  language: TourLanguage,
+  provider: z.string(),
+  model: z.string(),
+  tokens_in: z.number().int().nullable(),
+  tokens_out: z.number().int().nullable(),
+  cost_usd: z.number().nullable(),
+  /** Model input measured by the server tokenizer (system + user message). */
+  input_tokens: z.number().int(),
+  missing_inputs: z.array(BriefMissingInput),
+  shortened_inputs: z.array(BriefShortenedInput),
 });
 export type PrBrief = z.infer<typeof PrBrief>;
+
+/** `GET`/`POST /pulls/:id/brief` response; `stale` is false when `brief` is null. */
+export const PrBriefResponse = z.object({
+  brief: PrBrief.nullable(),
+  stale: z.boolean(),
+});
+export type PrBriefResponse = z.infer<typeof PrBriefResponse>;

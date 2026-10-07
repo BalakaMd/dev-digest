@@ -3,7 +3,7 @@
 The DevDigest UI: import repos, browse pull requests, run and read AI reviews,
 and author agents. App Router + React Server/Client components, data via
 **TanStack Query** hooks over the Fastify API. (This is the starter surface;
-course lessons add the Memory, Eval, Brief, multi-agent, CI, and
+course lessons add the Memory, Eval, multi-agent, CI, and
 dashboard screens.)
 
 - **Stack:** Next.js 15 (App Router), React 19, TanStack Query, `next-intl`

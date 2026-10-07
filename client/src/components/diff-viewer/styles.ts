@@ -57,6 +57,13 @@ export const s = {
     userSelect: "none",
     flexShrink: 0,
   } satisfies CSSProperties,
+  targetNote: {
+    padding: "6px 12px",
+    fontSize: 12,
+    color: "var(--text-muted)",
+    borderTop: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+  } satisfies CSSProperties,
   lineText: {
     flex: 1,
     whiteSpace: "pre-wrap",
@@ -109,3 +116,16 @@ export function lineSignFor(kind: Line["kind"]): CSSProperties {
     flexShrink: 0,
   };
 }
+
+/** Persistent mark on the deep-link target row: a visible inset outline. */
+export const markedRow: CSSProperties = {
+  outlineWidth: 2,
+  outlineStyle: "solid",
+  outlineColor: "var(--accent)",
+  outlineOffset: -2,
+};
+
+/** Wrapper-level scroll offset for a deep-link target; the value is a CSS
+    custom property the FileCard root sets, so rows inherit it. */
+export const TARGET_OFFSET_VAR = "--diff-target-offset";
+export const targetScrollMargin: CSSProperties = { scrollMarginTop: `var(${TARGET_OFFSET_VAR}, 0px)` };

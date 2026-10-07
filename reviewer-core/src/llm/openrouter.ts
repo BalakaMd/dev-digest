@@ -65,6 +65,7 @@ export class OpenRouterProvider implements LLMProvider {
     let tokensOut = 0;
     let costFromApi: number | null = null;
     let lastRaw = '';
+    let lastFinish: string | null | undefined;
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       const res = await this.client.chat.completions.create(
@@ -83,6 +84,9 @@ export class OpenRouterProvider implements LLMProvider {
         // OpenRouter usage accounting — ask it to return the REAL generation
         // cost (USD) in `usage.cost`, instead of estimating from a price book.
         ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
+        ...(this.id === 'openrouter' && req.reasoningEffort
+          ? { reasoning: req.reasoningEffort === 'none' ? { enabled: false } : { effort: req.reasoningEffort } }
+          : {}),
         },
         // singleAttempt: exactly one HTTP call — no SDK-internal retry either.
         single ? { maxRetries: 0 } : undefined,
@@ -96,6 +100,7 @@ export class OpenRouterProvider implements LLMProvider {
         throw new Error(`OpenRouter returned no choices for ${req.schemaName}${errMsg ? `: ${errMsg}` : ''}`);
       }
       lastRaw = choice.message?.content ?? '';
+      lastFinish = choice.finish_reason;
       tokensIn += res.usage?.prompt_tokens ?? 0;
       tokensOut += res.usage?.completion_tokens ?? 0;
       // `usage.cost` is an OpenRouter extension (USD), absent from the OpenAI SDK type.
@@ -117,7 +122,10 @@ export class OpenRouterProvider implements LLMProvider {
       messages.push({ role: 'assistant', content: lastRaw });
       messages.push({ role: 'user', content: parsed.repromptMessage });
     }
-    throw new Error(`OpenRouter structured output failed schema validation for ${req.schemaName}`);
+    // finish_reason=length means the output hit max_tokens (often spent on hidden reasoning) and the JSON is cut off.
+    throw new Error(
+      `OpenRouter structured output failed schema validation for ${req.schemaName} (finish_reason=${lastFinish ?? 'n/a'}, ${lastRaw.length} chars, tokensOut=${tokensOut})`,
+    );
   }
 
   /**

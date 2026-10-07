@@ -1,1 +1,1 @@
-export { FileCard, type FileOpenCommand } from "./FileCard";
+export { FileCard, type FileOpenCommand, type DiffTarget } from "./FileCard";

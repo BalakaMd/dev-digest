@@ -1,19 +1,62 @@
 {
   "block": {
+    "title": "PR Brief",
     "intent": "Intent",
     "blast": "Blast radius",
-    "risks": "Risks",
+    "risks": "Risk areas",
+    "focus": "Review focus",
     "history": "PR history"
   },
+  "readFirst": "read these first",
+  "generate": "Generate brief",
+  "regenerate": "Regenerate brief",
+  "regenerating": "Regenerating…",
+  "tryAgain": "Try again",
   "noRisks": "No notable risks flagged.",
+  "noFocus": "No review starting point was suggested for this PR.",
   "noHistory": "No prior PRs overlap these files.",
   "overlap": "{count} overlap",
-  "unavailable": "Brief not available yet.",
-  "unavailableHint": "Run a review or open the PR to compute it.",
+  "running": "Generation already running",
+  "outdated": "Outdated — generated for {sha}",
+  "languageChanged": "Language changed since this brief was generated",
+  "provenance": "Generated {time} · commit {sha} · {model}",
+  "missingKey": "No API key is stored for {provider}.",
+  "missingKeyLink": "Open Settings → API keys",
+  "missingInputs": {
+    "title": "Missing inputs",
+    "intent": "Intent",
+    "blast": "Blast radius",
+    "specDocs": "Specification documents",
+    "linkedIssue": "Linked issue",
+    "reason": "{input}: {reason}"
+  },
+  "severity": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "expandRisk": "Show details",
+  "collapseRisk": "Hide details",
+  "focusLinkLabel": "{path} line {line}",
+  "live": {
+    "started": "Generating the PR brief",
+    "succeeded": "PR brief generated",
+    "failed": "PR brief generation failed"
+  },
+  "nav": {
+    "fileNotInDiff": "File not in this PR's diff",
+    "lineOutside": "Line {line} is outside the changed lines"
+  },
   "why": {
     "title": "git-why",
     "blame": "blame",
     "noHistory": "No history available for this line.",
     "noCommits": "No commits found for this line."
-  }
+  },
+  "cost": {
+    "cost": "Cost of this run",
+    "tokens": "Tokens in → out"
+  },
+  "scoreHint": "Run a review to get a score",
+  "verdictInfo": "Verdict from the latest review by {agent}"
 }

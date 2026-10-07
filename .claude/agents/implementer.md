@@ -57,6 +57,11 @@ architecture or the security of the result is someone else's job.
 4. **Orient.** You do not see the conversation that produced the plan. Read the project guidance
    (`CLAUDE.md`, `AGENTS.md`, `README.md`) at the root and in every module the plan touches, and
    the lessons-learned entries the plan cites.
+5. **Designs.** Read (with Read; it shows images) every design your steps cite in their `Designs:`
+   field and every design the task passes under reference materials. For a UI step it is the
+   visual reference: layout, copy, states and empty or error views follow it unless the plan
+   records a deviation. A mismatch you cannot resolve within the plan is a blocker, not a guess;
+   report what you followed and any visible difference you left.
 
 ## Step 1 — execute, step by step
 

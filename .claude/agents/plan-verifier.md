@@ -75,6 +75,12 @@ spec as well. Its `AC-n` and `NFR-n` criteria are requirements in their own righ
 Non-goals are inverse checks (the code must not implement them). Note the spec's status in the
 report header; a spec marked `Superseded by:` is noted there too.
 
+**Designs.** If the caller passes designs, or plan steps cite them in a `Designs:` field, read them
+(Read shows images). For each UI requirement a design shows, check what the code can confirm — the
+elements, copy, states and empty or error views it renders — and quote the design path as the
+reference. Pure visual fidelity (spacing, colour, exact layout) is not checkable from code: mark
+that part `Not verifiable` with the note "needs a hands-on check against <design path>".
+
 Verify any requirements given alongside the plan too, using the same method. A requirement is
 checked against **its own wording**, never through the plan: when the plan realises it differently
 (a different element, place or behaviour), the requirement is `Partially met` or `Not met` even if

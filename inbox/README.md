@@ -7,7 +7,7 @@ whether to use them, and hand each file to the agents that need it. You do not p
 | You drop | Recognised as | Goes to |
 |----------|---------------|---------|
 | `*.md`, `*.txt` | task note — part of the task description | every stage, as the task itself |
-| `*.png`, `*.jpg`, `*.jpeg`, `*.gif`, `*.webp`, `*.svg`, `*.html` | design | spec-creator (copied into `specs/<slug>/designs/`), planner, implementer, the hands-on check |
+| `*.png`, `*.jpg`, `*.jpeg`, `*.gif`, `*.webp`, `*.svg`, `*.html` | design | spec-creator (copied into `specs/<slug>/designs/`), planner (cites them per step), implementer, test-writer (UI tests), plan-verifier, the hands-on check |
 | `*.pdf` | document | spec-creator, planner, researcher, doc-writer |
 | `*.json`, `*.csv`, `*.log`, `*.diff`, `*.patch`, source files | sample / log | planner, researcher, implementer, test-writer (fixtures) |
 | `.env*`, `*.pem`, `*.key`, `id_*`, `*secret*`, `*credential*` | secret | **never passed or copied** — you get a warning |

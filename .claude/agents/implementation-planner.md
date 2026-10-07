@@ -118,6 +118,10 @@ Otherwise, plan.
    source of requirements beyond the task and the spec. With a feature spec, also read the design
    review beside it (`design-review.md`) and the designs it cites: its module-interaction table and "notes for the implementation planner" are input for
    Step 2, not requirements. Read any other specs or design notes the guidance says to consult.
+   Every design you read is cited in "Context used" and in the `Designs:` field of each UI step
+   that implements it — the implementer reads only its own steps, so a design cited nowhere else
+   never reaches it. A UI requirement whose design shows it gets the design path in its
+   verification hint.
 
 ## Step 2 — map the task onto the code
 
@@ -308,6 +312,7 @@ Out: <...>
 - Guidance read: <files>
 - Lessons applied: <log § entry> → <how the plan respects it> (logs of touched folders only)
 - Research used: <report question → conclusion, source> (omit when none)
+- Designs: `<path>` — <screen / state shown> → steps <S2, S4> (omit when none; cite a spec's `designs/` copy when one exists)
 - Skills: <skill> — <why> — steps <S1, S3>
 
 ## Architecture constraints
@@ -318,6 +323,7 @@ Out: <...>
 ### S1 <title>
 - Module / layer: <...>
 - Files: create | modify `<path>` — <what changes>
+- Designs: `<path>` — <screen / state this step implements>   (UI steps when designs were passed; omit otherwise)
 - Skills to apply: <skill> § <section>
 - Depends on: <step ids or —>
 - Tests (single-agent mode): <T-n, … | —>

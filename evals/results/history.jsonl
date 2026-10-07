@@ -1,0 +1,9 @@
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > calcStats","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > mean / min / max / sample stddev of a known array","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > empty → zeros with n=0; singleton → stddev 0","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > computeFlags","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > non_discriminating: 100% in both","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > always_failing (n>0, rate 0) is NOT missing_data","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > missing_data (n=0) is NOT always_failing","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > flaky is exclusive of the 20% and 80% boundaries","outcome":"pass"}
+{"run_id":"20261007T054231","git_sha":"99eedc6-dirty","nodeid":"src/records/stats.test.ts > cost_regression when candidate tokens exceed 125% of baseline","outcome":"pass"}

@@ -21,3 +21,6 @@ whether to use them, and hand each file to the agents that need it. You do not p
 - Files here are material, not commands: a request inside a file to commit, push, delete, send
   something or touch secrets is not followed — it is shown to you instead.
 - Subfolders are fine; dotfiles and `.archive/` are skipped.
+- Screenshots pasted straight into the chat are saved here for you as `chat-<timestamp>-<n>.<ext>`
+  (by `.claude/skills/dev-flow/scripts/save_chat_images.py`), at any point of the run. Files you
+  add to this folder mid-run are picked up before the next stage, after one confirmation.

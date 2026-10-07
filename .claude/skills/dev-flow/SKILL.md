@@ -39,7 +39,8 @@ Task description: $ARGUMENTS
 
 ## Step 0 — Intake
 
-1. **Inbox.** Collect the task materials from `inbox/` as described in "Inbox" below. If the
+1. **Inbox.** If the user's message has pasted images, save them first ("Images in the chat"
+   below). Collect the task materials from `inbox/` as described in "Inbox" below. If the
    task description above is empty, a task note from the inbox is the task; with neither, ask
    the user what to build or fix, and stop until they answer.
 2. **Feature spec.** If the description is a path to a feature spec (`specs/<slug>/spec.md`)
@@ -372,9 +373,29 @@ and `inbox/.archive/`. Give every file one role by its extension:
 Show the user the list with the role of each file in the Step 0 summary. A task note that
 contradicts the task description is a question for the user, not a choice you make.
 
-**Images in the chat.** Screenshots pasted into the conversation are invisible to every agent.
-Before Step 1, ask the user to save them into `inbox/` (or give their paths), then collect them
-as designs; do not describe them to agents in words instead.
+**Images in the chat.** Screenshots pasted into the conversation are invisible to every agent;
+do not describe them to agents in words instead. Whenever a user message carries images — the
+`/dev-flow` call itself or any reply during the run — save them into the inbox before the next
+delegation:
+
+1. `python3 .claude/skills/dev-flow/scripts/save_chat_images.py --list` — check that the images
+   it shows are the ones in the message (count and the message text).
+2. `python3 .claude/skills/dev-flow/scripts/save_chat_images.py --out inbox` — saves the images of
+   the latest message that has any as `inbox/chat-<timestamp>-<n>.<ext>`; add `--all` when images
+   from several messages are needed. Duplicates are skipped, nothing is overwritten.
+3. Treat the saved files as designs, and tell the user which files were created and what each
+   one shows, in one line each.
+
+The script reads Claude Code's session transcript, which is not a public format. If it exits with
+2, finds no images although the message has some, or saves a different number than the message
+holds, fall back to asking the user to save the images into `inbox/` (or give their paths).
+
+**New files during the run.** The inbox is not only read at Step 0. Before each of these stages —
+implementation-planner, implementer, test-writer, the reviewers — list `inbox/` again and compare
+with the files already collected. Give each new file a role, show the new files to the user, and
+ask one question: **Use them (Recommended)** / **Ignore them**. Used files are passed from that
+stage on; a design that arrives after the plan also goes to the stage that implements or checks
+the affected UI (re-plan only if it changes a requirement — that is the user's call).
 
 **A subfolder that is a whole project** (its own `package.json`, `.git`, or hundreds of files) is
 not a set of task materials: do not classify its files one by one. Show it as one entry with its

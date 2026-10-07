@@ -1,37 +1,34 @@
-# Harness evals — runs the DevDigest Claude Code evals on OpenRouter, per-PR, selectively.
+# Harness evals — runs the DevDigest Claude Code evals on OpenRouter, selectively.
 #
-# On a pull request we diff against the base branch and run ONLY the suites the change touches:
+# MANUAL ONLY: no pull_request trigger, so no LLM call ever runs automatically. Start it from
+# Actions → evals → Run workflow (pick the branch). To re-enable per-PR runs, restore the
+# `pull_request:` block (paths: .claude/**, **/CLAUDE.md, **/AGENTS.md, evals/**, this file).
+#
+# We diff the branch against main and run ONLY the suites the change touches:
 #   • a changed skill      → that skill's evals        (content tier, native OpenRouter, no proxy)
 #   • a changed agent      → that agent's evals + the workflow tier
 #   • a changed CLAUDE.md / AGENTS.md (root or package) → the workflow tier
 #   • an engine change     → the workflow tier
 # A changed artifact with no written evals is reported as SKIP, not a failure.
 #
-# Models are a job-level knob (not surfaced in any UI). Skills (content tier) run on a cheap
-# non-Anthropic model (DeepSeek). The tool tiers (agents/workflow) run on Claude Haiku 4.5:
-# calibration showed the cheap OSS models are too noisy on borderline scoping cases, while Haiku
-# passes the suites 4/4 and — as an Anthropic slug via OpenRouter's skin — gives reliable subagent
-# dispatch, Skill activation, and valid judge JSON. Still cheap (~$1/full tool-tier run) and the
-# suites run only when artifacts change. Override per manual run via the workflow_dispatch inputs.
+# Models are workflow_dispatch inputs (not surfaced in any UI). Every tier defaults to DeepSeek V4
+# Flash: skills call OpenRouter directly; agents/workflow go through the LiteLLM proxy, which
+# translates the Agent SDK's Anthropic wire format to DeepSeek. Caveat (evals/README.md): DeepSeek
+# tends to do the work inline instead of dispatching a subagent, so the workflow dispatch case may
+# fail; pass tool_model=anthropic/claude-haiku-4.5 (reliable, ~$1/run) or google/gemini-2.5-flash
+# when you need that tier green.
 
 name: evals
 
 on:
-  pull_request:
-    paths:
-      - '.claude/**'
-      - '**/CLAUDE.md'
-      - '**/AGENTS.md'
-      - 'evals/**'
-      - '.github/workflows/evals.yml'
   workflow_dispatch:
     inputs:
       skills_model:
         description: 'OpenRouter slug for the skills (content) tier'
-        default: 'deepseek/deepseek-chat'
+        default: 'deepseek/deepseek-v4-flash'
       tool_model:
         description: 'OpenRouter slug for the agents + workflow (tool) tiers'
-        default: 'anthropic/claude-haiku-4.5'
+        default: 'deepseek/deepseek-v4-flash'
 
 permissions:
   contents: read
@@ -56,14 +53,10 @@ jobs:
       - id: detect
         working-directory: evals
         env:
-          # workflow_dispatch has no diff — fall back to "everything changed" by diffing the root commit.
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # Manual run: diff the chosen branch against main (merge-base), so only touched suites run.
+          BASE_REF: ${{ github.event.repository.default_branch }}
         run: |
-          if [ -n "$BASE_SHA" ]; then
-            RANGE="$BASE_SHA...HEAD"
-          else
-            RANGE="$(git rev-list --max-parents=0 HEAD | tail -1)...HEAD"
-          fi
+          RANGE="$(git merge-base "origin/$BASE_REF" HEAD)...HEAD"
           CHANGED_FILES="$(git diff --name-only "$RANGE")"
           export CHANGED_FILES
           node scripts/ci-detect.mjs
@@ -83,8 +76,8 @@ jobs:
     env:
       EVAL_BACKEND: openrouter
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ inputs.skills_model || 'deepseek/deepseek-chat' }}
-      EVAL_JUDGE_MODEL: ${{ inputs.skills_model || 'deepseek/deepseek-chat' }}
+      EVAL_MODEL: ${{ inputs.skills_model || 'deepseek/deepseek-v4-flash' }}
+      EVAL_JUDGE_MODEL: ${{ inputs.skills_model || 'deepseek/deepseek-v4-flash' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -104,8 +97,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Each matrix entry is its own runner with its own proxy container, and Haiku via OpenRouter's
-      # Anthropic skin handles concurrency fine — so agents fan out in parallel, no serial wait.
+      # Each matrix entry is its own runner with its own proxy container — agents fan out in
+      # parallel, no serial wait.
       matrix:
         agent: ${{ fromJSON(needs.changes.outputs.agents) }}
     defaults:
@@ -115,8 +108,8 @@ jobs:
       EVAL_BACKEND: openrouter
       OPENROUTER_BASE_URL: http://localhost:4000
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ inputs.tool_model || 'anthropic/claude-haiku-4.5' }}
-      EVAL_JUDGE_MODEL: ${{ inputs.tool_model || 'anthropic/claude-haiku-4.5' }}
+      EVAL_MODEL: ${{ inputs.tool_model || 'deepseek/deepseek-v4-flash' }}
+      EVAL_JUDGE_MODEL: ${{ inputs.tool_model || 'deepseek/deepseek-v4-flash' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -149,8 +142,8 @@ jobs:
       EVAL_BACKEND: openrouter
       OPENROUTER_BASE_URL: http://localhost:4000
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ inputs.tool_model || 'anthropic/claude-haiku-4.5' }}
-      EVAL_JUDGE_MODEL: ${{ inputs.tool_model || 'anthropic/claude-haiku-4.5' }}
+      EVAL_MODEL: ${{ inputs.tool_model || 'deepseek/deepseek-v4-flash' }}
+      EVAL_JUDGE_MODEL: ${{ inputs.tool_model || 'deepseek/deepseek-v4-flash' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

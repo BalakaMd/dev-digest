@@ -51,7 +51,7 @@ const skillNames = touched(
 const agentNames = touched(
   /^\.claude\/agents\/([^/]+)\.md$/,
   /^evals\/agents\/([^/]+)\//,
-);
+).filter((n) => n !== "README"); // the catalog, not an agent
 
 const skills = skillNames.filter((n) => hasEvals("skills", n));
 const skippedSkills = skillNames.filter((n) => !hasEvals("skills", n));

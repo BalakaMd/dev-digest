@@ -112,12 +112,12 @@ cd evals && pnpm eval:skills                   # or eval:agents / eval:workflow 
 - **CI is path-filtered per package.** Cross-package source aliases are encoded
   in each workflow's `paths:` (e.g. `reviewer-core/**` triggers `server-unit`
   because the server type-checks against `../reviewer-core/src`).
-- **Harness evals are selective and opt-in by path.** `evals.yml` runs on PRs that touch
-  `.claude/**`, any `CLAUDE.md`/`AGENTS.md`, or `evals/**`; `evals/scripts/ci-detect.mjs` maps the
-  diff to suites (a changed skill → its evals, a changed agent → its evals + the workflow tier, a
-  changed guidance file or engine → the workflow tier). An artifact with no evals is logged as
-  `SKIP`, not failed. It needs the `OPENROUTER_API_KEY` Actions secret; models are
-  `workflow_dispatch` inputs (skills: DeepSeek, agents/workflow: Claude Haiku 4.5 via OpenRouter).
-  The workflow tier is `continue-on-error`.
+- **Harness evals are manual-only.** `evals.yml` has no `pull_request` trigger, so no LLM call
+  runs automatically — start it from Actions → evals → Run workflow. `evals/scripts/ci-detect.mjs`
+  diffs the branch against `main` and maps it to suites (a changed skill → its evals, a changed
+  agent → its evals + the workflow tier, a changed guidance file or engine → the workflow tier). An
+  artifact with no evals is logged as `SKIP`, not failed. It needs the `OPENROUTER_API_KEY`
+  Actions secret; every tier defaults to `deepseek/deepseek-v4-flash` (override via the
+  `skills_model` / `tool_model` inputs). The workflow tier is `continue-on-error`.
 - **`server/clones/**` is runtime data** (git-ignored) and never collected by
   any suite.

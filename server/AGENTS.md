@@ -65,3 +65,5 @@ pnpm typecheck                                    # tsc --noEmit
 | [specs/review-flow.md](specs/review-flow.md) | touching anything between `POST /review` and persisted findings |
 | [README.md](README.md) | you need the API map, the DI flow diagram, or the env table |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change here |
+
+<!-- CI smoke change: touches the server guidance so the workflow tier re-runs. Safe to drop. -->

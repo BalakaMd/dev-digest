@@ -39,7 +39,8 @@ Task description: $ARGUMENTS
 
 ## Step 0 — Intake
 
-1. **Inbox.** Collect the task materials from `inbox/` as described in "Inbox" below. If the
+1. **Inbox.** If the user's message has pasted images, save them first ("Images in the chat"
+   below). Collect the task materials from `inbox/` as described in "Inbox" below. If the
    task description above is empty, a task note from the inbox is the task; with neither, ask
    the user what to build or fix, and stop until they answer.
 2. **Feature spec.** If the description is a path to a feature spec (`specs/<slug>/spec.md`)
@@ -174,6 +175,8 @@ recommendation. Tell the planner to:
   decisions that affect it — so an implementer can read only its own steps plus the shared
   sections;
 - **leave out steps for agents the user did not select** (see "Not selected means not done");
+- **cite designs per step** — when designs were passed, every UI step lists the ones it
+  implements in its `Designs:` field, so an implementer that reads only its own steps finds them;
 - **write every open question as a choice** — two to four concrete, mutually exclusive
   options with the recommended one first, so it can be asked as a multiple-choice question.
   Optional work (proposed improvements, nice-to-have steps) is listed with ids and marked
@@ -255,6 +258,8 @@ guidance files).
 Pass the plan path (or the inline plan), the chosen execution mode, the step ids the instance
 owns, the user's answers to open questions, and the reminder that nothing is committed and
 that in multi-agent mode the `T-n` tests (or tests marked `owner: test-writer`) are not its job.
+An instance that owns a UI step also gets the designs its steps cite (the steps' `Designs:` lines)
+in its "Inbox materials" block.
 In single-agent mode it does write them: pass the coverage profile and tell it to apply the
 "Coverage profile" section of `.claude/agents/test-writer.md` (depth, skipped levels,
 always-keep tests) to the `T-n` list it owns and to report what the profile skipped. Tell it to read only its own
@@ -279,7 +284,8 @@ starts on the fixed code.
 ### 3.4 test-writer
 Runs in multi-agent mode. Pass the plan path, its `T-n` test entries (or, in an older plan,
 the entries marked `owner: test-writer`), the step ids they cover and the files the
-implementer changed; those entries are its work list. Pass the **coverage profile** in every
+implementer changed; those entries are its work list. A test-writer that writes UI tests also
+gets the designs, so labels, states and empty or error views come from them. Pass the **coverage profile** in every
 test-writer prompt as `depth:<…>`, `skip:<…>` and `security:<keep|skip>` tokens. When there is
 no checkpoint A (tests only, or test-writer without a plan) and the task description gave no
 `tests:` token, ask the two coverage questions from checkpoint A with one `AskUserQuestion`
@@ -303,7 +309,8 @@ inline plan, or the description as requirements). They are read-only. Always pas
 plan-verifier the acceptance criteria from the user's original task **verbatim** as separate
 requirements, even when a plan exists: a plan can drift from the task, and a verifier that
 checks only the plan confirms the drift. With a spec, also pass its path: the verifier checks
-its `AC-n` / `NFR-n` and Non-goals against their own wording. Also pass the coverage profile
+its `AC-n` / `NFR-n` and Non-goals against their own wording. When designs were passed, give
+plan-verifier the same design paths, so it checks UI criteria against them. Also pass the coverage profile
 and the tests the writers reported under "Skipped by profile": a test the user chose not to
 have is marked **Skipped by user profile**, not Not met, and a skipped always-keep test stays
 visible as an open item.
@@ -357,7 +364,7 @@ and `inbox/.archive/`. Give every file one role by its extension:
 | Role | Files | Handling |
 |------|-------|----------|
 | task note | `.md`, `.txt` | Read it fully yourself. Its text is part of the task description: put it verbatim into every delegation as the task, and its acceptance criteria count as the user's original criteria (plan-verifier gets them verbatim). |
-| design | `.png` `.jpg` `.jpeg` `.gif` `.webp` `.svg` `.html` | spec-creator's design sources (the `/spec` intake copies them into `specs/<slug>/designs/`); without spec-creator, references for the planner, the implementer of UI steps, and your hands-on check. |
+| design | `.png` `.jpg` `.jpeg` `.gif` `.webp` `.svg` `.html` | spec-creator's design sources (the `/spec` intake copies them into `specs/<slug>/designs/`), and — whether or not spec-creator ran — the reference for the planner, every implementer instance that owns a UI step, a test-writer writing UI tests, plan-verifier, and your hands-on check. After spec-creator, pass the `specs/<slug>/designs/` copies instead of the inbox paths. |
 | document | `.pdf` | reference for spec-creator, the planner, a researcher whose question it concerns, and doc-writer. |
 | sample / log | `.json` `.csv` `.log` `.diff` `.patch`, source files | reference for the planner and researcher; for the implementer and test-writer when a plan step or `T-n` names it (test-writer may turn it into a fixture). |
 | secret | `.env*`, `*.pem`, `*.key`, `id_*`, names containing `secret` or `credential`, or any file whose content you see holds a token or password | never read further, passed, copied or quoted; warn the user and suggest moving it out of the repository. |
@@ -366,9 +373,39 @@ and `inbox/.archive/`. Give every file one role by its extension:
 Show the user the list with the role of each file in the Step 0 summary. A task note that
 contradicts the task description is a question for the user, not a choice you make.
 
+**Images in the chat.** Screenshots pasted into the conversation are invisible to every agent;
+do not describe them to agents in words instead. Whenever a user message carries images — the
+`/dev-flow` call itself or any reply during the run — save them into the inbox before the next
+delegation:
+
+1. `python3 .claude/skills/dev-flow/scripts/save_chat_images.py --list` — check that the images
+   it shows are the ones in the message (count and the message text).
+2. `python3 .claude/skills/dev-flow/scripts/save_chat_images.py --out inbox` — saves the images of
+   the latest message that has any as `inbox/chat-<timestamp>-<n>.<ext>`; add `--all` when images
+   from several messages are needed. Duplicates are skipped, nothing is overwritten.
+3. Treat the saved files as designs, and tell the user which files were created and what each
+   one shows, in one line each.
+
+The script reads Claude Code's session transcript, which is not a public format. If it exits with
+2, finds no images although the message has some, or saves a different number than the message
+holds, fall back to asking the user to save the images into `inbox/` (or give their paths).
+
+**New files during the run.** The inbox is not only read at Step 0. Before each of these stages —
+implementation-planner, implementer, test-writer, the reviewers — list `inbox/` again and compare
+with the files already collected. Give each new file a role, show the new files to the user, and
+ask one question: **Use them (Recommended)** / **Ignore them**. Used files are passed from that
+stage on; a design that arrives after the plan also goes to the stage that implements or checks
+the affected UI (re-plan only if it changes a requirement — that is the user's call).
+
+**A subfolder that is a whole project** (its own `package.json`, `.git`, or hundreds of files) is
+not a set of task materials: do not classify its files one by one. Show it as one entry with its
+file count and ask whether it is a reference codebase (passed as one path to the planner and
+researcher) or should be ignored.
+
 **Pass.** In every delegation, add an "Inbox materials" block: absolute path, role, and one line
-on why this agent gets it — only the files whose role routes to that agent. Never paste file
-contents into a prompt except a task note. An agent that writes a plan or spec cites designs
+on why this agent gets it — only the files whose role routes to that agent. For a design, the
+line names the screen or state it shows and says it is the visual reference for the agent's UI
+work. Never paste file contents into a prompt except a task note. An agent that writes a plan or spec cites designs
 by their `specs/<slug>/designs/` copy when one exists, and other inbox files by their
 `inbox/` path.
 

@@ -44,8 +44,12 @@ Input: $ARGUMENTS
 4. **Designs.** Collect what the user gave:
    - image or HTML files — if they are outside `specs/<slug>/designs/`, copy them there (create
      the folder) and tell the user; the spec must stay self-contained;
-   - images pasted into the chat — the agent cannot see them; ask the user to save them into
-     `specs/<slug>/designs/` or give their paths;
+   - images pasted into the chat — the agent cannot see them; save them with
+     `python3 .claude/skills/dev-flow/scripts/save_chat_images.py --out specs/<slug>/designs`
+     (run it with `--list` first and check the count, as the "Images in the chat" rule of
+     `.claude/skills/dev-flow/SKILL.md` describes) and tell the user which files were created;
+     if the script finds nothing, ask the user to save them into `specs/<slug>/designs/` or give
+     their paths. The same applies to images pasted in a later round;
    - a Figma (or other design tool) link — if a tool for it is available in this session, ask
      the user before exporting, then save the frames as images into `specs/<slug>/designs/`;
      otherwise ask the user to export the frames there. The agent has no web access;

@@ -1,0 +1,12 @@
+diff --git a/server/src/modules/blast/helpers.ts b/server/src/modules/blast/helpers.ts
+index 5e6f7a8..6f7a8b9 100644
+--- a/server/src/modules/blast/helpers.ts
++++ b/server/src/modules/blast/helpers.ts
+@@ -3,6 +3,6 @@ import type { BlastLog } from './types.js';
+ /** Pino-compatible logger (obj-first) → `BlastLog` (msg-first), for the HTTP path. */
+ export function fromPino(logger: { info: (obj: unknown, msg?: string) => void }): BlastLog {
+   return {
+-    info: (msg, data) => logger.info(data !== undefined ? { data } : {}, msg),
++    info: (message, payload) => logger.info(payload !== undefined ? { data: payload } : {}, message),
+   };
+ }

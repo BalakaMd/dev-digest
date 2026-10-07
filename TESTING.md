@@ -32,6 +32,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 | reviewer-core | `reviewer-core/` | unit (engine) | vitest | `reviewer-core.yml` | no |
 | mcp | `mcp/` | unit (fake fetch, no network) | vitest | `mcp.yml` | no |
 | e2e web | `e2e/` | browser e2e (deterministic) | agent-browser + `run.ts` | `e2e-web.yml` | yes (stack) |
+| harness evals | `evals/` | LLM evals of skills, agents and CLAUDE.md routing (model calls, not hermetic) | vitest + Claude Agent SDK | `evals.yml` | yes (LiteLLM proxy, agents/workflow tiers) |
 
 ## What each suite covers
 
@@ -82,6 +83,12 @@ cd server && pnpm test                                          # both
 ./scripts/dev.sh
 npm i -g agent-browser && agent-browser install
 cd e2e && npm install && npm test
+
+# harness evals (real model calls — subscription by default, see evals/README.md)
+cd evals && pnpm install
+cd evals && pnpm eval:quality                  # static SKILL.md gate, no model
+cd evals && pnpm vitest run src/records/stats.test.ts   # the only hermetic unit test
+cd evals && pnpm eval:skills                   # or eval:agents / eval:workflow / eval
 ```
 
 ## Conventions
@@ -105,5 +112,12 @@ cd e2e && npm install && npm test
 - **CI is path-filtered per package.** Cross-package source aliases are encoded
   in each workflow's `paths:` (e.g. `reviewer-core/**` triggers `server-unit`
   because the server type-checks against `../reviewer-core/src`).
+- **Harness evals are selective and opt-in by path.** `evals.yml` runs on PRs that touch
+  `.claude/**`, any `CLAUDE.md`/`AGENTS.md`, or `evals/**`; `evals/scripts/ci-detect.mjs` maps the
+  diff to suites (a changed skill → its evals, a changed agent → its evals + the workflow tier, a
+  changed guidance file or engine → the workflow tier). An artifact with no evals is logged as
+  `SKIP`, not failed. It needs the `OPENROUTER_API_KEY` Actions secret; models are
+  `workflow_dispatch` inputs (skills: DeepSeek, agents/workflow: Claude Haiku 4.5 via OpenRouter).
+  The workflow tier is `continue-on-error`.
 - **`server/clones/**` is runtime data** (git-ignored) and never collected by
   any suite.

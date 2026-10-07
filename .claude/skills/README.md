@@ -20,6 +20,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [pr-self-review](pr-self-review/SKILL.md) | Workflow | Pre-PR pass: routes the diff to the skills that govern it, blocks the PR on a critical finding |
 | [spec](spec/SKILL.md) | Workflow | `/spec <feature>`: writes `specs/<slug>/spec.md` with the spec-creator subagent, asking you about design gaps, edge cases and UX proposals as multiple-choice rounds, then asks for approval |
 | [dev-flow](dev-flow/SKILL.md) | Workflow | `/dev-flow <task>`: lets you pick which subagents run on a feature or fix, then drives them in order with pauses after the plan and the review |
+| [dependency-checker](dependency-checker/SKILL.md) | Shared | Dependency audit across packages: Mermaid graph, size breakdown, P0–P2 prioritized findings (evals in `evals/skills/dependency-checker/`) |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 
 ## What Are Skills?

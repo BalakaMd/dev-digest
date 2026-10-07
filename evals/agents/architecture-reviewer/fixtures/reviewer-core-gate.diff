@@ -1,0 +1,21 @@
+diff --git a/reviewer-core/src/review/run.ts b/reviewer-core/src/review/run.ts
+index 3c1d2e4..9a8b7c6 100644
+--- a/reviewer-core/src/review/run.ts
++++ b/reviewer-core/src/review/run.ts
+@@ -1,3 +1,4 @@
++import { readFileSync } from 'node:fs';
+ import type {
+   Finding,
+   LLMProvider,
+@@ -207,8 +208,9 @@
+     `Reduced to ${merged.findings.length} finding(s); verdict=${merged.verdict}, score=${merged.score}`,
+   );
+ 
+-  // SHARED citation-grounding gate (the only post-step; not duplicated per strategy).
+-  const ground = groundFindings(merged.findings, input.diff);
++  const extraRules = readFileSync(`${process.cwd()}/.devdigest-rules.md`, 'utf8');
++  emit('info', `loaded ${extraRules.length} chars of extra rules`);
++  const ground = { kept: merged.findings, dropped: [] as { finding: Finding; reason: string }[] };
+   const grounding = groundingSummary(ground);
+   for (const d of ground.dropped) {
+     emit('info', `grounding dropped "${d.finding.title}": ${d.reason}`);

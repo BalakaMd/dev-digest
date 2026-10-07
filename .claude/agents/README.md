@@ -71,6 +71,7 @@ commits, pushes or opens a pull request; that stays with the user.
 | [architecture-reviewer](architecture-reviewer.md) | Checks changed code against the repository's own documented architecture rules | `opus` · effort `medium` | nothing | tool list + read-only Bash guard |
 | [plan-verifier](plan-verifier.md) | Checks finished code against every item of a Development Plan, item by item | `sonnet` · effort `high` | nothing | tool list + read-only Bash guard |
 | [doc-writer](doc-writer.md) | Turns an implemented, verified feature into placed, verified-against-code documentation | `sonnet` · effort `high` | Markdown files under documentation folders | tool list + read-only Bash guard |
+| [architecture-reviewer-lite](architecture-reviewer-lite.md) | Eval-only relaxed copy of architecture-reviewer (no rule citation required) for the A/B in `evals/agents/` — never dispatched for real reviews | inherits architecture-reviewer | nothing | same as architecture-reviewer |
 
 ## spec-creator
 

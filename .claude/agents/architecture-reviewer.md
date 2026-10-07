@@ -165,3 +165,5 @@ Base: <sha> · Head: <sha> · Files: <n> · Result: findings | no findings | blo
 When there are no findings, write "No findings — `<k>` rules checked across `<n>` files" as the
 first line under `## Findings`, and still fill in "Checked and clean" and "Not checked" — an empty
 findings list is a complete, valid result, not a shortcut.
+
+<!-- CI smoke change: touches this agent so evals.yml runs its evals and the workflow tier. Safe to drop. -->

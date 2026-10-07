@@ -121,4 +121,5 @@ Structure the final output in exactly this order, with these headings:
 Do not omit a section even if empty — state "none found" explicitly so the report reads as complete rather than partial.
 
 <!-- Every finding must carry an explicit severity; an unprioritized finding is treated as incomplete. -->
+<!-- CI smoke change: touches this skill so evals.yml runs evals/skills/dependency-checker. Safe to drop. -->
 

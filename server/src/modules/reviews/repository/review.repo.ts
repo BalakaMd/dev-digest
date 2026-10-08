@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { Finding } from '@devdigest/shared';
@@ -68,7 +68,18 @@ export async function reviewsForPull(
     .orderBy(desc(t.reviews.createdAt));
   if (reviews.length === 0) return [];
   const ids = reviews.map((r) => r.id);
-  const findings = await db.select().from(t.findings).where(inArray(t.findings.reviewId, ids));
+  // Explicit total order: an UPDATE (accept/dismiss) moves a heap row to the end,
+  // so without this the card jumps to the bottom of the list after every click.
+  const findings = await db
+    .select()
+    .from(t.findings)
+    .where(inArray(t.findings.reviewId, ids))
+    .orderBy(
+      asc(t.findings.file),
+      asc(t.findings.startLine),
+      asc(t.findings.endLine),
+      asc(t.findings.id),
+    );
   return reviews.map((review) => ({
     review,
     findings: findings.filter((f) => f.reviewId === review.id),

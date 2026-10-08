@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FindingRecord } from "@devdigest/shared";
@@ -17,9 +17,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { FindingsPanel } from "./FindingsPanel";
+import { installFetch } from "../../../../../../../test/context-docs-fixtures";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   searchParams = new URLSearchParams();
 });
 
@@ -153,5 +155,29 @@ describe("FindingsPanel severity filter", () => {
     renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
     expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
     expect(screen.getByText("N+1 query in user list")).toBeInTheDocument();
+  });
+});
+
+describe("FindingsPanel eval-case lookup (AC-2)", () => {
+  it("disables 'Turn into eval case' only for the finding that already has a case", async () => {
+    installFetch({
+      "GET /agents/a1/eval-cases": [{ id: "c1", name: "stripe-key", source_finding_id: "f1" }],
+    });
+    const decided = "2026-10-08T00:00:00Z";
+    renderWithIntl(
+      <FindingsPanel
+        agentId="a1"
+        prId="pr1"
+        findings={[
+          finding({ id: "f1", title: "Hardcoded secret", accepted_at: decided }),
+          finding({ id: "f2", title: "SSRF in webhook forwarder", dismissed_at: decided }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByText("SSRF in webhook forwarder"));
+    const buttons = screen.getAllByRole("button", { name: "Turn into eval case" });
+    expect(buttons).toHaveLength(2);
+    await waitFor(() => expect(buttons[0]).toBeDisabled());
+    expect(buttons[1]).toBeEnabled();
   });
 });

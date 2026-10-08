@@ -32,12 +32,12 @@ function caseResponse(created: boolean, name = "stripe-key-leak"): EvalCaseFromF
   };
 }
 
-function renderButton(decided: boolean) {
+function renderButton(decided: boolean, existingCaseName?: string | null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-        <EvalCaseButton findingId="f1" decided={decided} />
+        <EvalCaseButton findingId="f1" decided={decided} existingCaseName={existingCaseName} />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
@@ -90,6 +90,32 @@ describe("EvalCaseButton", () => {
     fireEvent.click(screen.getByRole("button", BUTTON));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(await screen.findByRole("status")).toHaveTextContent("stripe-key-leak");
+  });
+
+  it("is disabled and names the existing case when one already exists, sending nothing (AC-2)", () => {
+    const net = installFetch({});
+    renderButton(true, "stripe-key");
+    const button = screen.getByRole("button", BUTTON);
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription("Already an eval case: stripe-key");
+    fireEvent.click(button);
+    expect(net.requests).toHaveLength(0);
+  });
+
+  it("prefers 'already exists' over the needs-decision hint for an undecided finding (Q-3)", () => {
+    installFetch({});
+    renderButton(false, "stripe-key");
+    expect(screen.getByRole("button", BUTTON)).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Already an eval case: stripe-key");
+    expect(screen.queryByText(/accept or dismiss this finding first/i)).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])("disables the button after the click when created=%s (AC-2)", async (created) => {
+    installFetch({ "POST /findings/f1/eval-case": caseResponse(created) });
+    renderButton(true);
+    fireEvent.click(screen.getByRole("button", BUTTON));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/stripe-key-leak/));
+    expect(screen.getByRole("button", BUTTON)).toBeDisabled();
   });
 
   it("renders the case name as text, never as markup (NFR-3)", async () => {

@@ -1,8 +1,11 @@
-# Design review: Eval pipeline — regression harness for review agents (SPEC-05)
+# Design review: Eval pipeline — regression harness for review agents, v2 (SPEC-06)
+Supersedes the review of SPEC-05 (previous revision of specs/eval-pipeline/design-review.md, kept in
+git history). Carried over unchanged except the items marked **[SPEC-06]**.
+
 Sources: designs/1-finding-card-turn-into-eval-case.webp, designs/2-eval-dashboard-agents-list.png,
 designs/3-eval-dashboard-agent-detail.webp, designs/4-eval-compare-modal.webp,
-designs/5-agent-editor-evals-tab.webp, designs/6-eval-case-modal.webp; user task text (wins over the
-designs) ·
+designs/5-agent-editor-evals-tab.webp, designs/6-eval-case-modal.webp (in
+specs/eval-pipeline/designs/); user task text (wins over the designs) ·
 Current code read: server/src/db/schema/eval.ts:7-35, server/src/vendor/shared/contracts/knowledge.ts:49-84,
 server/src/vendor/shared/contracts/eval-ci.ts:19-89, server/src/db/schema/reviews.ts:28-51,
 server/src/db/schema/agents.ts:9-52, server/src/db/schema/runs.ts:8-37,
@@ -16,7 +19,23 @@ client/src/app/agents/[id]/_components/AgentEditor/constants.ts:11-15,
 client/src/app/agents/[id]/_components/AgentEditor/AgentEditor.test.tsx:78,
 client/src/vendor/ui/nav.ts:21-44, client/src/components/app-shell/helpers.ts:35,
 client/messages/en/eval.json, client/messages/en/shell.json:25, client/specs/pages.md:160-214,
-server/test/contracts.test.ts:174-192
+server/test/contracts.test.ts:174-192;
+**[SPEC-06]** server/src/modules/reviews/diff-loader.ts:12-30, server/src/modules/reviews/run-executor.ts:220-252
+(cited by the user), server/src/app.ts:49 (`bodyLimit: 1_048_576`), server/src/app.ts:123-171 (shared
+error handler)
+
+## [SPEC-06] What changed and why
+- SPEC-05 AC-73 required rejecting a case whose diff exceeds "the diff size limit that regular reviews
+  apply" (decision Q-16). No such limit exists: `loadDiff` returns the whole `git diff base...head`
+  or the whole reconstruction from `pr_files` (diff-loader.ts:12-30) and the executor sends it as is
+  (run-executor.ts:220-252, per the user). AC-73 is therefore removed (id kept as "Removed"), NG-7
+  records the non-goal, and EC-14 and the "Untrusted inputs" diff line are reworded.
+- The resulting bound: Fastify's global `bodyLimit` of 1 MB (app.ts:49). Fastify rejects a larger
+  body with status 413 before any handler runs; the shared error handler forwards the status
+  (app.ts:166-170), so the API answers 413 and stores nothing. This applies only to requests that
+  carry the diff — i.e. manually entered cases. A case created from a finding sends only the finding
+  reference; its patch is read server-side and has no size bound, exactly like a regular review.
+- No other requirement changed. Ids are unchanged; no criterion was renumbered.
 
 ## What already exists (and what does not)
 - Tables `eval_cases` and `eval_runs` exist (eval.ts:7-35). `eval_runs` is **per case** (`case_id`
@@ -48,6 +67,8 @@ server/test/contracts.test.ts:174-192
   must change. `client/specs/pages.md:211-214` and `server/specs/review-flow.md:135-138` both say the
   eval pipeline is "a later lesson".
 - `verify:l06` exists nowhere (no root `package.json`; each package has only `test`/`typecheck`) → Q-8.
+- **[SPEC-06]** Regular reviews apply no diff size limit (diff-loader.ts:12-30); the only size bound on
+  API requests is the global 1 MB body limit (app.ts:49).
 
 ## States coverage
 | Screen / flow | State | In design? | Spec reference |
@@ -84,6 +105,7 @@ server/test/contracts.test.ts:174-192
 | Eval Dashboard · recent runs | empty / many | many only | AC-36 |
 | Eval Dashboard · agent detail | yes (period filter, agent switcher, banner, trend chart) | yes | AC-37, Q-7, P-3, P-4 |
 | Case modal (manual create/edit) | create / edit / invalid JSON / last run | yes (valid JSON + passed only) | AC-46..AC-54, Q-19, Q-22, Q-24 |
+| Case modal (manual create) | **[SPEC-06]** save request over 1 MB | no | EC-14 (HTTP 413, API error message shown) |
 | Compare · Promote | click / same version | yes (click only) | AC-59, Q-18 |
 | Dashboard agent view · period filter, agent switcher | yes | yes | AC-55, AC-56, Q-23 |
 
@@ -119,7 +141,8 @@ server/test/contracts.test.ts:174-192
 - Case set changed between two compared runs → EC-9
 - Double-start / second tab → EC-10
 - Agent edited during a run → EC-13
-- Huge diff fragment → EC-14
+- Huge diff fragment → EC-14 (**[SPEC-06]** global 1 MB body limit for manual cases; no bound for
+  cases from findings)
 - Disabled agent on the dashboard → EC-15
 - Unpriced model → EC-16
 
@@ -186,6 +209,10 @@ Notes for the implementation planner (internal wiring, not part of the spec):
   routes tighten it locally, architecture.md).
 - A new DB-backed test must end `*.it.test.ts`; migrations via drizzle-kit only (watch the rename
   prompt, server INSIGHTS 2026-09-25).
+- **[SPEC-06]** Do not implement any diff size check for eval cases (AC-73 removed). The 413 on an
+  over-1 MB body comes from Fastify before the handler; the shared error handler sends it with
+  code `internal_error` and Fastify's message (app.ts:166-170) — the case editor must surface the
+  API's error message for a failed save. Do not raise the body limit for the eval routes.
 
 ## UX improvements
 - P-1 Per-case drill-down: open a case result to see the agent's findings, which one matched the
@@ -203,7 +230,7 @@ Notes for the implementation planner (internal wiring, not part of the spec):
 - P-6 Show run cost and cost delta in history and compare (design 3/4; `cost_usd` in contracts) —
   cost S — status: accepted → AC-45 (unknown cost Q-27)
 
-## Design vs user text — contradictions after "all designs" (round 2)
+## Design vs user text — contradictions after "all designs" (round 2 of SPEC-05)
 User text and ACs win; each item is a question, not a silent choice.
 - Expected-output JSON (design 6) carries `severity/category/title`, lacks `end_line` and an
   expectation type → scoring stays file + line overlap (NG-6); shape → Q-19.
@@ -222,6 +249,7 @@ User text and ACs win; each item is a question, not a silent choice.
 - Agent cards in design 5 ("142 runs · 78% accept · $0.04 avg") — existing/other feature, untouched.
 
 ## Decisions log
+Rounds 1–4 and the approval below are SPEC-05's, carried over as made; they are not reopened.
 - Round 1: draft written; Q-1..Q-8 returned; Q-9..Q-17 pending for round 2; P-1..P-6 proposed.
 - Round 2 answers:
   - Q-1 → new run-level record (new migration; per-case rows link to it; contracts synced in both
@@ -258,7 +286,8 @@ User text and ACs win; each item is a question, not a silent choice.
   - Q-12 → slug of the finding title, `-2`, `-3` suffix on collision → AC-8.
   - Q-15 → dashboard lists all agents (incl. disabled, never run); "Run all agents" runs enabled agents
     with ≥1 case; 10 recent runs; recall sparkline → AC-35, AC-36, AC-44, EC-15.
-  - Q-16 → the review's diff size limit; over-limit creation rejected → AC-73.
+  - Q-16 → the review's diff size limit; over-limit creation rejected → AC-73. **Superseded in
+    SPEC-06, see below.**
   - Q-17 → in-progress eval runs marked failed on API start → AC-74.
   - Q-20 → Files tab = read-only list of diff file paths → AC-54.
   - Q-21 → Stats/CI tabs and Learn/Reply buttons out of scope and hidden → NG-3, NG-4, AC-60.
@@ -268,8 +297,18 @@ User text and ACs win; each item is a question, not a silent choice.
   - Q-27 → run cost "—" when any case cost is unknown → AC-45, AC-76.
   - Q-28 → expectation outside the case's diff rejected on save → AC-75.
   - No open questions remain. Ready for approval.
-- Approval: "User approval: approved" received from the caller with no blocking question left →
-  Status: approved.
+- SPEC-05 approval: "User approval: approved" received with no blocking question left →
+  SPEC-05 Status: approved.
 - Planner notes from round 3: the duplicate rule (AC-9) needs a persisted link from a case to its
   source finding; Promote (AC-59) must restore every field of the `agent_versions.config_json`
   snapshot, including linked skills if the snapshot carries them — check what the snapshot holds.
+- **[SPEC-06] Round 1:** the user re-decided Q-16 — regular reviews have no diff size limit
+  (diff-loader.ts:12-30, run-executor.ts:220-252), so AC-73 is removed (id kept as "Removed"); cases
+  are bounded only by the global 1 MB request body limit (app.ts:49) → EC-14 reworded (HTTP 413,
+  nothing stored, API error shown in the case editor; cases from findings unbounded), NG-7 added,
+  "Untrusted inputs" diff line reworded. No other decision changed; no new question opened.
+  SPEC-06 Status: draft, ready for approval.
+- **[SPEC-06] Approval:** "User approval: approved" received from the caller with no blocking question
+  left → SPEC-06 Status: approved. By the user's choice SPEC-06 lives in the same folder
+  (specs/eval-pipeline/), replacing SPEC-05's files; SPEC-05's text remains in git history, and no
+  "Superseded by" line is added.

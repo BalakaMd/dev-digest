@@ -1,7 +1,16 @@
-# Spec: Eval pipeline — regression harness for review agents
-Spec ID: SPEC-05
+# Spec: Eval pipeline — regression harness for review agents (v2)
+Spec ID: SPEC-06
 Status: approved
-Supersedes: —
+Supersedes: SPEC-05 (previous revision of specs/eval-pipeline/spec.md, kept in git history)
+
+## Change log vs SPEC-05
+- AC-73 (reject a case whose diff exceeds "the diff size limit that regular reviews apply") is
+  **removed**: no such limit exists — regular reviews send the whole diff. Case size is bounded only
+  by the API's existing global request body limit of 1 MB, which applies to manually entered cases.
+- EC-14 now states the behaviour under that global limit instead of pointing to AC-73.
+- "Untrusted inputs" (diff fragment) no longer refers to AC-73; it states the 1 MB request body limit.
+- Every other goal, non-goal, user story, AC, EC, NFR, VA and decision is carried over from SPEC-05
+  unchanged, with the same ids and wording. No id was renumbered.
 
 ## Problem and user
 A DevDigest user who tunes a review agent (edits its system prompt, switches its model, links or
@@ -31,6 +40,8 @@ Non-goals:
 - NG-3 The "Learn" and "Reply to author" finding actions shown in the FindingCard design — not shown;
   a separate spec.
 - NG-4 The "Stats" and "CI" tabs shown in the AgentEditor design — not shown; a separate spec.
+- NG-7 A case-specific diff size limit (removed AC-73 of SPEC-05); cases are bounded only by the
+  API's global request body limit (EC-14).
 
 ## User stories
 - US-1 As an agent author, I want to turn an accepted finding into a "must find" case with one
@@ -230,9 +241,8 @@ Non-goals:
   or nothing when the case was never run.
 - AC-54 (Ubiquitous): The Files tab of the case editor SHALL show, read-only, the paths of the files
   contained in the case's diff, and SHALL add nothing to the agent's input.
-- AC-73 (Unwanted behaviour): IF a case's diff exceeds the diff size limit that regular reviews apply,
-  THEN the API SHALL reject the case's creation with an error stating the limit, and SHALL store
-  nothing. [covers EC-14]
+- AC-73 Removed — superseded, see Change log vs SPEC-05. (No case-specific diff size limit; see EC-14
+  and NG-7.)
 - AC-75 (Unwanted behaviour): IF an expectation names a file that is not in the case's diff, or a line
   range that intersects no hunk of that file, THEN the API SHALL reject the save with the reason, and
   the case editor SHALL show the reason and keep Save disabled until it is fixed. [covers EC-17]
@@ -306,7 +316,11 @@ Non-goals:
 - EC-11 The API restarts while an eval run is in progress → AC-74
 - EC-12 The user leaves the page during a run and comes back → AC-62
 - EC-13 Agent edited (new version) while its eval run is in progress → AC-14, AC-15
-- EC-14 Very large diff fragment or manually pasted diff → AC-73
+- EC-14 Very large diff fragment or manually pasted diff → no case-specific size limit (AC-73
+  removed, NG-7). A manually entered case whose save request exceeds the API's existing global request
+  body limit of 1 MB is rejected by the API with HTTP 413 and nothing is stored; the case editor shows
+  the error message returned by the API. A case created from a finding is not size-bounded, as
+  regular reviews are not: its input is the whole patch of the finding's file (AC-13).
 - EC-15 Agent disabled (`enabled = false`) → listed on the dashboard (AC-35), skipped by "Run all
   agents" (AC-44)
 - EC-16 Model is unpriced → AC-76
@@ -347,8 +361,9 @@ Non-goals:
 
 ## Untrusted inputs
 - Diff fragment and manually pasted diff — treated as data; passed to the model only through the
-  engine's untrusted wrapper; rendered as text; size bounded by the review's diff limit (AC-73); never executed or followed as
-  instructions.
+  engine's untrusted wrapper; rendered as text; a manually entered case is size-bounded only by the
+  API's global request body limit of 1 MB (EC-14), a diff fragment taken from a finding is not
+  size-bounded, as in regular reviews; never executed or followed as instructions.
 - PR title / body — same rules as the diff.
 - Expected output JSON — parsed and validated against the expected-output contract (AC-71) before
   saving; rejected with the reason when invalid; never evaluated as code.
@@ -357,4 +372,5 @@ Non-goals:
 - Case name — validated non-empty and length-bounded, rendered as text.
 
 ## Open questions
-None. All questions Q-1..Q-28 are answered; see the Decisions log in design-review.md.
+None. All questions Q-1..Q-28 of SPEC-05 are answered (see the Decisions log in design-review.md);
+Q-16 is re-decided by the user in SPEC-06 (AC-73 removed).

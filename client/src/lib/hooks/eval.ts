@@ -4,6 +4,7 @@
 "use client";
 
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { api } from "../api";
 import type {
   EvalCaseCreateInput,
@@ -48,6 +49,9 @@ export function useEvalCases(agentId: string | null | undefined) {
     queryKey: ["eval-cases", agentId],
     queryFn: () => api.get<EvalCaseSummary[]>(`/agents/${agentId}/eval-cases`),
     enabled: !!agentId,
+    // `last_result` changes when a run finishes in the background; the global 30 s staleTime
+    // would keep "never run" on a tab re-opened right after the run ended.
+    staleTime: 0,
   });
 }
 
@@ -159,6 +163,22 @@ export function useEvalCaseRun(runId: string | null | undefined, caseRunId: stri
     queryFn: () => api.get<EvalCaseRunDetail>(`/eval-runs/${runId}/cases/${caseRunId}`),
     enabled: !!runId && !!caseRunId,
   });
+}
+
+/**
+ * Returns a stable callback to call once when a watched run is seen going running → done/failed.
+ * The mutation-time invalidation fires before the run's results exist, and polling refreshes only
+ * the run lists — so everything that derives from the results (case `last_result`, case detail,
+ * dashboard, other cached period lists) must be refreshed at the observed end of the run.
+ */
+export function useInvalidateOnRunFinish(agentId: string) {
+  const qc = useQueryClient();
+  return useCallback(() => {
+    qc.invalidateQueries({ queryKey: ["eval-runs", agentId] });
+    qc.invalidateQueries({ queryKey: ["eval-cases", agentId] });
+    qc.invalidateQueries({ queryKey: ["eval-case"] });
+    qc.invalidateQueries({ queryKey: ["eval-dashboard"] });
+  }, [qc, agentId]);
 }
 
 export function useStartEvalRun(agentId: string) {

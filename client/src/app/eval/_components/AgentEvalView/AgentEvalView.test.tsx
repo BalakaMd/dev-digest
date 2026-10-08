@@ -72,7 +72,7 @@ function setup(runs: EvalSuiteRun[] | ((req: RecordedRequest) => EvalSuiteRun[])
 
 function renderView(props: Partial<React.ComponentProps<typeof AgentEvalView>> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return { client, ...render(
     <QueryClientProvider client={client}>
       <NextIntlClientProvider locale="en" messages={{ eval: evalMessages, common }}>
         <ToastProvider>
@@ -80,7 +80,7 @@ function renderView(props: Partial<React.ComponentProps<typeof AgentEvalView>> =
         </ToastProvider>
       </NextIntlClientProvider>
     </QueryClientProvider>,
-  );
+  ) };
 }
 
 const THREE = [
@@ -464,6 +464,24 @@ describe("AgentEvalView — Run eval, progress and announcements (AC-61, 62, NFR
     renderView();
     await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("Running 1/8"));
     await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("Eval run finished: 6/7 cases passed"), { timeout: 6000 });
+  }, 10000);
+
+  it("refreshes the case list and the cached dashboard once the run is seen finishing", async () => {
+    let calls = 0;
+    const { count } = setup(() => {
+      calls += 1;
+      return calls <= 2
+        ? [run("x", { status: "running", cases_done: 1, cases_total: 8, recall: null, precision: null, citation_accuracy: null, cases_passed: 0 })]
+        : [run("x", { cases_total: 8, cases_done: 8, cases_passed: 6, cases_errored: 1 })];
+    });
+    const { client } = renderView();
+    client.setQueryData(["eval-dashboard"], { agents: [], recent_runs: [] });
+    await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("Running 1/8"));
+    expect(count("GET", "/agents/a1/eval-cases")).toBe(1);
+    expect(client.getQueryState(["eval-dashboard"])?.isInvalidated).toBe(false);
+    await waitFor(() => expect(screen.getByTestId("run-status")).toHaveTextContent("Eval run finished"), { timeout: 6000 });
+    await waitFor(() => expect(count("GET", "/agents/a1/eval-cases")).toBe(2));
+    expect(client.getQueryState(["eval-dashboard"])?.isInvalidated).toBe(true);
   }, 10000);
 
   it("announces the failure when a run in progress fails", async () => {

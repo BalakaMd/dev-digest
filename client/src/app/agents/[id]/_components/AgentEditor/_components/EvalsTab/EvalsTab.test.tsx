@@ -251,6 +251,35 @@ describe("EvalsTab — metrics and runs (AC-27, 29, 58, 61, 62, 63, NFR-5, 6)", 
     await client.invalidateQueries({ queryKey: ["eval-runs", "ag1"] });
     await waitFor(() => expect(screen.getAllByText("Eval run finished: 3/5 cases passed").length).toBeGreaterThan(0));
   });
+
+  it("refetches the case list when a watched run finishes, so rows show their last result", async () => {
+    let phase: "running" | "done" = "running";
+    installFetch({
+      "GET /agents/ag1/eval-cases": () =>
+        phase === "running"
+          ? [kase("c3", "never-ran")]
+          : [kase("c3", "never-ran", { last_result: { passed: true, expected_count: 1, returned_count: 1, duration_ms: 1, cost_usd: null, ran_at: "x" } })],
+      "GET /agents/ag1/eval-runs": () =>
+        phase === "running"
+          ? [run("r1", { status: "running", cases_done: 1, finished_at: null, recall: null })]
+          : [run("r1")],
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={{ eval: evalMessages, common }}>
+          <ToastProvider>
+            <EvalsTab agent={AGENT} />
+          </ToastProvider>
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("Running 1/5")).toBeInTheDocument();
+    expect(within(screen.getByTestId("case-row-c3")).getByText("never run")).toBeInTheDocument();
+    phase = "done";
+    await client.invalidateQueries({ queryKey: ["eval-runs", "ag1"] });
+    await waitFor(() => expect(within(screen.getByTestId("case-row-c3")).getByText("passed")).toBeInTheDocument());
+  });
 });
 
 describe("EvalsTab — case editor (S12)", () => {

@@ -16,7 +16,7 @@ import type { EvalSuiteRun } from "@devdigest/shared";
 import { AppShell } from "../../../../components/app-shell";
 import { EvalMetricTiles } from "../../../../components/eval-metric-tiles";
 import { useAgent, useAgents } from "../../../../lib/hooks/agents";
-import { useEvalCases, useEvalCompare, useEvalRuns, useStartEvalRun } from "../../../../lib/hooks/eval";
+import { useEvalCases, useEvalCompare, useEvalRuns, useInvalidateOnRunFinish, useStartEvalRun } from "../../../../lib/hooks/eval";
 import { notify } from "../../../../lib/toast";
 import { CaseResultDrawer } from "./_components/CaseResultDrawer";
 import { CompareModal } from "./_components/CompareModal";
@@ -45,6 +45,7 @@ export function AgentEvalView({ agentId, onCompare, onOpenRun }: AgentEvalViewPr
   const agents = useAgents();
   const cases = useEvalCases(agentId);
   const startRun = useStartEvalRun(agentId);
+  const invalidateOnRunFinish = useInvalidateOnRunFinish(agentId);
   const [period, setPeriod] = React.useState<Period>(DEFAULT_PERIOD);
   const [selected, setSelected] = React.useState<string[]>([]);
   const [announcement, setAnnouncement] = React.useState("");
@@ -93,6 +94,7 @@ export function AgentEvalView({ agentId, onCompare, onOpenRun }: AgentEvalViewPr
     const prev = watched.current ? recent.find((r) => r.id === watched.current) : undefined;
     if (!prev) return;
     watched.current = null;
+    invalidateOnRunFinish();
     const msg =
       prev.status === "failed"
         ? t("agentView.runFailed", { reason: prev.error ?? "" })
@@ -100,7 +102,7 @@ export function AgentEvalView({ agentId, onCompare, onOpenRun }: AgentEvalViewPr
     setAnnouncement(msg);
     if (prev.status === "failed") notify.error(msg);
     else notify.success(msg);
-  }, [running, recent, t]);
+  }, [running, recent, t, invalidateOnRunFinish]);
 
   const caseCount = cases.data?.length ?? 0;
   const noCases = !cases.isLoading && !cases.isError && caseCount === 0;

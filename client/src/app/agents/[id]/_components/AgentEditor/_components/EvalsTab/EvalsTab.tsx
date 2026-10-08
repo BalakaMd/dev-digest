@@ -17,6 +17,7 @@ import {
   useEvalCases,
   useEvalRuns,
   useRunEvalCase,
+  useInvalidateOnRunFinish,
   useStartEvalRun,
 } from "../../../../../../../lib/hooks/eval";
 import { notify } from "../../../../../../../lib/toast";
@@ -39,6 +40,7 @@ export function EvalsTab({
   const cases = useEvalCases(agent.id);
   const runs = useEvalRuns(agent.id);
   const startRun = useStartEvalRun(agent.id);
+  const invalidateOnRunFinish = useInvalidateOnRunFinish(agent.id);
   const runCase = useRunEvalCase(agent.id);
   const deleteCase = useDeleteEvalCase(agent.id);
   const [toDelete, setToDelete] = React.useState<EvalCaseSummary | null>(null);
@@ -66,6 +68,8 @@ export function EvalsTab({
     const prev = watched.current && history.find((r) => r.id === watched.current);
     if (!prev) return;
     watched.current = null;
+    // The run's case results landed after the mutation's own invalidation — refresh what derives from them.
+    invalidateOnRunFinish();
     const msg =
       prev.status === "failed"
         ? t("evalsTab.runFailed", { reason: prev.error ?? "" })
@@ -73,7 +77,7 @@ export function EvalsTab({
     setAnnouncement(msg);
     if (prev.status === "failed") notify.error(msg);
     else notify.success(msg);
-  }, [running, history, t]);
+  }, [running, history, t, invalidateOnRunFinish]);
 
   const list = cases.data ?? [];
   const noCases = !cases.isLoading && !cases.isError && list.length === 0;

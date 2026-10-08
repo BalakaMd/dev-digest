@@ -5,6 +5,7 @@ import type {
   EvalCaseRunDetail,
   EvalCaseSummary,
   EvalDashboardOverview,
+  EvalExpectation,
   EvalSuiteRun,
 } from '@devdigest/shared';
 import type { CompareCaseRow, RunScore } from './types.js';
@@ -75,6 +76,14 @@ export class EvalRepository {
     patch: casesRepo.UpdateCaseInput,
   ): Promise<EvalCaseDetail | undefined> {
     return casesRepo.updateCase(this.db, workspaceId, caseId, patch);
+  }
+
+  setFirstExpectationType(
+    workspaceId: string,
+    findingId: string,
+    type: EvalExpectation['type'],
+  ): Promise<boolean> {
+    return casesRepo.setFirstExpectationType(this.db, workspaceId, findingId, type);
   }
 
   deleteCase(workspaceId: string, caseId: string): Promise<boolean> {

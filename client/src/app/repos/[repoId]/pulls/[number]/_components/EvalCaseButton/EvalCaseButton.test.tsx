@@ -3,8 +3,8 @@ import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/re
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EvalCaseFromFindingResponse } from "@devdigest/shared";
-import messages from "../../../../../../../../../../messages/en/prReview.json";
-import { installFetch, apiError } from "../../../../../../../../../test/context-docs-fixtures";
+import messages from "../../../../../../../../messages/en/prReview.json";
+import { installFetch, apiError } from "../../../../../../../test/context-docs-fixtures";
 import { EvalCaseButton } from "./EvalCaseButton";
 
 afterEach(() => {
@@ -13,6 +13,7 @@ afterEach(() => {
 });
 
 const BUTTON = { name: "Turn into eval case" };
+const BUTTON_EXISTS = { name: "Already an eval case" };
 
 function caseResponse(created: boolean, name = "stripe-key-leak"): EvalCaseFromFindingResponse {
   return {
@@ -70,6 +71,7 @@ describe("EvalCaseButton", () => {
     renderButton(true);
     fireEvent.click(screen.getByRole("button", BUTTON));
     expect(await screen.findByRole("status")).toHaveTextContent("Already an eval case: existing-case");
+    expect(screen.getByRole("button", BUTTON_EXISTS)).toBeDisabled();
   });
 
   it("shows the API error message and keeps the button available for a retry (AC-6, AC-7)", async () => {
@@ -95,7 +97,7 @@ describe("EvalCaseButton", () => {
   it("is disabled and names the existing case when one already exists, sending nothing (AC-2)", () => {
     const net = installFetch({});
     renderButton(true, "stripe-key");
-    const button = screen.getByRole("button", BUTTON);
+    const button = screen.getByRole("button", BUTTON_EXISTS);
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription("Already an eval case: stripe-key");
     fireEvent.click(button);
@@ -105,7 +107,7 @@ describe("EvalCaseButton", () => {
   it("prefers 'already exists' over the needs-decision hint for an undecided finding (Q-3)", () => {
     installFetch({});
     renderButton(false, "stripe-key");
-    expect(screen.getByRole("button", BUTTON)).toBeDisabled();
+    expect(screen.getByRole("button", BUTTON_EXISTS)).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent("Already an eval case: stripe-key");
     expect(screen.queryByText(/accept or dismiss this finding first/i)).not.toBeInTheDocument();
   });
@@ -115,7 +117,23 @@ describe("EvalCaseButton", () => {
     renderButton(true);
     fireEvent.click(screen.getByRole("button", BUTTON));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/stripe-key-leak/));
-    expect(screen.getByRole("button", BUTTON)).toBeDisabled();
+    expect(screen.getByRole("button", BUTTON_EXISTS)).toBeDisabled();
+    expect(screen.queryByRole("button", BUTTON)).not.toBeInTheDocument();
+  });
+
+  it("keeps the 'Turn into eval case' label when no case exists", () => {
+    installFetch({});
+    renderButton(true);
+    expect(screen.getByRole("button", BUTTON)).toBeEnabled();
+    expect(screen.queryByRole("button", BUTTON_EXISTS)).not.toBeInTheDocument();
+  });
+
+  it("does not stretch the button to the status text: wrapper aligns items to start (R1)", () => {
+    installFetch({});
+    const { container } = renderButton(true, "a-very-long-eval-case-name-that-would-otherwise-widen-the-button");
+    const wrap = container.firstElementChild as HTMLElement;
+    expect(wrap.style.alignItems).toBe("flex-start");
+    expect(wrap.style.maxWidth).not.toBe("");
   });
 
   it("renders the case name as text, never as markup (NFR-3)", async () => {

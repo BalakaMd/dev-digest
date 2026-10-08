@@ -28,6 +28,16 @@ vi.mock("@/lib/hooks/reviews", () => ({
   useFindingAction: () => ({ mutate: actionMutate, isPending: false, variables: undefined }),
 }));
 
+let evalCasesData: { name: string; source_finding_id: string | null }[] = [];
+const evalCasesAgents = vi.fn();
+vi.mock("@/lib/hooks/eval", () => ({
+  useEvalCasesForAgents: (ids: string[]) => {
+    evalCasesAgents(ids);
+    return evalCasesData;
+  },
+  useCaseFromFinding: () => ({ mutate: vi.fn(), isPending: false, isError: false, data: undefined }),
+}));
+
 vi.mock("@/lib/hooks/smart-diff", () => ({
   usePrSmartDiff: () => ({ data: smartData, isLoading: smartLoading, isError: smartError }),
 }));
@@ -155,6 +165,8 @@ beforeEach(() => {
   smartError = false;
   commentsData = [];
   actionMutate.mockReset();
+  evalCasesData = [];
+  evalCasesAgents.mockReset();
 });
 
 describe("DiffTab — role groups", () => {
@@ -484,5 +496,22 @@ describe("DiffTab — deep-link target", () => {
     expect(marked).not.toBeNull();
     expect(screen.getByText("first doc").closest("[data-target-line]")).toBeNull();
     expect(screen.getByText("README.md").closest("[tabindex='-1']")).toBe(document.activeElement);
+  });
+});
+
+describe("DiffTab — eval case lookup", () => {
+  it("asks for the eval cases of each run's agent and flags findings that already have a case", () => {
+    reviewsData = [
+      review({
+        id: "r2",
+        agent_id: "agent-b",
+        findings: [finding({ id: "f-b", title: "From B", file: "src/app.ts", start_line: 6, accepted_at: "2026-10-08T00:00:00Z" })],
+      }),
+      REVIEW_WITH_FINDINGS,
+    ];
+    evalCasesData = [{ name: "Case from B", source_finding_id: "f-b" }];
+    renderTab();
+    expect(evalCasesAgents).toHaveBeenLastCalledWith(["agent-b", "agent-a"]);
+    expect(screen.getByText("Already an eval case: Case from B")).toBeInTheDocument();
   });
 });

@@ -163,3 +163,34 @@ describe("FindingCard — cited project documents (AC-50)", () => {
     expect(within(document.body).getByRole("button", { name: "<img src=x onerror=alert(1)>.md" })).toBeInTheDocument();
   });
 });
+
+describe("FindingCard decision highlight", () => {
+  const pressedOf = (f: FindingRecord) => {
+    renderWithIntl(<FindingCard f={f} defaultExpanded onAction={() => {}} />);
+    return {
+      accept: screen.getByRole("button", { name: "Accept" }),
+      reject: screen.getByRole("button", { name: "Reject" }),
+    };
+  };
+
+  it("marks only Accept when accepted", () => {
+    const { accept, reject } = pressedOf({ ...FINDING, accepted_at: "2026-10-08T00:00:00Z" });
+    expect(accept).toHaveAttribute("data-decision", "accepted");
+    expect(accept).toHaveAttribute("aria-pressed", "true");
+    expect(reject).not.toHaveAttribute("data-decision");
+    expect(reject).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("marks only Reject when dismissed", () => {
+    const { accept, reject } = pressedOf({ ...FINDING, dismissed_at: "2026-10-08T00:00:00Z" });
+    expect(reject).toHaveAttribute("data-decision", "dismissed");
+    expect(reject).toHaveAttribute("aria-pressed", "true");
+    expect(accept).not.toHaveAttribute("data-decision");
+  });
+
+  it("marks neither when undecided", () => {
+    const { accept, reject } = pressedOf(FINDING);
+    expect(accept).not.toHaveAttribute("data-decision");
+    expect(reject).not.toHaveAttribute("data-decision");
+  });
+});

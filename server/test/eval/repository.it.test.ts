@@ -80,6 +80,36 @@ d('EvalRepository', () => {
     expect((await repo.getCaseBySourceFinding(ws, f.id))?.id).toBe(first.case.id);
   });
 
+  it('setFirstExpectationType: changes only [0].type; idempotent; workspace- and source-scoped (D1/D2)', async () => {
+    const [f] = await pg.handle.db.select().from(t.findings).limit(1);
+    if (!f) return;
+    const two: EvalExpectation[] = [
+      { type: 'must_find', file: 'a.ts', start_line: 1, end_line: 3, title: 'T0', severity: 'WARNING' },
+      { type: 'must_find', file: 'b.ts', start_line: 5, end_line: 6 },
+    ];
+    const made = await repo.insertCase(ws, {
+      agentId, name: 'sync-me', inputDiff: 'diff-x', inputFiles: ['a.ts'],
+      inputMeta: { title: 'T', body: 'B' }, expectedOutput: two, sourceFindingId: f.id,
+    });
+    // the finding may already have a case from the previous test: reuse it, rewriting its expectations
+    const existing = made.case;
+    await repo.updateCase(ws, existing.id, { expectedOutput: two });
+    const manual = await newCase('manual-untouched');
+    const before = await repo.getCase(ws, existing.id);
+
+    expect(await repo.setFirstExpectationType('00000000-0000-0000-0000-000000000000', f.id, 'must_not_flag')).toBe(false);
+    expect(await repo.setFirstExpectationType(ws, f.id, 'must_find')).toBe(false); // same type
+    expect(await repo.setFirstExpectationType(ws, f.id, 'must_not_flag')).toBe(true);
+
+    const after = await repo.getCase(ws, existing.id);
+    expect(after!.expected_output[0]).toEqual({ ...before!.expected_output[0], type: 'must_not_flag' });
+    expect(after!.expected_output[1]).toEqual(two[1]);
+    expect({ ...after, expected_output: null }).toEqual({ ...before, expected_output: null });
+    expect(await repo.setFirstExpectationType(ws, f.id, 'must_not_flag')).toBe(false); // repeat
+    expect((await repo.getCase(ws, manual.case.id))!.expected_output).toEqual(EXP); // manual case
+    expect(await repo.setFirstExpectationType(ws, '00000000-0000-0000-0000-000000000000', 'must_find')).toBe(false);
+  });
+
   it('suite runs: one running run per agent, progress, finish, history, last_result, boot reap', async () => {
     const c = (await repo.listCases(ws, agentId))[0]!;
     const r1 = await repo.createSuiteRun(ws, { agentId, agentVersion: 1, casesTotal: 2 });

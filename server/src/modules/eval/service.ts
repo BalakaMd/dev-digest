@@ -17,9 +17,9 @@ import type {
 import { AppError, NotFoundError, ValidationError } from '../../platform/errors.js';
 import { EVAL_RECENT_RUNS, EVAL_SPARK_POINTS } from './constants.js';
 import { compareRuns, diffConfigs } from './compare.js';
-import { filesOf, patchForFile, slugify, uniqueName, validateExpectationsAgainstDiff } from './helpers.js';
+import { expectationTypeFor, filesOf, patchForFile, slugify, uniqueName, validateExpectationsAgainstDiff } from './helpers.js';
 import { EvalRunExecutor } from './run-executor.js';
-import type { ConfigSnapshot, EvalAgent, EvalRunConfig, EvalServiceDeps } from './types.js';
+import type { ConfigSnapshot, EvalAgent, EvalRunConfig, EvalServiceDeps, FindingDecision } from './types.js';
 
 const DAY_MS = 86_400_000;
 
@@ -52,7 +52,7 @@ export class EvalService {
     const facts = await findings.facts(findingId);
     if (!facts || facts.workspaceId !== workspaceId) throw new NotFoundError('Finding not found');
 
-    // AC-9: a finding is at most one case; the decision may have changed since (AC-65).
+    // AC-9: a finding is at most one case; a later decision change is carried over by syncCaseWithDecision.
     const existing = await repo.getCaseBySourceFinding(workspaceId, findingId);
     if (existing) return { case: existing, created: false };
 
@@ -82,7 +82,7 @@ export class EvalService {
       inputFiles: filesOf(parseDiff(patch)),
       expectedOutput: [
         {
-          type: facts.accepted ? 'must_find' : 'must_not_flag',
+          type: expectationTypeFor(facts.accepted ? 'accepted' : 'dismissed'),
           file: facts.file,
           start_line: facts.startLine,
           end_line: facts.endLine,
@@ -94,6 +94,14 @@ export class EvalService {
       sourceFindingId: findingId,
     });
     return result;
+  }
+
+  /**
+   * The decision on a finding changed: the case made from it (if any) follows. Changes only the type
+   * of the first expectation; true when a case was updated (D1/D2).
+   */
+  async syncCaseWithDecision(workspaceId: string, findingId: string, decision: FindingDecision): Promise<boolean> {
+    return this.deps.repo.setFirstExpectationType(workspaceId, findingId, expectationTypeFor(decision));
   }
 
   async listCases(workspaceId: string, agentId: string): Promise<EvalCaseSummary[]> {

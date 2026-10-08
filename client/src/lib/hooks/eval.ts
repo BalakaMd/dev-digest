@@ -3,7 +3,7 @@
    Types only from @devdigest/shared (value imports blank the page, see INSIGHTS). */
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type {
   EvalCaseCreateInput,
@@ -48,6 +48,17 @@ export function useEvalCases(agentId: string | null | undefined) {
     queryKey: ["eval-cases", agentId],
     queryFn: () => api.get<EvalCaseSummary[]>(`/agents/${agentId}/eval-cases`),
     enabled: !!agentId,
+  });
+}
+
+/** Eval cases of several agents at once (same cache keys as `useEvalCases`), flattened. */
+export function useEvalCasesForAgents(agentIds: readonly string[]): EvalCaseSummary[] {
+  return useQueries({
+    queries: agentIds.map((agentId) => ({
+      queryKey: ["eval-cases", agentId],
+      queryFn: () => api.get<EvalCaseSummary[]>(`/agents/${agentId}/eval-cases`),
+    })),
+    combine: (results) => results.flatMap((r) => r.data ?? []),
   });
 }
 

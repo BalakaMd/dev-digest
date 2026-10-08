@@ -151,7 +151,9 @@ export class ReviewService {
     findingId: string,
     action: FindingActionKind,
   ): Promise<{ finding: ReviewDtoFinding }> {
-    return actOnFindingImpl(this.repo, workspaceId, findingId, action);
+    return actOnFindingImpl(this.repo, workspaceId, findingId, action, (e) =>
+      this.container.evalService.syncCaseWithDecision(e.workspaceId, e.findingId, e.decision),
+    );
   }
 
   // ===========================================================================

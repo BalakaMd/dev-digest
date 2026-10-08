@@ -250,6 +250,32 @@ export async function updateCase(
   return row ? detailOf(db, row) : undefined;
 }
 
+/**
+ * Sets ONLY `expected_output[0].type` of the agent case made from `findingId` (one atomic UPDATE
+ * with `jsonb_set`, so other fields/expectations are never rewritten). True when a row changed;
+ * false when there is no such case, it is in another workspace, or it already has that type.
+ */
+export async function setFirstExpectationType(
+  db: Db,
+  workspaceId: string,
+  findingId: string,
+  type: EvalExpectation['type'],
+): Promise<boolean> {
+  const rows = await db
+    .update(t.evalCases)
+    .set({ expectedOutput: sql`jsonb_set(${t.evalCases.expectedOutput}, '{0,type}', to_jsonb(${type}::text))` })
+    .where(
+      and(
+        eq(t.evalCases.workspaceId, workspaceId),
+        eq(t.evalCases.ownerKind, 'agent'),
+        eq(t.evalCases.sourceFindingId, findingId),
+        sql`${t.evalCases.expectedOutput}->0->>'type' is distinct from ${type}::text`,
+      ),
+    )
+    .returning({ id: t.evalCases.id });
+  return rows.length > 0;
+}
+
 /** Delete a case; its run rows stay (case_id is set null, EC-9). False when it did not exist. */
 export async function deleteCase(db: Db, workspaceId: string, caseId: string): Promise<boolean> {
   const rows = await db

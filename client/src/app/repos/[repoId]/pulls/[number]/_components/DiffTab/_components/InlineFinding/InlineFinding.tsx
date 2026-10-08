@@ -8,17 +8,22 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, Button, Markdown, SEV } from "@devdigest/ui";
 import type { FindingRecord, FindingActionKind } from "@devdigest/shared";
+import { EvalCaseButton } from "../../../EvalCaseButton";
 import { SEVERITY_LABEL_KEY } from "../../constants";
+import { decisionButtonStyle } from "../../../../../../../../../lib/finding-decision-style";
 import { s, chevronFor } from "./styles";
 
 export function InlineFinding({
   finding,
   pending,
   onAction,
+  evalCaseName,
 }: {
   finding: FindingRecord;
   pending: boolean;
   onAction: (action: FindingActionKind) => void;
+  /** Name of an eval case already made from this finding, if any. */
+  evalCaseName?: string | null;
 }) {
   const t = useTranslations("prReview");
   // Starts expanded (S6 default); the header alone still collapses to one
@@ -56,11 +61,14 @@ export function InlineFinding({
           <Markdown>{finding.rationale}</Markdown>
           <div style={s.actions}>
             <Button
-              kind="secondary"
+              kind="ghost"
               size="sm"
               icon="Check"
               disabled={pending}
               active={accepted}
+              aria-pressed={accepted}
+              data-decision={accepted ? "accepted" : undefined}
+              style={decisionButtonStyle("accept", accepted)}
               onClick={() => onAction("accept")}
             >
               {t("finding.accept")}
@@ -71,10 +79,14 @@ export function InlineFinding({
               icon="X"
               disabled={pending}
               active={dismissed}
+              aria-pressed={dismissed}
+              data-decision={dismissed ? "dismissed" : undefined}
+              style={decisionButtonStyle("dismiss", dismissed)}
               onClick={() => onAction("dismiss")}
             >
               {t("finding.dismiss")}
             </Button>
+            <EvalCaseButton findingId={finding.id} decided={muted} existingCaseName={evalCaseName} />
           </div>
         </div>
       )}

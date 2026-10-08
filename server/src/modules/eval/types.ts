@@ -128,6 +128,9 @@ export interface EvalAgentsPort {
   skillName(workspaceId: string, skillId: string): Promise<string | undefined>;
 }
 
+/** The decision a user can take on a finding; "cleared" is deliberately not part of it. */
+export type FindingDecision = 'accepted' | 'dismissed';
+
 /** What the service needs to know about a finding (AC-1, AC-2, AC-7). */
 export interface EvalFindingFacts {
   workspaceId: string;

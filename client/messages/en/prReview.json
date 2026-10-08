@@ -16,6 +16,7 @@
     "openCitedDoc": "Open {path}",
     "evalCase": {
       "button": "Turn into eval case",
+      "buttonExists": "Already an eval case",
       "needsDecision": "Accept or dismiss this finding first, then it can become an eval case.",
       "created": "Eval case created: {name}",
       "alreadyExists": "Already an eval case: {name}",

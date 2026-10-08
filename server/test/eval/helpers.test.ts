@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { UnifiedDiff } from '@devdigest/shared';
 import {
+  expectationTypeFor,
   filesOf,
   patchForFile,
   slugify,
@@ -117,5 +118,12 @@ describe('validateExpectationsAgainstDiff (AC-75)', () => {
 describe('filesOf', () => {
   it('lists paths in diff order', () => {
     expect(filesOf(diff)).toEqual(['src/a.ts', 'bin.png']);
+  });
+});
+
+describe('expectationTypeFor (D1)', () => {
+  it('maps accepted to must_find and dismissed to must_not_flag', () => {
+    expect(expectationTypeFor('accepted')).toBe('must_find');
+    expect(expectationTypeFor('dismissed')).toBe('must_not_flag');
   });
 });

@@ -107,15 +107,15 @@ describeDb('eval cases from findings', () => {
     expect(names).toEqual(['same-title', 'same-title-2', 'same-title-3']);
   });
 
-  it('AC-65: a later decision change leaves the case type unchanged', async () => {
+  it('AC-65 replaced by decision-sync (D1): a decision change via the API re-types the case', async () => {
     const a = await createAgent(env);
     const rid = (await seedReview(env, prId, a.id)).id;
     const f = await seedFinding(env, rid, { accepted: true, title: 'Flip me' });
     const created = (await post(f.id)).json().case;
-    await env.pg.handle.db.update(t.findings).set({ acceptedAt: null, dismissedAt: new Date() }).where(eq(t.findings.id, f.id));
+    expect((await app.inject({ method: 'POST', url: `/findings/${f.id}/dismiss` })).statusCode).toBe(200);
     const list = await casesOf(a.id);
     expect(list).toHaveLength(1);
-    expect(list[0]!.expected_output[0].type).toBe('must_find');
+    expect(list[0]!.expected_output[0].type).toBe('must_not_flag');
     // and the card can still ask again: the existing case comes back
     const again = await post(f.id);
     expect(again.json().created).toBe(false);

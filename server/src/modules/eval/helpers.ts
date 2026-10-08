@@ -1,7 +1,13 @@
 import type { EvalExpectation, UnifiedDiff } from '@devdigest/shared';
 import { EVAL_DEFAULT_SLUG, EVAL_SLUG_MAX } from './constants.js';
+import type { FindingDecision } from './types.js';
 
 /** Pure helpers for eval cases (AC-8, AC-13, AC-75). No IO. */
+
+/** The expectation type a decision on a finding stands for: accepted -> must_find, dismissed -> must_not_flag. */
+export function expectationTypeFor(decision: FindingDecision): 'must_find' | 'must_not_flag' {
+  return decision === 'accepted' ? 'must_find' : 'must_not_flag';
+}
 
 /** AC-8: lower-case words joined by `-`; bounded length; empty result -> `eval-case`. */
 export function slugify(title: string): string {

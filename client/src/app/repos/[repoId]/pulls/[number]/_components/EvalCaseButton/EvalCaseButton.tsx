@@ -9,8 +9,8 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@devdigest/ui";
-import { useCaseFromFinding } from "../../../../../../../../../lib/hooks/eval";
-import { notify } from "../../../../../../../../../lib/toast";
+import { useCaseFromFinding } from "../../../../../../../lib/hooks/eval";
+import { notify } from "../../../../../../../lib/toast";
 import { s } from "./styles";
 
 export function EvalCaseButton({
@@ -52,7 +52,7 @@ export function EvalCaseButton({
         aria-describedby={describedBy}
         onClick={onClick}
       >
-        {t("finding.evalCase.button")}
+        {t(existingName ? "finding.evalCase.buttonExists" : "finding.evalCase.button")}
       </Button>
       {!decided && !existingName && (
         <span id={hintId} style={s.hint}>

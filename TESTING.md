@@ -52,7 +52,10 @@ fails there if the win32 prebuilt is missing).
 (pgvector) via testcontainers, builds the Fastify app, migrates + seeds, and
 drives routes end-to-end: reviews + run lifecycle (incl. grounding), agents CRUD,
 repo-intel symbol clamping, pulls comments, settings models. They self-skip when
-Docker is unavailable.
+Docker is unavailable. The eval pipeline suites live in `server/test/eval/` (unit:
+scoring, compare, helpers, contracts; `*.it.test.ts`: cases, runs,
+dashboard/compare/restart, agent restore, repository). They inject a scripted LLM
+and trap `fetch`, so no model is called.
 
 **reviewer-core** — the pure engine: `toReview` selection, prompt construction,
 and a `run` with a stubbed model → grounded findings. No DB / GitHub / FS.
@@ -78,6 +81,7 @@ cd mcp           && npm test            # + npm run typecheck
 cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'   # unit, no Docker
 cd server && pnpm exec vitest run .it.test                      # integration, needs Docker
 cd server && pnpm test                                          # both
+cd server && pnpm verify:l06   # typecheck + test/eval/ with EVAL_VERIFY_STRICT=1 (needs Docker, no model calls)
 
 # browser e2e (needs the full stack + agent-browser CLI)
 ./scripts/dev.sh
@@ -97,6 +101,9 @@ cd evals && pnpm eval:skills                   # or eval:agents / eval:workflow 
   (`vitest run --exclude '**/*.it.test.ts'`); the integration lane selects only
   it (`vitest run .it.test`). A DB-backed test that imports `test/helpers/pg.ts`
   must use the `.it.test.ts` suffix.
+- **`pnpm verify:l06`** runs the server typecheck and every test under
+  `server/test/eval/`. `EVAL_VERIFY_STRICT=1` makes a missing Docker a failure
+  instead of a silent skip. See [docs/eval-pipeline.md](docs/eval-pipeline.md).
 - **`server/package.json` is `skip-worktree`** (a local variant diverges from the
   committed file). CI therefore invokes the split with
   `pnpm exec vitest run …` rather than relying on committed `test:unit` /

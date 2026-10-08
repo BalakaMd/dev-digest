@@ -15,6 +15,7 @@ import history from './history/routes.js';
 import contextDocs from './context-docs/routes.js';
 import onboarding from './onboarding/routes.js';
 import brief from './brief/routes.js';
+import evalPipeline from './eval/routes.js';
 
 /**
  * Module registry. Each feature module is a Fastify plugin in
@@ -46,4 +47,5 @@ export const modules: Record<string, FastifyPluginAsync> = {
   contextDocs,
   onboarding,
   brief,
+  eval: evalPipeline,
 };

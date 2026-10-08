@@ -13,7 +13,14 @@
     "outOfScope": "Outside PR scope",
     "outOfScopeHint": "This finding is real and grounded, but falls outside what the PR's derived intent says it is meant to do.",
     "citedDocs": "Cited documents",
-    "openCitedDoc": "Open {path}"
+    "openCitedDoc": "Open {path}",
+    "evalCase": {
+      "button": "Turn into eval case",
+      "needsDecision": "Accept or dismiss this finding first, then it can become an eval case.",
+      "created": "Eval case created: {name}",
+      "alreadyExists": "Already an eval case: {name}",
+      "failed": "Could not create the eval case"
+    }
   },
   "trifecta": {
     "lethal": "LETHAL TRIFECTA — ALL 3 PRESENT",

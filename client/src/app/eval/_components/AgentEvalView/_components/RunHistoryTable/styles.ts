@@ -1,0 +1,50 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for RunHistoryTable. */
+export const s = {
+  head: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10 } satisfies CSSProperties,
+  title: {
+    fontSize: 11.5,
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  count: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+  actions: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
+  hint: { fontSize: 12.5, color: "var(--text-muted)" } satisfies CSSProperties,
+  empty: { fontSize: 13.5, color: "var(--text-secondary)" } satisfies CSSProperties,
+  wrap: {
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    overflowX: "auto",
+  } satisfies CSSProperties,
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 } satisfies CSSProperties,
+  th: {
+    textAlign: "left",
+    padding: "9px 14px",
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+    borderBottom: "1px solid var(--border)",
+  } satisfies CSSProperties,
+  td: { padding: "10px 14px", borderBottom: "1px solid var(--border)" } satisfies CSSProperties,
+  mono: { fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)" } satisfies CSSProperties,
+  version: { fontFamily: "var(--font-mono, monospace)", color: "var(--accent)" } satisfies CSSProperties,
+  strong: { fontWeight: 600 } satisfies CSSProperties,
+  link: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    font: "inherit",
+    color: "inherit",
+    textDecoration: "underline",
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  done: { color: "var(--text-secondary)" } satisfies CSSProperties,
+  running: { color: "var(--accent)", fontWeight: 600 } satisfies CSSProperties,
+  failed: { color: "var(--crit)", fontWeight: 600 } satisfies CSSProperties,
+} as const;

@@ -33,10 +33,13 @@ const FINDING: FindingRecord = {
 };
 
 function renderWithIntl(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      {ui}
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={client}>
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        {ui}
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -73,6 +76,28 @@ describe("FindingCard (smoke, both themes)", () => {
 
     renderWithIntl(<FindingCard f={{ ...FINDING, scope: "in" }} defaultExpanded onAction={() => {}} />);
     expect(screen.queryByText("Outside PR scope")).not.toBeInTheDocument();
+  });
+});
+
+describe("FindingCard — Turn into eval case (AC-60, AC-66)", () => {
+  const BUTTON = { name: "Turn into eval case" };
+
+  it("offers the button for decided findings of every kind, disabled for undecided ones", () => {
+    for (const kind of ["finding", "secret_leak", "lethal_trifecta", "phantom", "hook"] as const) {
+      renderWithIntl(
+        <FindingCard f={{ ...FINDING, kind, dismissed_at: "2026-10-08T00:00:00Z" }} defaultExpanded onAction={() => {}} />,
+      );
+      expect(screen.getByRole("button", BUTTON)).toBeEnabled();
+      cleanup();
+    }
+    renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={() => {}} />);
+    expect(screen.getByRole("button", BUTTON)).toBeDisabled();
+  });
+
+  it("has no Learn or Reply to author buttons", () => {
+    renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Learn" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reply to author" })).not.toBeInTheDocument();
   });
 });
 

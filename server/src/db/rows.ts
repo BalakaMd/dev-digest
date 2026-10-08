@@ -18,3 +18,6 @@ export type PullRow = typeof t.pullRequests.$inferSelect;
 export type AgentRunRow = typeof t.agentRuns.$inferSelect;
 export type ConventionRow = typeof t.conventions.$inferSelect;
 export type ConventionScanRow = typeof t.conventionScans.$inferSelect;
+export type EvalCaseRow = typeof t.evalCases.$inferSelect;
+export type EvalSuiteRunRow = typeof t.evalSuiteRuns.$inferSelect;
+export type EvalCaseRunRow = typeof t.evalRuns.$inferSelect;

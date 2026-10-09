@@ -11,7 +11,9 @@ import type {
   EvalCaseUpdateInput,
   EvalCaseSummary,
   EvalCaseDetail,
+  EvalCaseFromFindingInput,
   EvalCaseFromFindingResponse,
+  EvalCaseSuggestion,
   EvalCaseRunDetail,
   EvalRunDetail,
   EvalSuiteRun,
@@ -119,11 +121,26 @@ export function useRunEvalCase(agentId: string) {
   });
 }
 
-/** "Turn into eval case" — `POST /findings/:id/eval-case` (201 created, 200 existing). */
+/**
+ * Line-range suggestion for "Turn into eval case" — `GET /findings/:id/eval-case/suggestion`
+ * (SPEC-07). A mutation, not a query: it is computed fresh on every click and never cached.
+ */
+export function useEvalCaseSuggestion(findingId: string) {
+  return useMutation({
+    mutationFn: () => api.get<EvalCaseSuggestion>(`/findings/${findingId}/eval-case/suggestion`),
+  });
+}
+
+/**
+ * "Turn into eval case" — `POST /findings/:id/eval-case` (201 created, 200 existing).
+ * Without a range the request has no body (the cited range is stored); with one, the range the
+ * user confirmed plus the fingerprint of the patch it was chosen on (SPEC-07 AC-14, AC-43).
+ */
 export function useCaseFromFinding(findingId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post<EvalCaseFromFindingResponse>(`/findings/${findingId}/eval-case`),
+    mutationFn: (range?: EvalCaseFromFindingInput) =>
+      api.post<EvalCaseFromFindingResponse>(`/findings/${findingId}/eval-case`, range),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["eval-cases", res.case.agent_id] });
       qc.invalidateQueries({ queryKey: ["eval-dashboard"] });

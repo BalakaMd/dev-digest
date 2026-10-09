@@ -4,7 +4,9 @@ import { z } from 'zod';
 import {
   EvalCaseCreateInput,
   EvalCaseDetail,
+  EvalCaseFromFindingInput,
   EvalCaseFromFindingResponse,
+  EvalCaseSuggestion,
   EvalCaseRunDetail,
   EvalCaseSummary,
   EvalCaseUpdateInput,
@@ -22,7 +24,9 @@ import { IdParams } from '../_shared/schemas.js';
 /**
  * Eval module (SPEC-06) — regression harness for review agents.
  *
- *   POST   /findings/:id/eval-case           → case from a decided finding (201 created / 200 existing)
+ *   GET    /findings/:id/eval-case/suggestion → line range proposed for that case (SPEC-07), stores nothing
+ *   POST   /findings/:id/eval-case           → case from a decided finding (201 created / 200 existing);
+ *                                              optional body {start_line,end_line,patch_fingerprint} = the confirmed range
  *   GET    /agents/:id/eval-cases            → the agent's cases + latest result
  *   POST   /agents/:id/eval-cases            → manual case (201); a body over the global 1 MB cap is a 413
  *   GET    /eval-cases/:id                   → one case with its stored input
@@ -64,13 +68,30 @@ export default async function evalRoutes(appBase: FastifyInstance) {
     {
       schema: {
         params: IdParams,
+        // Fastify hands an absent body to the validator as `null`, so `.optional()` alone rejects it.
+        body: EvalCaseFromFindingInput.nullish(),
         response: { 200: EvalCaseFromFindingResponse, 201: EvalCaseFromFindingResponse },
       },
     },
     async (req, reply) => {
       const { workspaceId } = await getContext(container, req);
-      const res = await container.evalService.createFromFinding(workspaceId, req.params.id);
+      const res = await container.evalService.createFromFinding(workspaceId, req.params.id, req.body ?? undefined);
       return reply.code(res.created ? 201 : 200).send(res);
+    },
+  );
+
+  app.get(
+    '/findings/:id/eval-case/suggestion',
+    { schema: { params: IdParams, response: { 200: EvalCaseSuggestion } } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      const started = Date.now();
+      const res = await container.evalService.suggestForFinding(workspaceId, req.params.id);
+      req.log.info(
+        { findingId: req.params.id, ms: Date.now() - started, patchLines: res.suggestion?.patch_lines.length ?? 0 },
+        'eval suggestion',
+      );
+      return res;
     },
   );
 

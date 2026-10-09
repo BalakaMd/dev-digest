@@ -98,6 +98,66 @@ export const EvalCaseFromFindingResponse = z.object({
 export type EvalCaseFromFindingResponse = z.infer<typeof EvalCaseFromFindingResponse>;
 
 // ===========================================================================
+// SPEC-07 — line-range suggestion for a case made from a finding
+// ===========================================================================
+
+export const EvalLineRange = z.object({
+  start_line: z.number().int(),
+  end_line: z.number().int(),
+});
+export type EvalLineRange = z.infer<typeof EvalLineRange>;
+
+/**
+ * Optional body of `POST /findings/:id/eval-case` (AC-14, AC-39): the range the user confirmed.
+ * All three fields or none — the route makes the whole body optional.
+ */
+export const EvalCaseFromFindingInput = z.object({
+  start_line: z.number().int(),
+  end_line: z.number().int(),
+  patch_fingerprint: z.string().min(1),
+});
+export type EvalCaseFromFindingInput = z.infer<typeof EvalCaseFromFindingInput>;
+
+export const EvalSuggestionReason = z.object({
+  /** Terms matched by the line the range was re-targeted to, with patch-wide line counts. */
+  terms: z.array(z.object({ term: z.string(), count: z.number().int() })),
+  /** The function the range was expanded to; `name` null = anonymous. null = no expansion. */
+  expanded_to_function: z.object({ name: z.string().nullable() }).nullable(),
+  /** The enclosing function is longer than the 80-line cap (AC-12). */
+  function_too_long: z.boolean(),
+  structure_available: z.boolean(),
+});
+export type EvalSuggestionReason = z.infer<typeof EvalSuggestionReason>;
+
+export const EvalSuggestionPatchLine = z.object({
+  line: z.number().int(),
+  text: z.string(),
+});
+export type EvalSuggestionPatchLine = z.infer<typeof EvalSuggestionPatchLine>;
+
+export const EvalCaseSuggestionDetail = z.object({
+  file: z.string(),
+  type: EvalExpectationType,
+  /** Normalised (lower number first). */
+  cited: EvalLineRange,
+  suggested: EvalLineRange,
+  reason: EvalSuggestionReason,
+  /** New-side lines of the finding's patch (added + context). */
+  patch_lines: z.array(EvalSuggestionPatchLine),
+  /** New-side bounds of each hunk. */
+  hunks: z.array(EvalLineRange),
+  patch_fingerprint: z.string(),
+});
+export type EvalCaseSuggestionDetail = z.infer<typeof EvalCaseSuggestionDetail>;
+
+/** `GET /findings/:id/eval-case/suggestion`; `suggestion` is null exactly when `existing_case` is set (AC-35). */
+export const EvalCaseSuggestion = z.object({
+  existing_case: z.object({ id: z.string(), name: z.string() }).nullable(),
+  suggestion: EvalCaseSuggestionDetail.nullable(),
+});
+export type EvalCaseSuggestion = z.infer<typeof EvalCaseSuggestion>;
+
+// ===========================================================================
 // Runs
 // ===========================================================================
 

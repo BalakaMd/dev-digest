@@ -1,21 +1,25 @@
 # Eval pipeline — a regression harness for review agents
 
 How the studio measures whether a change to a review agent (its system prompt, model or skills)
-made the agent better or worse: how a decided finding becomes an eval case, how a run executes the
-cases, how the result is scored in code, how two runs are compared and one of them promoted, which
-states a run goes through, what bounds the size of a case, how to run the verification script and
-how to repeat the prompt experiment by hand. Read this before touching the `eval` module, the
-`eval-pipeline` contract, `AgentsRepository.restoreVersion`, the Evals tab of the agent editor, the
-"Turn into eval case" button or the `/eval` pages.
+made the agent better or worse: how a decided finding becomes an eval case (including how the line
+range of the case is proposed and confirmed), how a run executes the cases, how the result is scored
+in code, how two runs are compared and one of them promoted, which states a run goes through, what
+bounds the size of a case, how to run the verification script and how to repeat the prompt
+experiment by hand. Read this before touching the `eval` module, the `eval-pipeline` contract,
+`AgentsRepository.restoreVersion`, the Evals tab of the agent editor, the "Turn into eval case"
+button, its range dialog or the `/eval` pages.
 
-Requirements: [`specs/eval-pipeline/spec.md`](../specs/eval-pipeline/spec.md) (SPEC-06).
+Requirements: [`specs/eval-pipeline/spec.md`](../specs/eval-pipeline/spec.md) (SPEC-06) and
+[`specs/eval-case-line-suggestion/spec.md`](../specs/eval-case-line-suggestion/spec.md) (SPEC-07,
+the line-range suggestion; it amends the parts of SPEC-06 about creating a case from a finding).
 
 ## What it does
 
 - **A case is one labelled expectation about one file.** A finding the user accepted becomes a
   `must_find` case ("the agent must report this at `file:line`"); a finding the user dismissed
-  becomes a `must_not_flag` case ("the agent must not report this at `file:line`"). A case can also
-  be written by hand in the case editor.
+  becomes a `must_not_flag` case ("the agent must not report this at `file:line`"). The lines are
+  the ones the model cited, or a range DevDigest proposes in code and the user confirms (see
+  [From a finding](#from-a-finding)). A case can also be written by hand in the case editor.
 - **A run executes every case of one agent** with the agent's configuration as it was when the run
   started, and scores the answers. Runs of different agent versions are comparable because the
   inputs are fixed: each case stores the diff and the PR title and body it is reviewed with.
@@ -37,7 +41,7 @@ One box per real module or folder:
 ```mermaid
 flowchart LR
   subgraph client["client (@devdigest/web)"]
-    Button["FindingCard EvalCaseButton"]
+    Button["EvalCaseButton + RangeDialog"]
     Tab["AgentEditor EvalsTab + CaseEditorModal"]
     Dash["app/eval EvalDashboardView + AgentEvalView"]
     Hooks["lib/hooks/eval.ts"]
@@ -46,8 +50,9 @@ flowchart LR
     Routes["modules/eval routes.ts"]
     Service["modules/eval service.ts"]
     Executor["modules/eval run-executor.ts"]
-    Pure["modules/eval scoring.ts compare.ts helpers.ts"]
+    Pure["modules/eval scoring.ts compare.ts helpers.ts suggestion.ts"]
     Repo["modules/eval repository.ts"]
+    Astgrep["adapters/astgrep parseFunctionStructure"]
     Agents["modules/agents (restoreVersion)"]
     Engine["reviewer-core reviewPullRequest"]
   end
@@ -59,6 +64,7 @@ flowchart LR
   Hooks -->|"HTTP"| Routes
   Routes --> Service
   Service --> Pure
+  Service -->|"structure port"| Astgrep
   Service --> Repo
   Service --> Executor
   Executor --> Pure
@@ -71,13 +77,16 @@ flowchart LR
 `modules/eval` is registered statically in [`modules/index.ts`](../server/src/modules/index.ts)
 (key `eval`). `EvalService` ([`service.ts`](../server/src/modules/eval/service.ts)) takes ports, not
 the container ([`types.ts`](../server/src/modules/eval/types.ts)): the repository, an agents port, a
-findings port, a PR-diff port, `parseDiff`, `skillBlock`, `llm(provider)`, `missingKey` and a clock.
+findings port, a PR-diff port, a structure port, `parseDiff`, `skillBlock`, `llm(provider)`,
+`missingKey` and a clock. The structure port (`EvalStructurePort`) wraps `parseFunctionStructure` of
+the [ast-grep adapter](../server/src/adapters/astgrep/index.ts), wired in `container.ts`.
 [`container.ts`](../server/src/platform/container.ts) assembles it once as `container.evalService`
 (a singleton, because it owns the background executor). Only
 [`repository.ts`](../server/src/modules/eval/repository.ts) and the files under `repository/` touch
 Drizzle. [`scoring.ts`](../server/src/modules/eval/scoring.ts),
-[`compare.ts`](../server/src/modules/eval/compare.ts) and
-[`helpers.ts`](../server/src/modules/eval/helpers.ts) are pure: no IO, no clock, no provider.
+[`compare.ts`](../server/src/modules/eval/compare.ts),
+[`helpers.ts`](../server/src/modules/eval/helpers.ts) and
+[`suggestion.ts`](../server/src/modules/eval/suggestion.ts) are pure: no IO, no clock, no provider.
 
 The contract is [`contracts/eval-pipeline.ts`](../server/src/vendor/shared/contracts/eval-pipeline.ts),
 canonical in `server/src/vendor/shared` with a copy in `client/src/vendor/shared` that must change
@@ -128,21 +137,32 @@ scorer never reads the notes.
 
 ### From a finding
 
-`POST /findings/:id/eval-case` (201 when created, 200 when the case already existed). The service
+`POST /findings/:id/eval-case` (201 when created, 200 when the case already existed). The body is
+optional: either empty (the cited range is stored) or all of `start_line`, `end_line` and
+`patch_fingerprint` (the range the user confirmed, see [Line-range suggestion](#line-range-suggestion));
+a body with only some of the three is rejected with 422 before the handler runs. The service
 ([`createFromFinding`](../server/src/modules/eval/service.ts)) works in this order:
 
 1. The finding must exist in the workspace, else 404.
 2. If a case already exists for this finding, it is returned with `created: false`. This check comes
-   first, so a later change of the decision does not change or replace the case.
+   first, so a later change of the decision does not replace the case, and a sent range is not
+   looked at. Only the type of the case's first expectation follows a later decision
+   (`syncCaseWithDecision`); its lines stay.
 3. A finding that is neither accepted nor dismissed: 422, "The finding must be accepted or dismissed
    first".
 4. The agent that produced the finding's review must still exist, else 409 `agent_deleted`.
 5. The PR diff is loaded and the whole patch of the finding's file is sliced out with
    `patchForFile` (an exact `diff --git` header match, new-side line numbers preserved; it returns
    `null` instead of falling back to the whole diff). No patch: 422 `diff_unavailable`.
-6. The case is stored with the expectation of the finding's file and line range (`must_find` when
+6. Only when a range was sent: its `patch_fingerprint` must equal the fingerprint of the patch from
+   step 5, else 409 `diff_changed` with the message "The diff changed"; then the range is checked
+   with `validateExpectationsAgainstDiff` (the rule of [By hand](#by-hand): the file is in the diff
+   and the range intersects a hunk), else 422 with the reasons. Nothing is stored in either case.
+7. The case is stored with the expectation of the finding's file and line range (`must_find` when
    accepted, `must_not_flag` when dismissed), the finding's title, severity and category as notes,
-   the patch as `input_diff` and the PR title and body at that moment as `input_meta`.
+   the patch as `input_diff` and the PR title and body at that moment as `input_meta`. The line range
+   is the confirmed one (lower number first, so a reversed range is stored normalised), or the cited
+   one when no range was sent; the cited range is stored without the intersect-a-hunk check.
 
 The name is the slug of the finding title (lower case, runs of non-alphanumeric characters become
 `-`, at most 100 characters, `eval-case` when empty), with `-2`, `-3`, … when the agent already owns
@@ -150,20 +170,178 @@ a case of that name. Every finding kind is accepted, including `secret_leak`, `l
 `phantom` and `hook`. A concurrent double click is resolved by the unique index: the second request
 returns the existing case.
 
-The finding card shows the button **Turn into eval case** after Accept and Dismiss
-([`EvalCaseButton`](../client/src/app/repos/[repoId]/pulls/[number]/_components/FindingCard/_components/EvalCaseButton/EvalCaseButton.tsx)).
-It is disabled with a visible description until the finding is accepted or dismissed, creates the
-case on one click without a dialog, announces the result in a live region ("already an eval case"
-when `created` is `false`) and shows the API's error message on failure while keeping the button
-available.
+The finding card in the findings list and the inline finding in the Diff tab both show the button
+**Turn into eval case** after Accept and Dismiss
+([`EvalCaseButton`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/EvalCaseButton.tsx),
+shared by [`FindingCard`](../client/src/app/repos/[repoId]/pulls/[number]/_components/FindingCard/FindingCard.tsx)
+and [`InlineFinding`](../client/src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/_components/InlineFinding/InlineFinding.tsx)).
+It is disabled with a visible description until the finding is accepted or dismissed. A click first
+asks the API for a line-range suggestion; the button shows as busy while that request, or the create
+request that follows it, is in progress. When the suggestion equals the cited range, the case is
+created on that click without a dialog. When it differs, the range dialog opens and no case exists
+until the user confirms. The result is announced in a live region ("already an eval case" when
+`created` is `false`, or when the suggestion route reports an existing case) and a failure of either
+request shows the API's error message next to the button while keeping the button available.
+
+### Line-range suggestion
+
+The line range a model cites is sometimes wrong (it points at a type declaration near the real
+problem) or too narrow (one line of a handler). Scoring matches by line overlap, so a `must_find`
+case on the wrong lines can never pass. Before a case is saved, `GET /findings/:id/eval-case/suggestion`
+proposes a range, computed in code from the finding and the stored patch. It calls no model and no
+network, stores nothing, and gives the same answer for the same finding and patch. The scorer is
+unchanged: a case stores `start_line` and `end_line` exactly as before, and nothing records whether
+they were cited, suggested or edited.
+
+```mermaid
+sequenceDiagram
+  participant Btn as EvalCaseButton
+  participant Dlg as RangeDialog
+  participant API as routes.ts
+  participant Svc as EvalService
+  participant Sug as suggestion.ts
+  participant Ast as astgrep parseFunctionStructure
+  participant DB as Postgres
+  Btn->>API: GET /findings/:id/eval-case/suggestion
+  API->>Svc: suggestForFinding
+  Svc->>Svc: loadFinding (steps 1 to 5 above)
+  Svc->>Sug: suggestRange(finding text, new-side lines, hunks)
+  Sug->>Ast: structure of each hunk (TS and JS only)
+  Svc-->>Btn: existing_case, or suggestion with patch lines and fingerprint
+  alt suggested range equals the cited range
+    Btn->>API: POST /findings/:id/eval-case (no body)
+    API->>DB: insert case with the cited range
+  else the range differs
+    Btn->>Dlg: open on the suggestion
+    Dlg->>Btn: confirm the range
+    Btn->>API: POST /findings/:id/eval-case (range and fingerprint)
+    alt the fingerprint is stale
+      API-->>Btn: 409 diff_changed
+      Btn->>API: GET suggestion again, the dialog keeps the typed lines
+    else the range is valid
+      API->>DB: insert case with the confirmed range
+    end
+  end
+```
+
+**The route.** It runs the same preconditions as the create route (steps 1 to 5 above, with the same
+statuses and messages). If a case already exists it answers `{ existing_case: { id, name },
+suggestion: null }`. Otherwise it answers `{ existing_case: null, suggestion }`, where `suggestion`
+holds:
+
+| Field | Meaning |
+|-------|---------|
+| `file`, `type` | The finding's file and the expectation type (`must_find` or `must_not_flag`). |
+| `cited`, `suggested` | The cited and the suggested range, both normalised (lower number first). |
+| `reason` | Why the range was suggested: `terms` (matched term and its number of matches in the patch), `expanded_to_function` (`{ name }`, `name` is `null` for an anonymous function, the whole field is `null` without expansion), `function_too_long`, `structure_available`. |
+| `patch_lines` | The new-side lines of the finding's file patch (added and context lines, never removed ones) with their line numbers. |
+| `hunks` | The new-side bounds of every hunk. |
+| `patch_fingerprint` | The SHA-256 (hex) of the stored patch text. |
+
+The contract is `EvalCaseSuggestion` in
+[`contracts/eval-pipeline.ts`](../server/src/vendor/shared/contracts/eval-pipeline.ts). The route logs
+its duration and the number of patch lines. It sets no patch-size cap and no timeout.
+
+**How the range is computed.** [`suggestRange`](../server/src/modules/eval/suggestion.ts) takes the
+finding's kind, type, file, cited range, title and rationale, plus the patch lines, the hunks and a
+function that returns the structure of a source fragment.
+
+```mermaid
+flowchart TD
+  Start["finding and patch"] --> Kind{"kind is secret_leak, lethal_trifecta, phantom or hook?"}
+  Kind -->|"yes"| Cited["suggest the cited range"]
+  Kind -->|"no"| Type{"type is must_find?"}
+  Type -->|"no"| Expand["starting range: the cited range"]
+  Type -->|"yes"| Terms["starting range: the cited range, or the line with the most code terms"]
+  Terms --> Long{"starting range longer than 80 lines?"}
+  Expand --> Long
+  Long -->|"yes"| Keep["suggest the starting range"]
+  Long -->|"no"| Fn{"inside a function of a supported file?"}
+  Fn -->|"no"| Keep
+  Fn -->|"yes"| Trunc["take the innermost function, cut to the hunk"]
+  Trunc --> Cap{"more than 80 lines?"}
+  Cap -->|"no"| Fnr["suggest the function"]
+  Cap -->|"yes"| Blk["suggest the largest block with at most 80 lines, else the starting range"]
+```
+
+1. **Full-file kinds keep the cited range.** `secret_leak`, `lethal_trifecta`, `phantom` and `hook`
+   findings are suggested as cited, with no retargeting or expansion, so they take the one-click path.
+2. **Retargeting by code text, `must_find` only.** The search terms come from the finding's title and
+   rationale (truncated to 500 and 8,000 characters; at most 100 terms of at most 200 characters):
+   text in backticks; identifiers in camelCase or snake_case, or containing a dot or ending in `()`;
+   string literals in single or double quotes (quotes included); and, for an HTTP method followed by a
+   path such as `GET /users`, the path as a `'/users'` and a `"/users"` literal. Terms with fewer than
+   3 characters (not counting the quotes or backticks) are dropped. Terms are matched as
+   case-sensitive literal text against the new-side lines, and are never compiled into a pattern.
+   - If a line of the cited range holds a term, or no term occurs anywhere in the patch, the cited
+     range is the starting range.
+   - Otherwise the starting range is the single line outside the cited range that holds the most
+     distinct terms. Lines that are `import`, `export … from` or `require(` lines are never chosen. On
+     a tie a line inside a function wins, then the line nearest to the cited range, then the lower
+     line number.
+   - A `must_not_flag` expectation is never retargeted.
+3. **Expansion to the enclosing function, both types.** For each hunk that intersects the starting
+   range, the new-side lines are parsed in memory as a fragment of the file. The suggestion becomes
+   the innermost function, method, function expression or arrow function that contains the whole
+   starting range, cut to the span of those hunks (the part of a function outside the patch is not
+   used). A starting range that is in no function stays as it is.
+4. **The 80-line cap.** A starting range of more than 80 lines is neither expanded nor shortened. If
+   the expanded range is more than 80 lines, the suggestion is the largest statement, block or
+   declaration inside the function that contains the starting range and has at most 80 lines; if there
+   is none, the starting range. `function_too_long` is then `true` and `expanded_to_function` is
+   `null`.
+5. **Unsupported files.** The structural parser reads TypeScript and JavaScript files. For any other
+   file type, or when the parse fails, nothing is expanded, retargeting still applies and the answer
+   has `structure_available: false` (HTTP 200).
+6. **The result touches a hunk.** If the final range intersects no hunk, the cited range is returned
+   instead, with an empty reason.
+
+Retargeting needs a code-like term in the title or the rationale. A title with none, such as "Missing
+input validation on route parameters", keeps the cited range, so that finding still needs a manual
+edit in the dialog.
+
+**The dialog.** [`RangeDialog`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/_components/RangeDialog/RangeDialog.tsx)
+opens only when the suggested range differs from the cited one (after normalising a reversed range).
+It is a dialog with its own accessible name and focus handling, because the shared modal has none:
+focus moves into it on open and stays inside while Tab is pressed, Escape, Cancel and Close dismiss
+it without creating a case, and focus returns to the button.
+
+- A switch offers **Suggested** and **Cited**, each labelled with its `start–end`; Suggested is
+  selected on open. Picking one fills the **Start line** and **End line** fields. When the fields
+  match neither option, neither is selected, and the selected option is marked with the text
+  "Selected", not only a colour.
+- A read-only preview lists the new-side lines of the entered range with their line numbers, as plain
+  text. It updates while the user edits the fields.
+- An empty field, a field that is not a whole number, or a range that intersects no hunk shows the
+  reason and disables **Create eval case**. A reversed range is valid and is previewed and sent
+  normalised.
+- **Why this range** lists each matched term with its number of matches, "expanded to function
+  `<name>`" (or "expanded to the enclosing function"), the 80-line note and, when
+  `structure_available` is `false`, "structure not available for this file type".
+- Enter in either field confirms a valid range. While the create request runs, the button is disabled
+  and busy.
+- A failure of the create request (including the 422 reason of an off-hunk range) is shown in the
+  dialog, which stays open with the entered range. On 409 `diff_changed` the dialog reloads the
+  suggestion (new patch lines, hunks and fingerprint) and keeps the numbers the user typed. If the
+  reload finds that a case now exists, the dialog closes and the card states that the finding is
+  already an eval case, naming it. On success the dialog closes and a toast and the live region name
+  the new case.
+
+The hooks are `useEvalCaseSuggestion` (a mutation, so a suggestion is computed on every click and
+never cached) and `useCaseFromFinding` in [`lib/hooks/eval.ts`](../client/src/lib/hooks/eval.ts); the
+state machine is in
+[`use-eval-case-flow.ts`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/use-eval-case-flow.ts)
+and the pure dialog logic (validation, preview, selected option) in
+[`range-model.ts`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/range-model.ts).
 
 ### By hand
 
 `POST /agents/:id/eval-cases` takes `name` (1 to 120 characters), `input_diff`, `input_meta` and
 `expected_output`. The service rejects a diff with no files and, for every expectation, a file that
 is not in the diff or a line range that intersects no hunk of that file (422 with the reasons, see
-`validateExpectationsAgainstDiff`). This check applies to manual create and edit only; a case made
-from a finding is not checked.
+`validateExpectationsAgainstDiff`). This check applies to manual create and edit, and to a range the
+user confirmed in the range dialog of a case made from a finding. The cited range of a finding that
+is turned into a case in one click is not checked.
 
 `PUT /eval-cases/:id` accepts only `name` and `expected_output`. The schema is strict, so any other
 key, such as `input_diff`, is rejected with 422: the stored input of a case never changes. A new
@@ -410,7 +588,9 @@ current version, Promote is disabled with the description "already current".
 There is **no case-specific size limit**, because regular reviews send the whole diff and have none.
 
 - A case made from a finding is not bounded: its input is the whole patch of the finding's file.
-  A request for it carries only the finding id, so no request-size limit applies.
+  A request for it carries the finding id and, at most, a line range and a fingerprint, so no
+  request-size limit applies. The suggestion route is not bounded either: it has no patch-size cap
+  and no timeout, and answers with every new-side line of the patch.
 - A **manually entered** case is bounded only by the API's global request body limit of 1 MB
   (`bodyLimit: 1_048_576` in [`app.ts`](../server/src/app.ts)). The eval routes set no `bodyLimit` of
   their own. A larger request is rejected by Fastify with **HTTP 413** before the handler runs and
@@ -426,7 +606,8 @@ except Promote.
 
 | Route | Purpose |
 |-------|---------|
-| `POST /findings/:id/eval-case` | Case from a decided finding (201 or 200) |
+| `GET /findings/:id/eval-case/suggestion` | Line range proposed for the case of a decided finding, or the existing case; stores nothing |
+| `POST /findings/:id/eval-case` | Case from a decided finding (201 or 200). Optional body `{ start_line, end_line, patch_fingerprint }` (all three or none): 409 `diff_changed` when the fingerprint is stale, 422 when the range intersects no hunk |
 | `GET`, `POST /agents/:id/eval-cases` | List an agent's cases with their last result; create a manual case (201) |
 | `GET`, `PUT`, `DELETE /eval-cases/:id` | Read a case with its input; edit name or expected output; delete |
 | `POST /eval-cases/:id/run` | Run one case with the current configuration (10 per minute) |
@@ -454,9 +635,12 @@ The script in [`server/package.json`](../server/package.json) is
 `pnpm run typecheck && EVAL_VERIFY_STRICT=1 vitest run test/eval/`: the server typecheck, then every
 test under [`server/test/eval/`](../server/test/eval/). It exits non-zero when either step fails.
 
-- The unit tests (`scoring`, `compare`, `helpers`, `contracts`) need nothing. The `*.it.test.ts`
-  suites (cases from findings, manual cases, runs, dashboard/compare/restart, agent restore,
-  repository) start a real Postgres through testcontainers, so **Docker must be running**.
+- The unit tests (`scoring`, `compare`, `helpers`, `contracts`, and for the line suggestion
+  `suggestion`, `structure` and `suggestion-fixtures`) need nothing. `suggestion-fixtures` runs the
+  title "Unhandled promise rejection in GET /users route", cited 6–8 of a `routes.ts`, and expects
+  the suggestion 16–19. The `*.it.test.ts` suites (cases from findings, the suggestion route, manual
+  cases, runs, dashboard/compare/restart, agent restore, repository) start a real Postgres through
+  testcontainers, so **Docker must be running**.
 - `EVAL_VERIFY_STRICT=1` turns a missing Docker into a failure: without it the integration suites
   skip themselves and the script could pass with every database test skipped
   ([`strict-docker.test.ts`](../server/test/eval/strict-docker.test.ts), `describeDb` in
@@ -481,7 +665,8 @@ and its sample review has no agent.
 
 1. **Collect the cases.** Review at least three real PRs with the agent. Accept the findings that are
    real issues and dismiss the noise. Click **Turn into eval case** on at least 8 of them (at least
-   one of each kind). The agent's Evals tab lists them.
+   one of each kind). When the range dialog opens, check the suggested lines and confirm. The agent's
+   Evals tab lists them.
 2. **Baseline.** Press Run in the Evals tab (or Run eval on `/eval/<agentId>`). Wait for `done`. This
    is the baseline run, on version *n*.
 3. **A new prompt pair.** Edit the agent's system prompt in the Config tab with a wording change that
@@ -500,6 +685,16 @@ Two runs of an unchanged prompt are a useful control.
 
 ## Known gaps
 
+- **Retargeting needs a code term.** A finding whose title and rationale hold no backticked text,
+  camelCase or snake_case identifier, dotted name, `()` call or string literal keeps its cited
+  lines, so a wrong citation still needs a manual edit in the dialog. A term that appears in a
+  comment or in unrelated code counts like any other match; the dialog shows the matched terms so
+  the user can pick Cited.
+- **A `must_not_flag` case can grow.** Its range is expanded to the whole enclosing function (up to
+  80 lines), so a later correct finding elsewhere in that function counts as a hit and lowers
+  precision. The dialog always opens when the expansion changes the range, and Cited restores it.
+- **The suggestion has no cost bound.** A very large patch (a lockfile, a generated file) is parsed
+  without a cap or a timeout, so the route may answer slowly while the button stays busy.
 - **The 413 has no dedicated code.** An oversized manual case answers with the code `internal_error`
   and Fastify's message; the editor shows the message only.
 - **A deleted case still counts in a running run.** If a case is deleted while a run is in progress,

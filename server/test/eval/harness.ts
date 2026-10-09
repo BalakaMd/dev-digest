@@ -195,6 +195,7 @@ export async function seedFinding(
     accepted?: boolean;
     dismissed?: boolean;
     kind?: string;
+    rationale?: string;
   } = {},
 ) {
   const [row] = await env.pg.handle.db
@@ -207,7 +208,7 @@ export async function seedFinding(
       severity: 'WARNING',
       category: 'bug',
       title: o.title ?? 'Hardcoded Stripe Secret Key!',
-      rationale: 'because',
+      rationale: o.rationale ?? 'because',
       confidence: 0.9,
       kind: o.kind ?? 'finding',
       acceptedAt: o.accepted ? new Date() : null,

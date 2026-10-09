@@ -7,6 +7,8 @@ import {
   EvalCaseDetail,
   EvalSuiteRun,
   AgentRestoreResponse,
+  EvalCaseFromFindingInput,
+  EvalCaseSuggestion,
 } from '@devdigest/shared';
 
 const exp = { type: 'must_find', file: 'src/a.ts', start_line: 3, end_line: 5 };
@@ -45,6 +47,26 @@ describe('eval-pipeline contracts', () => {
     expect(EvalCaseUpdateInput.safeParse({ input_diff: 'x' }).success).toBe(false);
     expect(EvalCaseUpdateInput.safeParse({ input_meta: { title: 't', body: 'b' } }).success).toBe(false);
     expect(EvalCaseUpdateInput.safeParse({ name: 'x', input_files: [] }).success).toBe(false);
+  });
+
+  it('SPEC-07 AC-39: the range group needs all three fields', () => {
+    const full = { start_line: 1, end_line: 2, patch_fingerprint: 'abc' };
+    expect(EvalCaseFromFindingInput.safeParse(full).success).toBe(true);
+    expect(EvalCaseFromFindingInput.safeParse({ start_line: 1, end_line: 2 }).success).toBe(false);
+    expect(EvalCaseFromFindingInput.safeParse({ ...full, patch_fingerprint: '' }).success).toBe(false);
+    expect(EvalCaseFromFindingInput.safeParse({ ...full, start_line: 1.5 }).success).toBe(false);
+  });
+
+  it('SPEC-07 AC-36/AC-35: suggestion response with and without an existing case', () => {
+    const detail = {
+      file: 'src/a.ts', type: 'must_find', cited: { start_line: 6, end_line: 8 },
+      suggested: { start_line: 16, end_line: 19 },
+      reason: { terms: [{ term: "'/users'", count: 1 }], expanded_to_function: { name: null }, function_too_long: false, structure_available: true },
+      patch_lines: [{ line: 16, text: 'x' }], hunks: [{ start_line: 1, end_line: 30 }], patch_fingerprint: 'f',
+    };
+    expect(EvalCaseSuggestion.safeParse({ existing_case: null, suggestion: detail }).success).toBe(true);
+    expect(EvalCaseSuggestion.safeParse({ existing_case: { id: 'c', name: 'n' }, suggestion: null }).success).toBe(true);
+    expect(EvalCaseSuggestion.safeParse({ existing_case: null, suggestion: { ...detail, hunks: undefined } }).success).toBe(false);
   });
 
   it('responses: case detail, run with null metrics, restore with skipped ids', () => {

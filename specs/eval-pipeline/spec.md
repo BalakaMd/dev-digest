@@ -2,6 +2,7 @@
 Spec ID: SPEC-06
 Status: approved
 Supersedes: SPEC-05 (previous revision of specs/eval-pipeline/spec.md, kept in git history)
+Superseded by: SPEC-07 (specs/eval-case-line-suggestion/spec.md) — in part
 
 ## Change log vs SPEC-05
 - AC-73 (reject a case whose diff exceeds "the diff size limit that regular reviews apply") is

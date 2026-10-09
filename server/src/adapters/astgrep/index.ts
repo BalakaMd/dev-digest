@@ -637,3 +637,64 @@ export async function parseChangedFiles(
 
   return { symbols, references, imports };
 }
+
+// ---------------------------------------------------------------------------
+// parseFunctionStructure — functions and statement blocks of a source string
+// (SPEC-07). In-memory only; lines are 1-based relative to `source`.
+// ---------------------------------------------------------------------------
+
+export interface FunctionStructure {
+  functions: Array<{ name: string | null; start: number; end: number }>;
+  blocks: Array<{ start: number; end: number }>;
+}
+
+const FUNCTION_KINDS: ReadonlySet<string> = new Set([
+  'function_declaration',
+  'generator_function_declaration',
+  'function_expression',
+  'generator_function',
+  'arrow_function',
+  'method_definition',
+]);
+
+const BLOCK_KINDS: ReadonlySet<string> = new Set(['statement_block', 'lexical_declaration', 'variable_declaration']);
+
+function functionName(n: SgNode): string | null {
+  const own = getField(n, 'name');
+  if (own) return own.text();
+  const parent = n.parent();
+  if (!parent) return null;
+  const k = parent.kind();
+  if (k === 'variable_declarator' || k === 'pair' || k === 'public_field_definition') {
+    const nameNode = getField(parent, k === 'pair' ? 'key' : 'name');
+    return nameNode ? nameNode.text() : null;
+  }
+  return null;
+}
+
+/**
+ * Functions (declarations, methods, expressions, arrows) and candidate blocks
+ * (statement blocks, `*_statement`, declarations) of `source`. `null` when the
+ * file type is not supported or the parse throws; a truncated fragment still
+ * yields a (lenient, error-tolerant) tree.
+ */
+export function parseFunctionStructure(file: string, source: string): FunctionStructure | null {
+  const lang = langForFile(file);
+  if (!lang) return null;
+  try {
+    const root = parse(lang, source).root();
+    const functions: FunctionStructure['functions'] = [];
+    const blocks: FunctionStructure['blocks'] = [];
+    const walk = (n: SgNode): void => {
+      const k = String(n.kind());
+      const range = { start: lineOf(n), end: endLineOf(n) };
+      if (FUNCTION_KINDS.has(k)) functions.push({ name: functionName(n), ...range });
+      if (BLOCK_KINDS.has(k) || (k.endsWith('_statement') && k !== 'statement_block')) blocks.push(range);
+      for (const c of n.children()) walk(c);
+    };
+    walk(root);
+    return { functions, blocks };
+  } catch {
+    return null;
+  }
+}

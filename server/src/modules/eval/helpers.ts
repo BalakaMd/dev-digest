@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { EvalExpectation, UnifiedDiff } from '@devdigest/shared';
 import { EVAL_DEFAULT_SLUG, EVAL_SLUG_MAX } from './constants.js';
 import type { FindingDecision } from './types.js';
@@ -84,4 +85,60 @@ export function validateExpectationsAgainstDiff(
     }
   });
   return reasons;
+}
+
+/** SPEC-07 AC-36: sha256 (hex) of the stored patch text; tells the dialog the diff changed under it. */
+export function patchFingerprint(patch: string): string {
+  return createHash('sha256').update(patch).digest('hex');
+}
+
+export interface NewSideLines {
+  /** Added and context lines with their new-side line numbers; removed lines never appear. */
+  lines: Array<{ line: number; text: string }>;
+  /** New-side bounds of every hunk that has new-side lines. */
+  hunks: Array<{ start_line: number; end_line: number }>;
+}
+
+const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+
+/**
+ * SPEC-07: the new-side lines of one file's patch. Walks the hunks by their declared line counts
+ * (so a removed `--- x` line is not mistaken for a header), skips `\ No newline` markers.
+ */
+export function newSideLines(patch: string): NewSideLines {
+  const lines: NewSideLines['lines'] = [];
+  const hunks: NewSideLines['hunks'] = [];
+  const raw = patch.split('\n');
+  let i = 0;
+  while (i < raw.length) {
+    const m = HUNK_HEADER.exec(raw[i]!);
+    i += 1;
+    if (!m) continue;
+    let oldLeft = m[2] === undefined ? 1 : Number(m[2]);
+    let newLeft = m[4] === undefined ? 1 : Number(m[4]);
+    let newNo = Number(m[3]);
+    const first = lines.length;
+    while (i < raw.length && (oldLeft > 0 || newLeft > 0)) {
+      const l = raw[i]!;
+      if (l.startsWith('\\')) {
+        i += 1;
+        continue;
+      }
+      if (l.startsWith('-')) {
+        oldLeft -= 1;
+      } else if (l.startsWith('+')) {
+        lines.push({ line: newNo, text: l.slice(1) });
+        newNo += 1;
+        newLeft -= 1;
+      } else {
+        lines.push({ line: newNo, text: l.slice(1) });
+        newNo += 1;
+        newLeft -= 1;
+        oldLeft -= 1;
+      }
+      i += 1;
+    }
+    if (lines.length > first) hunks.push({ start_line: lines[first]!.line, end_line: lines[lines.length - 1]!.line });
+  }
+  return { lines, hunks };
 }

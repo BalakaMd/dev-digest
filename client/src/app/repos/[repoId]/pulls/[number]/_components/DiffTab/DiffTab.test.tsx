@@ -35,7 +35,8 @@ vi.mock("@/lib/hooks/eval", () => ({
     evalCasesAgents(ids);
     return evalCasesData;
   },
-  useCaseFromFinding: () => ({ mutate: vi.fn(), isPending: false, isError: false, data: undefined }),
+  useCaseFromFinding: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, isError: false, data: undefined }),
+  useEvalCaseSuggestion: () => ({ mutate: vi.fn(), isPending: false, isError: false, data: undefined }),
 }));
 
 vi.mock("@/lib/hooks/smart-diff", () => ({

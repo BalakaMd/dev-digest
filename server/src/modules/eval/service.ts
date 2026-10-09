@@ -1,7 +1,9 @@
 import type {
   EvalCaseCreateInput,
   EvalCaseDetail,
+  EvalCaseFromFindingInput,
   EvalCaseFromFindingResponse,
+  EvalCaseSuggestion,
   EvalCaseSummary,
   EvalCaseUpdateInput,
   EvalCompare,
@@ -17,9 +19,18 @@ import type {
 import { AppError, NotFoundError, ValidationError } from '../../platform/errors.js';
 import { EVAL_RECENT_RUNS, EVAL_SPARK_POINTS } from './constants.js';
 import { compareRuns, diffConfigs } from './compare.js';
-import { expectationTypeFor, filesOf, patchForFile, slugify, uniqueName, validateExpectationsAgainstDiff } from './helpers.js';
+import { expectationTypeFor, filesOf, newSideLines, patchFingerprint, patchForFile, slugify, uniqueName, validateExpectationsAgainstDiff } from './helpers.js';
 import { EvalRunExecutor } from './run-executor.js';
-import type { ConfigSnapshot, EvalAgent, EvalRunConfig, EvalServiceDeps, FindingDecision } from './types.js';
+import { suggestRange } from './suggestion.js';
+import type {
+  ConfigSnapshot,
+  EvalAgent,
+  EvalFindingFacts,
+  EvalPrDiff,
+  EvalRunConfig,
+  EvalServiceDeps,
+  FindingDecision,
+} from './types.js';
 
 const DAY_MS = 86_400_000;
 
@@ -46,46 +57,45 @@ export class EvalService {
 
   // ------------------------------------------------------------------ cases
 
-  /** AC-1, AC-2, AC-7, AC-8, AC-9, AC-13, AC-65, AC-66. */
-  async createFromFinding(workspaceId: string, findingId: string): Promise<EvalCaseFromFindingResponse> {
-    const { repo, agents, findings, prDiff, parseDiff } = this.deps;
-    const facts = await findings.facts(findingId);
-    if (!facts || facts.workspaceId !== workspaceId) throw new NotFoundError('Finding not found');
-
+  /**
+   * AC-1, AC-2, AC-7, AC-8, AC-9, AC-13, AC-65, AC-66; SPEC-07 AC-14, AC-15, AC-18, AC-39, AC-43.
+   * `range` (all three fields) = the range the user confirmed in the dialog; without it the cited range is stored.
+   */
+  async createFromFinding(
+    workspaceId: string,
+    findingId: string,
+    range?: EvalCaseFromFindingInput,
+  ): Promise<EvalCaseFromFindingResponse> {
+    const loaded = await this.loadFinding(workspaceId, findingId);
     // AC-9: a finding is at most one case; a later decision change is carried over by syncCaseWithDecision.
-    const existing = await repo.getCaseBySourceFinding(workspaceId, findingId);
-    if (existing) return { case: existing, created: false };
+    if (loaded.existing) return { case: loaded.existing, created: false };
+    const { facts, agent, pr, patch } = loaded;
 
-    if (!facts.accepted && !facts.dismissed) {
-      throw new ValidationError('The finding must be accepted or dismissed first');
-    }
-    const agent = facts.agentId ? await agents.getById(workspaceId, facts.agentId) : undefined;
-    if (!agent) throw agentDeleted();
-
-    // AC-13: the whole patch of the finding's file, no size check (EC-14/NG-7).
-    const pr = await prDiff.forPull(workspaceId, facts.prId);
-    const patch = pr ? patchForFile(pr.diffRaw, facts.file) : null;
-    if (!pr || patch === null) {
-      throw new AppError(
-        'diff_unavailable',
-        `The diff of '${facts.file}' is not available, so no eval case can be made from this finding`,
-        422,
-      );
+    let startLine = facts.startLine;
+    let endLine = facts.endLine;
+    if (range) {
+      if (range.patch_fingerprint !== patchFingerprint(patch)) throw new AppError('diff_changed', 'The diff changed', 409);
+      const reasons = validateExpectationsAgainstDiff(this.deps.parseDiff(patch), [
+        { file: facts.file, start_line: range.start_line, end_line: range.end_line },
+      ]);
+      if (reasons.length > 0) throw new ValidationError(reasons.join('; '), { reasons }); // AC-15
+      startLine = Math.min(range.start_line, range.end_line);
+      endLine = Math.max(range.start_line, range.end_line);
     }
 
-    const taken = await repo.caseNamesForAgent(workspaceId, agent.id);
-    const result = await repo.insertCase(workspaceId, {
+    const taken = await this.deps.repo.caseNamesForAgent(workspaceId, agent.id);
+    return this.deps.repo.insertCase(workspaceId, {
       agentId: agent.id,
       name: uniqueName(slugify(facts.title), taken),
       inputDiff: patch,
       inputMeta: { title: pr.title, body: pr.body ?? '' },
-      inputFiles: filesOf(parseDiff(patch)),
+      inputFiles: filesOf(this.deps.parseDiff(patch)),
       expectedOutput: [
         {
           type: expectationTypeFor(facts.accepted ? 'accepted' : 'dismissed'),
           file: facts.file,
-          start_line: facts.startLine,
-          end_line: facts.endLine,
+          start_line: startLine,
+          end_line: endLine,
           title: facts.title,
           severity: facts.severity,
           category: facts.category,
@@ -93,7 +103,44 @@ export class EvalService {
       ],
       sourceFindingId: findingId,
     });
-    return result;
+  }
+
+  /**
+   * SPEC-07 AC-3, AC-35..AC-38: the line range proposed for the case of a finding. Same preconditions
+   * (and errors) as `createFromFinding`; computes from the stored patch only and stores nothing.
+   */
+  async suggestForFinding(workspaceId: string, findingId: string): Promise<EvalCaseSuggestion> {
+    const loaded = await this.loadFinding(workspaceId, findingId);
+    if (loaded.existing) {
+      return { existing_case: { id: loaded.existing.id, name: loaded.existing.name }, suggestion: null };
+    }
+    const { facts, patch } = loaded;
+    const { lines, hunks } = newSideLines(patch);
+    const type = expectationTypeFor(facts.accepted ? 'accepted' : 'dismissed');
+    const out = suggestRange({
+      type,
+      kind: facts.kind,
+      file: facts.file,
+      cited: { start_line: facts.startLine, end_line: facts.endLine },
+      title: facts.title,
+      rationale: facts.rationale,
+      lines,
+      hunks,
+      analyze: (source) => this.deps.structure.analyze(facts.file, source),
+    });
+    return {
+      existing_case: null,
+      suggestion: {
+        file: facts.file,
+        type,
+        cited: out.cited,
+        suggested: out.suggested,
+        reason: out.reason,
+        patch_lines: lines,
+        hunks,
+        patch_fingerprint: patchFingerprint(patch),
+      },
+    };
   }
 
   /**
@@ -290,6 +337,40 @@ export class EvalService {
   }
 
   // ---------------------------------------------------------------- helpers
+
+  /** Shared preconditions of `createFromFinding` and `suggestForFinding`, in the SPEC-06 order. */
+  private async loadFinding(
+    workspaceId: string,
+    findingId: string,
+  ): Promise<
+    | { existing: EvalCaseDetail }
+    | { existing: null; facts: EvalFindingFacts; agent: EvalAgent; pr: EvalPrDiff; patch: string }
+  > {
+    const { repo, agents, findings, prDiff } = this.deps;
+    const facts = await findings.facts(findingId);
+    if (!facts || facts.workspaceId !== workspaceId) throw new NotFoundError('Finding not found');
+
+    const existing = await repo.getCaseBySourceFinding(workspaceId, findingId);
+    if (existing) return { existing };
+
+    if (!facts.accepted && !facts.dismissed) {
+      throw new ValidationError('The finding must be accepted or dismissed first');
+    }
+    const agent = facts.agentId ? await agents.getById(workspaceId, facts.agentId) : undefined;
+    if (!agent) throw agentDeleted();
+
+    // AC-13: the whole patch of the finding's file, no size check (EC-14/NG-7).
+    const pr = await prDiff.forPull(workspaceId, facts.prId);
+    const patch = pr ? patchForFile(pr.diffRaw, facts.file) : null;
+    if (!pr || patch === null) {
+      throw new AppError(
+        'diff_unavailable',
+        `The diff of '${facts.file}' is not available, so no eval case can be made from this finding`,
+        422,
+      );
+    }
+    return { existing: null, facts, agent, pr, patch };
+  }
 
   private async requireAgent(workspaceId: string, agentId: string): Promise<EvalAgent> {
     const agent = await this.deps.agents.getById(workspaceId, agentId);

@@ -53,7 +53,7 @@ fails there if the win32 prebuilt is missing).
 drives routes end-to-end: reviews + run lifecycle (incl. grounding), agents CRUD,
 repo-intel symbol clamping, pulls comments, settings models. They self-skip when
 Docker is unavailable. The eval pipeline suites live in `server/test/eval/` (unit:
-scoring, compare, helpers, contracts; `*.it.test.ts`: cases, runs,
+scoring, compare, helpers, contracts, suggestion, structure, suggestion-fixtures; `*.it.test.ts`: cases, suggestion route, runs,
 dashboard/compare/restart, agent restore, repository). They inject a scripted LLM
 and trap `fetch`, so no model is called.
 

@@ -77,7 +77,7 @@ flowchart TB
     agents["agents<br/>/agents · /agents/:id · /agents/:id/context-docs · /agents/:id/versions/:version/restore"]
   end
   subgraph Eval["Eval"]
-    evalMod["eval<br/>/findings/:id/eval-case · /agents/:id/eval-cases · /eval-cases/:id(/run)<br/>/agents/:id/eval-runs · /eval-runs/:id(/cases/:caseRunId)<br/>/eval/run-all · /eval/dashboard · /eval/compare"]
+    evalMod["eval<br/>/findings/:id/eval-case (+ /suggestion) · /agents/:id/eval-cases · /eval-cases/:id(/run)<br/>/agents/:id/eval-runs · /eval-runs/:id(/cases/:caseRunId)<br/>/eval/run-all · /eval/dashboard · /eval/compare"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]

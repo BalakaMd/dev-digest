@@ -11,6 +11,7 @@ import type { AppConfig } from './config.js';
 import type { Db } from '../db/client.js';
 import { JobRunner } from './jobs.js';
 import { runBus, type RunBus } from './sse.js';
+import { parseFunctionStructure } from '../adapters/astgrep/index.js';
 import { LocalSecretsProvider } from '../adapters/secrets/local.js';
 import { LocalNoAuthProvider } from '../adapters/auth/local.js';
 import { OctokitGitHubClient } from '../adapters/github/octokit.js';
@@ -323,6 +324,8 @@ export class Container {
               prId: ctx.pull.id,
               agentId: ctx.review.agentId,
               title: ctx.finding.title,
+              rationale: ctx.finding.rationale,
+              kind: ctx.finding.kind,
               file: ctx.finding.file,
               startLine: ctx.finding.startLine,
               endLine: ctx.finding.endLine,
@@ -343,6 +346,7 @@ export class Container {
             return { diffRaw: diff.raw, title: pull.title, body: pull.body };
           },
         },
+        structure: { analyze: (file, source) => parseFunctionStructure(file, source) },
         parseDiff: parseUnifiedDiff,
         skillBlock: toSkillPromptBlock,
         llm: (id) => this.llm(id),

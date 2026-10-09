@@ -3,6 +3,8 @@ import type { UnifiedDiff } from '@devdigest/shared';
 import {
   expectationTypeFor,
   filesOf,
+  newSideLines,
+  patchFingerprint,
   patchForFile,
   slugify,
   uniqueName,
@@ -125,5 +127,39 @@ describe('expectationTypeFor (D1)', () => {
   it('maps accepted to must_find and dismissed to must_not_flag', () => {
     expect(expectationTypeFor('accepted')).toBe('must_find');
     expect(expectationTypeFor('dismissed')).toBe('must_not_flag');
+  });
+});
+
+describe('newSideLines / patchFingerprint (SPEC-07)', () => {
+  const patch = [
+    'diff --git a/a.ts b/a.ts',
+    '--- a/a.ts',
+    '+++ b/a.ts',
+    '@@ -1,3 +1,3 @@',
+    ' one',
+    '-two',
+    '+TWO',
+    ' three',
+    '\\ No newline at end of file',
+    '@@ -20,2 +20,3 @@',
+    ' x',
+    '--- removed-looking',
+    '+y',
+    '+z',
+    '',
+  ].join('\n');
+
+  it('keeps added and context lines with new-side numbers, never removed lines', () => {
+    const { lines, hunks } = newSideLines(patch);
+    expect(lines.map((l) => [l.line, l.text])).toEqual([
+      [1, 'one'], [2, 'TWO'], [3, 'three'], [20, 'x'], [21, 'y'], [22, 'z'],
+    ]);
+    expect(hunks).toEqual([{ start_line: 1, end_line: 3 }, { start_line: 20, end_line: 22 }]);
+  });
+
+  it('fingerprint is stable and changes with any byte', () => {
+    expect(patchFingerprint(patch)).toBe(patchFingerprint(patch));
+    expect(patchFingerprint(patch)).toMatch(/^[0-9a-f]{64}$/);
+    expect(patchFingerprint(patch + ' ')).not.toBe(patchFingerprint(patch));
   });
 });

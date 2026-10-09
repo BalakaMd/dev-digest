@@ -138,6 +138,10 @@ export interface EvalFindingFacts {
   /** The agent that produced the finding's review; null when unknown. */
   agentId: string | null;
   title: string;
+  /** Untrusted text: used only as literal search terms by the suggestion (NFR-3). */
+  rationale: string;
+  /** `finding`, `secret_leak`, `lethal_trifecta`, `phantom`, `hook`, ... */
+  kind: string;
   file: string;
   startLine: number;
   endLine: number;
@@ -156,12 +160,24 @@ export interface EvalPrDiffPort {
   forPull(workspaceId: string, prId: string): Promise<EvalPrDiff | undefined>;
 }
 
+/** Function and block ranges of a source fragment; lines are 1-based relative to the fragment. */
+export interface EvalStructure {
+  functions: Array<{ name: string | null; start: number; end: number }>;
+  blocks: Array<{ start: number; end: number }>;
+}
+
+export interface EvalStructurePort {
+  /** `null` = file type unsupported or the source cannot be parsed (SPEC-07 AC-13). */
+  analyze(file: string, source: string): EvalStructure | null;
+}
+
 /** Ports the service is wired with in `platform/container.ts`. */
 export interface EvalServiceDeps {
   repo: EvalRepository;
   agents: EvalAgentsPort;
   findings: EvalFindingsPort;
   prDiff: EvalPrDiffPort;
+  structure: EvalStructurePort;
   parseDiff: (raw: string) => UnifiedDiff;
   /** Renders one skill as a prompt block (`### name\nbody`). */
   skillBlock: (skill: { name: string; body: string }) => string;

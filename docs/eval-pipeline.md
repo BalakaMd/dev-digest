@@ -284,7 +284,10 @@ flowchart TD
    range, the new-side lines are parsed in memory as a fragment of the file. The suggestion becomes
    the innermost function, method, function expression or arrow function that contains the whole
    starting range, cut to the span of those hunks (the part of a function outside the patch is not
-   used). A starting range that is in no function stays as it is.
+   used). A starting range that is in no function stays as it is. A range that runs at most two lines
+   past the edge of a function, with at least as many lines inside it as outside, snaps to that
+   function (models often cite the closing brace and the blank line after it); a range that is mostly
+   outside stays as it is.
 4. **The 80-line cap.** A starting range of more than 80 lines is neither expanded nor shortened. If
    the expanded range is more than 80 lines, the suggestion is the largest statement, block or
    declaration inside the function that contains the starting range and has at most 80 lines; if there

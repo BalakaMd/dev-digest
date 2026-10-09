@@ -1,5 +1,5 @@
-// Demo code for trying the eval pipeline. It is intentionally flawed and is not
-// imported by any package. Do not copy it.
+// Demo user service used to try the eval pipeline. It is not imported by any
+// package.
 
 export interface Db {
   query(sql: string): Promise<Record<string, unknown>[]>;
@@ -28,8 +28,12 @@ export async function chargeUser(db: Db, userId: number, cents: number) {
     body: JSON.stringify({ userId, cents }),
   });
   const json = await res.json();
-  await db.query(`UPDATE users SET balance = balance - ${cents} WHERE id = ${userId}`);
+  await debitBalance(db, userId, cents);
   return json;
+}
+
+async function debitBalance(db: Db, userId: number, cents: number) {
+  await db.query(`UPDATE users SET balance = balance - ${cents} WHERE id = ${userId}`);
 }
 
 export function clamp(value: number, min: number, max: number): number {

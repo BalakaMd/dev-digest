@@ -1,5 +1,5 @@
-// Demo HTTP handlers for trying the eval pipeline. Intentionally flawed; not
-// imported by any package.
+// Demo HTTP handlers used to try the eval pipeline. They are not imported by
+// any package.
 
 import { chargeUser, findUserByEmail, type Db } from "./user-service";
 
@@ -13,9 +13,9 @@ interface Reply {
 }
 
 export function registerRoutes(app: { post: Function; get: Function }, db: Db) {
-  app.get("/users", async (req: Req, reply: Reply) => {
-    const user = await findUserByEmail(db, req.query.email);
-    reply.send(user);
+  app.get("/users", (req: Req, reply: Reply) => {
+    findUserByEmail(db, req.query.email)
+      .then((user) => reply.send(user));
   });
 
   app.post("/charge", async (req: Req, reply: Reply) => {

@@ -27,6 +27,14 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-10-09 — [gotcha] An optional route body needs `.nullish()`, and `.optional()` rejects a POST with no body
+**Symptom** — after adding `body: Schema.optional()` to `POST /findings/:id/eval-case`, every
+existing call without a payload became 422 "Request validation failed" ("Expected object, received null").
+**Cause** — with `fastify-type-provider-zod` an absent body reaches the validator as `null`, not `undefined`.
+A body sent with `content-type: application/json` but empty is rejected earlier (`FST_ERR_CTP_EMPTY_JSON_BODY`).
+**Takeaway** — use `Schema.nullish()` and `req.body ?? undefined` in the handler; a client must omit the
+body (and the JSON content-type) rather than send an empty one.
+
 ## 2026-09-26 — [env-quirk] A dev machine with a real `OPENROUTER_API_KEY` turns an unmocked provider path into a real network call in it-tests
 **Symptom** — after wiring the intent classifier's best-effort derivation into
 `ReviewRunExecutor.executeRuns` (it resolves `openrouter` by default whenever no

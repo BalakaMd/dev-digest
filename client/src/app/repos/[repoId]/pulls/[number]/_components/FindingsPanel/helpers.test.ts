@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { FindingRecord } from "@devdigest/shared";
-import { severityCounts, visibleFindings } from "./helpers";
+import { evalCaseNameByFinding, severityCounts, visibleFindings } from "./helpers";
 
 function finding(over: Partial<FindingRecord>): FindingRecord {
   return {
@@ -64,5 +64,34 @@ describe("visibleFindings severity filter", () => {
   it("composes with hide-low-confidence", () => {
     const shown = visibleFindings(FINDINGS, true, "CRITICAL");
     expect(shown.map((f) => f.id)).toEqual(["c1"]);
+  });
+});
+
+describe("visibleFindings order stability (AC-1)", () => {
+  it("keeps the mutual order within a severity when a finding is accepted or dismissed", () => {
+    const base = [
+      finding({ id: "a", severity: "WARNING" }),
+      finding({ id: "b", severity: "WARNING" }),
+      finding({ id: "c", severity: "WARNING" }),
+    ];
+    const ids = (fs: FindingRecord[]) => visibleFindings(fs, false).map((f) => f.id);
+    const accepted = base.map((f) => (f.id === "a" ? { ...f, accepted_at: "2026-10-08T00:00:00Z" } : f));
+    const dismissed = base.map((f) => (f.id === "a" ? { ...f, dismissed_at: "2026-10-08T00:00:00Z" } : f));
+    expect(ids(accepted)).toEqual(["a", "b", "c"]);
+    expect(ids(dismissed)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("evalCaseNameByFinding", () => {
+  it("maps finding id to case name and skips cases without a source finding", () => {
+    const map = evalCaseNameByFinding([
+      { source_finding_id: "f1", name: "stripe-key" },
+      { source_finding_id: null, name: "hand-written" },
+    ]);
+    expect([...map.entries()]).toEqual([["f1", "stripe-key"]]);
+  });
+
+  it("returns an empty map while the cases are not loaded", () => {
+    expect(evalCaseNameByFinding(undefined).size).toBe(0);
   });
 });

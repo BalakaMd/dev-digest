@@ -287,6 +287,35 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('finding order is stable: accept/dismiss does not move a finding in GET /pulls/:id/reviews', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const [review] = await pg.handle.db
+      .insert(t.reviews)
+      .values({ workspaceId, prId: pr.id, agentId: null, runId: null, kind: 'review', verdict: 'comment', summary: 's', score: 50, model: 'm' })
+      .returning();
+    // Inserted out of (file, line) order on purpose; an UPDATE would move a heap row last.
+    const base = { reviewId: review!.id, severity: 'WARNING', category: 'bug', rationale: 'r', confidence: 0.9, kind: 'finding' } as const;
+    await pg.handle.db.insert(t.findings).values([
+      { ...base, file: 'src/b.ts', startLine: 5, endLine: 5, title: 'b' },
+      { ...base, file: 'src/a.ts', startLine: 9, endLine: 9, title: 'a2' },
+      { ...base, file: 'src/a.ts', startLine: 2, endLine: 2, title: 'a1' },
+    ]);
+    const ids = async () =>
+      ((await app.inject({ method: 'GET', url: `/pulls/${pr.id}/reviews` })).json() as {
+        findings: { id: string; title: string }[];
+      }[])[0]!.findings;
+    const before = await ids();
+    expect(before.map((f) => f.title)).toEqual(['a1', 'a2', 'b']);
+
+    await app.inject({ method: 'POST', url: `/findings/${before[0]!.id}/accept` });
+    expect((await ids()).map((f) => f.id)).toEqual(before.map((f) => f.id));
+    await app.inject({ method: 'POST', url: `/findings/${before[0]!.id}/dismiss` });
+    expect((await ids()).map((f) => f.id)).toEqual(before.map((f) => f.id));
+
+    await app.close();
+  });
+
   it('SSE: /runs/:id/events streams events and completes', async () => {
     const app = await appWith(REVIEW_FIXTURE);
     const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);

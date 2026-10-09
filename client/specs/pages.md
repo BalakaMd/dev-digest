@@ -161,7 +161,7 @@ source `extracted`) and then navigates to `/skills`.
 
 Five agents ship seeded: General, Security, Performance, and the two
 skills-experiment agents (Test Quality, API Contract — disabled, no skills). The
-editor has three tabs: **Config**, **Skills** and **Context**. **Config** owns `model`, `system_prompt`, strategy
+editor has four tabs: **Config**, **Skills**, **Context** and **Evals**. **Config** owns `model`, `system_prompt`, strategy
 and the per-agent `repo_intel` toggle; `useProviderModels` lists models for the
 selected provider, so the model field is a choice, not free text.
 
@@ -182,6 +182,19 @@ list (`PUT /agents/:id/context-docs`), which bumps the agent's version. The skil
 has the same list under "Project context to use" (`PUT /skills/:id/context-docs`, no
 version bump). How the documents reach a run is described in
 [docs/project-context.md](../../docs/project-context.md).
+
+**Evals** lists the agent's eval cases (name, type `must_find` / `must_not_flag`,
+`file:start–end`, last result), the metric tiles of the two latest completed runs,
+Run, "New eval case" (the case editor) and "View full dashboard". A finding card
+offers "Turn into eval case" once the finding is accepted or dismissed. See
+[docs/eval-pipeline.md](../../docs/eval-pipeline.md).
+
+## Eval Dashboard
+
+`/eval` (sidebar, SKILLS LAB) lists every agent with its latest eval metrics and the
+10 most recent runs, with "Run all agents". `/eval/:agentId` shows one agent: metric
+tiles, regression banner, trend chart, run history with a period filter (default
+30 days), Compare and Promote, and "Run eval".
 
 ## Onboarding Tour
 
@@ -210,5 +223,5 @@ All visible text resolves through `next-intl` — no literal strings in componen
 
 ## Not here yet
 
-Memory, eval, multi-agent and the dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
-you will see `eval.json` or `memory.json` with no screen behind them. (The `brief` namespace is used by the PR Brief block on Overview.)
+Memory, multi-agent and the other dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
+you will see `memory.json` with no screen behind it. (The `brief` namespace is used by the PR Brief block on Overview; the `eval` namespace by the Evals tab and the Eval Dashboard.)

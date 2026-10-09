@@ -33,10 +33,13 @@ const FINDING: FindingRecord = {
 };
 
 function renderWithIntl(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      {ui}
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={client}>
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        {ui}
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -73,6 +76,28 @@ describe("FindingCard (smoke, both themes)", () => {
 
     renderWithIntl(<FindingCard f={{ ...FINDING, scope: "in" }} defaultExpanded onAction={() => {}} />);
     expect(screen.queryByText("Outside PR scope")).not.toBeInTheDocument();
+  });
+});
+
+describe("FindingCard — Turn into eval case (AC-60, AC-66)", () => {
+  const BUTTON = { name: "Turn into eval case" };
+
+  it("offers the button for decided findings of every kind, disabled for undecided ones", () => {
+    for (const kind of ["finding", "secret_leak", "lethal_trifecta", "phantom", "hook"] as const) {
+      renderWithIntl(
+        <FindingCard f={{ ...FINDING, kind, dismissed_at: "2026-10-08T00:00:00Z" }} defaultExpanded onAction={() => {}} />,
+      );
+      expect(screen.getByRole("button", BUTTON)).toBeEnabled();
+      cleanup();
+    }
+    renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={() => {}} />);
+    expect(screen.getByRole("button", BUTTON)).toBeDisabled();
+  });
+
+  it("has no Learn or Reply to author buttons", () => {
+    renderWithIntl(<FindingCard f={FINDING} defaultExpanded onAction={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Learn" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reply to author" })).not.toBeInTheDocument();
   });
 });
 
@@ -136,5 +161,36 @@ describe("FindingCard — cited project documents (AC-50)", () => {
     renderCited({ ...FINDING, cited_docs: ["<img src=x onerror=alert(1)>.md"] });
     expect(document.body.querySelector("img")).toBeNull();
     expect(within(document.body).getByRole("button", { name: "<img src=x onerror=alert(1)>.md" })).toBeInTheDocument();
+  });
+});
+
+describe("FindingCard decision highlight", () => {
+  const pressedOf = (f: FindingRecord) => {
+    renderWithIntl(<FindingCard f={f} defaultExpanded onAction={() => {}} />);
+    return {
+      accept: screen.getByRole("button", { name: "Accept" }),
+      reject: screen.getByRole("button", { name: "Reject" }),
+    };
+  };
+
+  it("marks only Accept when accepted", () => {
+    const { accept, reject } = pressedOf({ ...FINDING, accepted_at: "2026-10-08T00:00:00Z" });
+    expect(accept).toHaveAttribute("data-decision", "accepted");
+    expect(accept).toHaveAttribute("aria-pressed", "true");
+    expect(reject).not.toHaveAttribute("data-decision");
+    expect(reject).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("marks only Reject when dismissed", () => {
+    const { accept, reject } = pressedOf({ ...FINDING, dismissed_at: "2026-10-08T00:00:00Z" });
+    expect(reject).toHaveAttribute("data-decision", "dismissed");
+    expect(reject).toHaveAttribute("aria-pressed", "true");
+    expect(accept).not.toHaveAttribute("data-decision");
+  });
+
+  it("marks neither when undecided", () => {
+    const { accept, reject } = pressedOf(FINDING);
+    expect(accept).not.toHaveAttribute("data-decision");
+    expect(reject).not.toHaveAttribute("data-decision");
   });
 });

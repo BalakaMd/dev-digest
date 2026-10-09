@@ -13,7 +13,39 @@
     "outOfScope": "Outside PR scope",
     "outOfScopeHint": "This finding is real and grounded, but falls outside what the PR's derived intent says it is meant to do.",
     "citedDocs": "Cited documents",
-    "openCitedDoc": "Open {path}"
+    "openCitedDoc": "Open {path}",
+    "evalCase": {
+      "button": "Turn into eval case",
+      "buttonExists": "Already an eval case",
+      "needsDecision": "Accept or dismiss this finding first, then it can become an eval case.",
+      "created": "Eval case created: {name}",
+      "alreadyExists": "Already an eval case: {name}",
+      "failed": "Could not create the eval case",
+      "range": {
+        "title": "Choose the lines for the eval case",
+        "suggested": "Suggested",
+        "cited": "Cited",
+        "rangeOption": "{label} {start}–{end}",
+        "optionsLabel": "Range",
+        "selectedMarker": "Selected",
+        "startLabel": "Start line",
+        "endLabel": "End line",
+        "previewHeading": "Lines {start}–{end}",
+        "previewEmpty": "No lines of the patch in this range.",
+        "reasonHeading": "Why this range",
+        "confirm": "Create eval case",
+        "cancel": "Cancel",
+        "close": "Close",
+        "termMatched": "matched {term} ×{count}",
+        "expandedFunction": "expanded to function {name}",
+        "expandedAnonymous": "expanded to the enclosing function",
+        "functionTooLong": "the function is longer than 80 lines, so a smaller block inside it was used",
+        "noStructure": "structure not available for this file type",
+        "invalidEmpty": "Enter both a start and an end line.",
+        "invalidNumber": "Line numbers must be whole numbers.",
+        "noHunk": "These lines are not inside any changed part of the file."
+      }
+    }
   },
   "trifecta": {
     "lethal": "LETHAL TRIFECTA — ALL 3 PRESENT",

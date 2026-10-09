@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FindingRecord } from "@devdigest/shared";
 import prReviewMessages from "../../../../../../../../../../messages/en/prReview.json";
 import { InlineFinding } from "./InlineFinding";
@@ -29,11 +30,18 @@ function finding(o: Partial<FindingRecord> = {}): FindingRecord {
   } as FindingRecord;
 }
 
-function renderFinding(f: FindingRecord, onAction = vi.fn(), pending = false) {
+function renderFinding(
+  f: FindingRecord,
+  onAction = vi.fn(),
+  pending = false,
+  evalCaseName?: string | null,
+) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: prReviewMessages }}>
-      <InlineFinding finding={f} pending={pending} onAction={onAction} />
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={{ prReview: prReviewMessages }}>
+        <InlineFinding finding={f} pending={pending} onAction={onAction} evalCaseName={evalCaseName} />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -105,5 +113,57 @@ describe("InlineFinding", () => {
     const { container } = renderFinding(finding());
     const card = container.querySelector("[data-finding-id='f1']") as HTMLElement;
     expect(card.style.opacity).toBe("1");
+  });
+});
+
+describe("InlineFinding decision highlight", () => {
+  const buttons = () => ({
+    accept: screen.getByRole("button", { name: "Accept" }),
+    reject: screen.getByRole("button", { name: "Reject" }),
+  });
+
+  it("marks only Accept when accepted", () => {
+    renderFinding(finding({ accepted_at: "2026-10-08T00:00:00Z" }));
+    const { accept, reject } = buttons();
+    expect(accept).toHaveAttribute("data-decision", "accepted");
+    expect(accept).toHaveAttribute("aria-pressed", "true");
+    expect(reject).not.toHaveAttribute("data-decision");
+  });
+
+  it("marks only Reject when dismissed", () => {
+    renderFinding(finding({ dismissed_at: "2026-10-08T00:00:00Z" }));
+    const { accept, reject } = buttons();
+    expect(reject).toHaveAttribute("data-decision", "dismissed");
+    expect(accept).not.toHaveAttribute("data-decision");
+  });
+
+  it("marks neither when undecided", () => {
+    renderFinding(finding());
+    const { accept, reject } = buttons();
+    expect(accept).not.toHaveAttribute("data-decision");
+    expect(reject).not.toHaveAttribute("data-decision");
+  });
+});
+
+describe("InlineFinding eval case button", () => {
+  const evalButton = () => screen.getByRole("button", { name: "Turn into eval case" });
+
+  it("is disabled while the finding is undecided", () => {
+    renderFinding(finding());
+    expect(evalButton()).toBeDisabled();
+  });
+
+  it.each([
+    ["accepted", { accepted_at: "2026-10-08T00:00:00Z" }],
+    ["dismissed", { dismissed_at: "2026-10-08T00:00:00Z" }],
+  ])("is enabled when %s", (_label, o) => {
+    renderFinding(finding(o));
+    expect(evalButton()).toBeEnabled();
+  });
+
+  it("is disabled with the 'already exists' note when a case exists", () => {
+    renderFinding(finding({ accepted_at: "2026-10-08T00:00:00Z" }), vi.fn(), false, "Case one");
+    expect(screen.getByRole("button", { name: "Already an eval case" })).toBeDisabled();
+    expect(screen.getByText("Already an eval case: Case one")).toBeInTheDocument();
   });
 });

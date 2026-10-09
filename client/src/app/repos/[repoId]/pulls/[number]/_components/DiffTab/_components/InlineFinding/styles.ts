@@ -62,7 +62,8 @@ export const s = {
     flexDirection: "column",
     gap: 8,
   } satisfies CSSProperties,
-  actions: { display: "flex", gap: 8 } satisfies CSSProperties,
+  // flex-start: a taller sibling (eval-case status text) must not stretch Accept/Reject.
+  actions: { display: "flex", alignItems: "flex-start", gap: 8 } satisfies CSSProperties,
 } as const;
 
 /** Chevron rotates 90deg when the finding is expanded. */

@@ -3,6 +3,7 @@ import type {
   Agent,
   AgentSkillDetail,
   AgentSkillLink,
+  AgentRestoreResponse,
   AgentVersion,
   CiFailOn,
   ModelInfo,
@@ -11,7 +12,7 @@ import type {
 } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
 import { toAgentDto, toAgentSkillDetail, toAgentVersionDto } from './helpers.js';
-import { ValidationError } from '../../platform/errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../../platform/errors.js';
 
 /**
  * A2 — agents service. Business logic for the Agents tab + Agent Editor.
@@ -157,6 +158,34 @@ export class AgentsService {
     if (!agent) return undefined;
     const row = await this.repo.getVersion(agentId, version);
     return row ? toAgentVersionDto(row) : undefined;
+  }
+
+  /**
+   * Promote (SPEC-06 AC-59): restore the config of `version` as a new version.
+   * 404 unknown agent/version, 409 when `version` is already the current one.
+   * Existing skills are restored; deleted ones come back as `skipped_skill_ids`.
+   */
+  async restoreVersion(
+    workspaceId: string,
+    agentId: string,
+    version: number,
+  ): Promise<AgentRestoreResponse> {
+    const res = await this.repo.restoreVersion(workspaceId, agentId, version);
+    switch (res.kind) {
+      case 'agent_not_found':
+        throw new NotFoundError('Agent not found');
+      case 'version_not_found':
+        throw new NotFoundError('Agent version not found');
+      case 'is_current':
+        throw new ConflictError('This version is already the current one');
+      case 'restored': {
+        const links = await this.repo.linkedSkills(agentId);
+        return {
+          ...toAgentDto(res.row, links.length),
+          skipped_skill_ids: res.skippedSkillIds,
+        };
+      }
+    }
   }
 
   /** Linked skills for an agent as AgentSkillLink[] (ordered). */

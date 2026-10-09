@@ -11,6 +11,7 @@ import type { AppConfig } from './config.js';
 import type { Db } from '../db/client.js';
 import { JobRunner } from './jobs.js';
 import { runBus, type RunBus } from './sse.js';
+import { parseFunctionStructure } from '../adapters/astgrep/index.js';
 import { LocalSecretsProvider } from '../adapters/secrets/local.js';
 import { LocalNoAuthProvider } from '../adapters/auth/local.js';
 import { OctokitGitHubClient } from '../adapters/github/octokit.js';
@@ -53,6 +54,14 @@ import { selectLatestReviews } from '../modules/reviews/smart-diff/build.js';
 import { classifyFile } from '../modules/reviews/smart-diff/classify.js';
 import { collectPaths } from '../modules/reviews/context-docs.js';
 import { parseIntentLinks } from '../modules/intent/helpers.js';
+import { EvalRepository } from '../modules/eval/repository.js';
+import { EvalService } from '../modules/eval/service.js';
+import { SkillsRepository } from '../modules/skills/repository.js';
+import { loadDiff } from '../modules/reviews/diff-loader.js';
+import { toSkillPromptBlock } from '../modules/reviews/helpers.js';
+import { REVIEW_STRATEGY } from '../modules/reviews/constants.js';
+import { parseUnifiedDiff } from '../adapters/git/diff-parser.js';
+import { AgentVersionConfig, type Provider } from '@devdigest/shared';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -116,6 +125,7 @@ export class Container {
   private _history?: HistoryFacade;
   private _onboarding?: OnboardingService;
   private _brief?: BriefService;
+  private _evalService?: EvalService;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -261,6 +271,93 @@ export class Container {
       now: () => new Date(),
     });
     return this._brief;
+  }
+
+  /**
+   * Eval pipeline use cases (SPEC-06) — a singleton: it owns the background run executor.
+   * Every collaborator is a port over a module's repository; the eval module never imports
+   * another module's folder.
+   */
+  get evalService(): EvalService {
+    this._evalService ??= (() => {
+      const agentsRepo = this.agentsRepo;
+      const toEvalAgent = (a: Awaited<ReturnType<AgentsRepository['listEnabled']>>[number]) => ({
+        id: a.id,
+        name: a.name,
+        provider: a.provider as Provider,
+        model: a.model,
+        systemPrompt: a.systemPrompt,
+        strategy: a.strategy ?? REVIEW_STRATEGY,
+        enabled: a.enabled,
+        version: a.version,
+      });
+      return new EvalService({
+        repo: new EvalRepository(this.db),
+        agents: {
+          getById: async (workspaceId, id) => {
+            const row = await agentsRepo.getById(workspaceId, id);
+            return row ? toEvalAgent(row) : undefined;
+          },
+          listEnabled: async (workspaceId) => (await agentsRepo.listEnabled(workspaceId)).map(toEvalAgent),
+          ensureVersionSnapshot: async (workspaceId, id) => {
+            const row = await agentsRepo.getById(workspaceId, id);
+            if (row) await agentsRepo.ensureVersionSnapshot(row);
+          },
+          versionConfig: async (agentId, version) => {
+            const row = await agentsRepo.getVersion(agentId, version);
+            return row ? AgentVersionConfig.parse(row.configJson) : undefined;
+          },
+          enabledSkills: async (agentId) =>
+            (await agentsRepo.enabledSkillsForPrompt(agentId)).map((l) => ({
+              name: l.skill.name,
+              body: l.skill.body,
+            })),
+          skillName: async (workspaceId, skillId) =>
+            (await new SkillsRepository(this.db).getById(workspaceId, skillId))?.name,
+        },
+        findings: {
+          facts: async (findingId) => {
+            const ctx = await this.reviewRepo.findingContext(findingId);
+            if (!ctx) return undefined;
+            return {
+              workspaceId: ctx.pull.workspaceId,
+              prId: ctx.pull.id,
+              agentId: ctx.review.agentId,
+              title: ctx.finding.title,
+              rationale: ctx.finding.rationale,
+              kind: ctx.finding.kind,
+              file: ctx.finding.file,
+              startLine: ctx.finding.startLine,
+              endLine: ctx.finding.endLine,
+              severity: ctx.finding.severity,
+              category: ctx.finding.category,
+              accepted: ctx.finding.acceptedAt !== null,
+              dismissed: ctx.finding.dismissedAt !== null,
+            };
+          },
+        },
+        prDiff: {
+          forPull: async (workspaceId, prId) => {
+            const pull = await this.reviewRepo.getPull(workspaceId, prId);
+            if (!pull) return undefined;
+            const repo = await this.reviewRepo.getRepo(pull.repoId);
+            if (!repo) return undefined;
+            const diff = await loadDiff(this, this.reviewRepo, workspaceId, pull, repo);
+            return { diffRaw: diff.raw, title: pull.title, body: pull.body };
+          },
+        },
+        structure: { analyze: (file, source) => parseFunctionStructure(file, source) },
+        parseDiff: parseUnifiedDiff,
+        skillBlock: toSkillPromptBlock,
+        llm: (id) => this.llm(id),
+        missingKey: async (provider) => {
+          const key = SECRET_KEY_BY_PROVIDER[provider];
+          return (await this.secrets.get(key)) ? null : key;
+        },
+        now: () => new Date(),
+      });
+    })();
+    return this._evalService;
   }
 
   /** Project context documents use cases (SPEC-01) — assembled here so routes never touch `db`. */

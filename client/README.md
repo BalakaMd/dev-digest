@@ -28,7 +28,8 @@ flowchart TD
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
   SKILLS["/skills<br/>grid · preview drawer"] --> SKILL["/skills/:id<br/>config · context · preview · versioning"]
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills · context)"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills · context · evals)"]
+  EVALDASH["/eval<br/>agents list · recent runs"] --> EVALAGENT["/eval/:agentId<br/>tiles · trend · history · compare"]
   SETTINGS["/settings/:section<br/>API keys · feature models · workspace"]
   TOUR["/repos/:repoId/onboarding-tour<br/>stored tour · generate"]
 
@@ -36,6 +37,8 @@ flowchart TD
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments · /pulls/:id/blast · /pulls/:id/history<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
   SKILLS -->|"/skills · /skills/import · /skills/:id/versions"| API
   AGENTS -->|"/agents · /agents/:id · /agents/:id/skills"| API
+  EVALDASH -->|"GET /eval/dashboard · POST /eval/run-all"| API
+  EVALAGENT -->|"GET /agents/:id/eval-runs · /eval/compare · /eval-runs/:id<br/>POST /agents/:id/eval-runs · /agents/:id/versions/:version/restore"| API
   SETTINGS -->|"/settings · /providers"| API
   TOUR -->|"GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"| API
 ```

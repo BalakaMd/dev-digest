@@ -20,6 +20,7 @@ import { useEvalCases, useEvalCompare, useEvalRuns, useInvalidateOnRunFinish, us
 import { notify } from "../../../../lib/toast";
 import { CaseResultDrawer } from "./_components/CaseResultDrawer";
 import { CompareModal } from "./_components/CompareModal";
+import { FilterSelect } from "./_components/FilterSelect";
 import { RegressionBanner } from "./_components/RegressionBanner";
 import { RunHistoryTable } from "./_components/RunHistoryTable";
 import { TrendChart } from "./_components/TrendChart";
@@ -178,11 +179,10 @@ export function AgentEvalView({ agentId, onCompare, onOpenRun }: AgentEvalViewPr
             <p style={s.subtitle}>{t("agentView.subtitle", { cases: caseCount })}</p>
           </div>
           <div style={s.controls}>
-            <select
+            <FilterSelect
               aria-label={t("dashboard.agentSwitcher")}
               value={agentId}
-              onChange={(e) => router.push(`/eval/${e.target.value}`)}
-              style={s.select}
+              onChange={(id) => router.push(`/eval/${id}`)}
             >
               {!(agents.data ?? []).some((a) => a.id === agentId) && <option value={agentId}>{agent.data?.name ?? agentId}</option>}
               {(agents.data ?? []).map((a) => (
@@ -190,19 +190,18 @@ export function AgentEvalView({ agentId, onCompare, onOpenRun }: AgentEvalViewPr
                   {a.name}
                 </option>
               ))}
-            </select>
-            <select
+            </FilterSelect>
+            <FilterSelect
               aria-label={t("dashboard.periodFilter")}
               value={period}
-              onChange={(e) => setPeriod(e.target.value as Period)}
-              style={s.select}
+              onChange={(v) => setPeriod(v as Period)}
             >
               {PERIODS.map((p) => (
                 <option key={p} value={p}>
                   {t(`dashboard.period.${p}`)}
                 </option>
               ))}
-            </select>
+            </FilterSelect>
             <Button
               kind="primary"
               icon="Play"

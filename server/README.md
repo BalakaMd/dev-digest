@@ -74,7 +74,10 @@ flowchart TB
     brief["brief<br/>GET/POST /pulls/:id/brief"]
   end
   subgraph Agents["Agents"]
-    agents["agents<br/>/agents · /agents/:id · /agents/:id/context-docs"]
+    agents["agents<br/>/agents · /agents/:id · /agents/:id/context-docs · /agents/:id/versions/:version/restore"]
+  end
+  subgraph Eval["Eval"]
+    evalMod["eval<br/>/findings/:id/eval-case (+ /suggestion) · /agents/:id/eval-cases · /eval-cases/:id(/run)<br/>/agents/:id/eval-runs · /eval-runs/:id(/cases/:caseRunId)<br/>/eval/run-all · /eval/dashboard · /eval/compare"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]

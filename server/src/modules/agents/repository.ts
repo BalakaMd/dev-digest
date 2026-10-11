@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
+import { AgentVersionConfig } from '@devdigest/shared';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { DEFAULT_AGENT_DESCRIPTION, INITIAL_AGENT_VERSION } from './constants.js';
 import { isConfigChange } from './helpers.js';
@@ -65,6 +66,15 @@ export interface LinkedSkillRow {
   skill: typeof t.skills.$inferSelect;
   order: number;
 }
+
+/** Outcome of `restoreVersion`; failures are values so the service picks the HTTP mapping. */
+export type RestoreVersionResult =
+  | { kind: 'agent_not_found' }
+  | { kind: 'version_not_found' }
+  | { kind: 'is_current' }
+  | { kind: 'restored'; row: AgentRow; skippedSkillIds: string[] };
+
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 export class AgentsRepository {
   constructor(private db: Db) {}
@@ -271,9 +281,23 @@ export class AgentsRepository {
     };
   }
 
-  private async snapshotVersion(row: AgentRow, version: number): Promise<void> {
-    const skills = await this.skillIdsForAgent(row.id);
-    await this.db
+  /**
+   * Make sure the agent's CURRENT version has a snapshot row. Seeded agents have
+   * none until their first edit (`db/seed.ts` inserts into `agents` only), and
+   * eval runs / Promote reference a version by number. Idempotent.
+   */
+  async ensureVersionSnapshot(row: AgentRow): Promise<void> {
+    await this.snapshotVersion(row, row.version);
+  }
+
+  private async snapshotVersion(
+    row: AgentRow,
+    version: number,
+    ex: Db | Tx = this.db,
+    skillIds?: string[],
+  ): Promise<void> {
+    const skills = skillIds ?? (await this.skillIdsForAgent(row.id));
+    await ex
       .insert(t.agentVersions)
       .values({
         agentId: row.id,
@@ -291,6 +315,88 @@ export class AgentsRepository {
         },
       })
       .onConflictDoNothing();
+  }
+
+  /**
+   * Promote: make the config of snapshot `version` the agent's current config as
+   * ONE new version. One transaction — config columns, ordered skill links (only
+   * skills that still exist in the workspace; the rest are returned as skipped),
+   * a single version bump and the new snapshot. Name, description and enabled are
+   * not part of a snapshot and stay untouched. The agent row is locked
+   * (`FOR UPDATE`) so concurrent restores serialise.
+   */
+  async restoreVersion(
+    workspaceId: string,
+    agentId: string,
+    version: number,
+  ): Promise<RestoreVersionResult> {
+    return this.db.transaction(async (tx): Promise<RestoreVersionResult> => {
+      const [agent] = await tx
+        .select()
+        .from(t.agents)
+        .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, agentId)))
+        .for('update');
+      if (!agent) return { kind: 'agent_not_found' };
+      if (agent.version === version) return { kind: 'is_current' };
+
+      const [snap] = await tx
+        .select()
+        .from(t.agentVersions)
+        .where(and(eq(t.agentVersions.agentId, agentId), eq(t.agentVersions.version, version)));
+      if (!snap) return { kind: 'version_not_found' };
+      const cfg = AgentVersionConfig.parse(snap.configJson);
+
+      const existing = cfg.skills.length
+        ? new Set(
+            (
+              await tx
+                .select({ id: t.skills.id })
+                .from(t.skills)
+                .where(
+                  and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, cfg.skills)),
+                )
+            ).map((r) => r.id),
+          )
+        : new Set<string>();
+      const skillIds = cfg.skills.filter((id) => existing.has(id));
+      const skippedSkillIds = cfg.skills.filter((id) => !existing.has(id));
+
+      const [row] = await tx
+        .update(t.agents)
+        .set({
+          provider: cfg.provider,
+          model: cfg.model,
+          systemPrompt: cfg.system_prompt,
+          outputSchema: (cfg.output_schema as object | null | undefined) ?? null,
+          strategy: cfg.strategy,
+          ciFailOn: cfg.ci_fail_on,
+          repoIntel: cfg.repo_intel,
+          contextDocs: cfg.context_docs,
+          version: agent.version + 1,
+        })
+        .where(eq(t.agents.id, agentId))
+        .returning();
+
+      const previousSkillIds = (
+        await tx
+          .select({ id: t.agentSkills.skillId })
+          .from(t.agentSkills)
+          .where(eq(t.agentSkills.agentId, agentId))
+          .orderBy(asc(t.agentSkills.order))
+      ).map((r) => r.id);
+      await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
+      if (skillIds.length > 0) {
+        await tx
+          .insert(t.agentSkills)
+          .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+      }
+
+      // Keep the current version's own snapshot too (seeded agents have none), so
+      // the history the user promotes from stays complete.
+      await this.snapshotVersion(agent, agent.version, tx, previousSkillIds);
+      await this.snapshotVersion(row!, row!.version, tx, skillIds);
+      return { kind: 'restored', row: row!, skippedSkillIds };
+    });
   }
 
   // ---- agent_versions (immutable config snapshots) ------------------------

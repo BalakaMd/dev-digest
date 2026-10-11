@@ -134,5 +134,7 @@ null as `—`.
 
 ## What this spec does not cover
 
-Multi-agent composition, memory retrieval, and the eval pipeline are later
-lessons. The tables exist in the schema and sit empty until then.
+Multi-agent composition and memory retrieval are later lessons. Their tables
+exist in the schema and sit empty until then. The eval pipeline (regression
+harness for review agents) is described in
+[docs/eval-pipeline.md](../../docs/eval-pipeline.md).

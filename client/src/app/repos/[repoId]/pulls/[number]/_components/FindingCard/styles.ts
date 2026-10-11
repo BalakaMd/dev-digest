@@ -4,10 +4,12 @@ import type { CSSProperties } from "react";
 export const s = {
   card: (focused: boolean, sevColor: string, muted: boolean): CSSProperties => ({
     borderRadius: 8,
-    // All-longhand (never mix `border` shorthand with `borderLeft` — React warns
-    // about updating shorthand + non-shorthand on the same rerender).
+    // All-longhand (never mix `border`/`borderColor` shorthand with `borderLeftColor` —
+    // React warns about updating shorthand + non-shorthand on the same rerender).
     borderStyle: "solid",
-    borderColor: focused ? sevColor : "var(--border)",
+    borderTopColor: focused ? sevColor : "var(--border)",
+    borderRightColor: focused ? sevColor : "var(--border)",
+    borderBottomColor: focused ? sevColor : "var(--border)",
     borderWidth: 1,
     borderLeftWidth: 3,
     borderLeftColor: sevColor,
@@ -84,6 +86,8 @@ export const s = {
   } satisfies CSSProperties,
   actions: {
     display: "flex",
+    // flex-start: a taller sibling (eval-case status text) must not stretch Accept/Reject.
+    alignItems: "flex-start",
     gap: 8,
     marginTop: 14,
     flexWrap: "wrap",

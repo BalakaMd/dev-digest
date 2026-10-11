@@ -37,3 +37,21 @@ describe("sidebar nav — Onboarding Tour (AC-1, AC-2)", () => {
     expect(activeKeyFor("/repos/r1/pulls")).not.toBe(item!.key);
   });
 });
+
+describe("sidebar nav — Eval Dashboard (AC-34)", () => {
+  const lab = NAV.find((g) => g.section === "SKILLS LAB")!;
+  const item = lab?.items.find((i) => i.label === "Eval Dashboard");
+
+  it('has an "Eval Dashboard" item in the SKILLS LAB group that opens /eval', () => {
+    expect(item).toBeDefined();
+    expect(item!.href).toBe("/eval");
+    expect(item!.gKey).toBeUndefined();
+  });
+
+  it("is highlighted on the dashboard and an agent's dashboard view, not on /agents", () => {
+    expect(activeKeyFor("/eval")).toBe(item!.key);
+    expect(activeKeyFor("/eval/agent-1")).toBe(item!.key);
+    expect(activeKeyFor("/agents")).not.toBe(item!.key);
+    expect(activeKeyFor("/agents/agent-1")).not.toBe(item!.key);
+  });
+});

@@ -91,7 +91,9 @@ rubric, the bar, and the dedup procedure.
 
 ## Do not touch
 
-- `*/vendor/**` — vendored copies; edit the canonical source instead
+- `*/vendor/**` — vendored copies; edit the canonical source instead.
+  Exception (owner-approved): `client/src/vendor/ui/nav.ts` holds the sidebar items
+  (Onboarding Tour, Eval Dashboard); add one entry per new page there.
 - `.claude/skills/**` — vendored, managed via `skills-lock.json` (source hashes).
   Ours, edit freely: `engineering-insights/`, `onion-architecture/`,
   `frontend-ui-architecture/`, `pr-self-review/`, `dev-flow/`, `spec/`, `dependency-checker/`
@@ -109,6 +111,7 @@ rubric, the bar, and the dedup procedure.
 | [TESTING.md](TESTING.md) | the question is about test strategy or CI workflows |
 | [evals/README.md](evals/README.md) | you change a skill, an agent or a CLAUDE.md and want to measure it, or touch `evals.yml` |
 | [docs/](docs/) | you need agent system prompts, model-selection guidance, or how project context documents reach a review ([project-context.md](docs/project-context.md)) |
+| [docs/eval-pipeline.md](docs/eval-pipeline.md) | you touch the `eval` module, `restoreVersion`, the Evals tab, `EvalCaseButton`, the `/eval` pages or `pnpm verify:l06` |
 | [docs/onboarding-tour.md](docs/onboarding-tour.md) | you touch the onboarding module, `getOnboardingFacts`, `singleAttempt` or the tour page |
 | [specs/](specs/) | you are picking up a cross-package feature |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change — past traps are logged there |

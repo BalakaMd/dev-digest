@@ -1,4 +1,4 @@
-import type { FindingRecord } from "@devdigest/shared";
+import type { EvalCaseSummary, FindingRecord } from "@devdigest/shared";
 import { LOW_CONFIDENCE_THRESHOLD, SEVERITY_ORDER } from "./constants";
 
 /** Optionally drop low-confidence findings, keep one severity, and sort by severity. */
@@ -27,4 +27,18 @@ export function severityCounts(findings: FindingRecord[]): Array<[string, number
   return [...counts.entries()].sort(
     ([a], [b]) => (SEVERITY_ORDER[a] ?? 9) - (SEVERITY_ORDER[b] ?? 9),
   );
+}
+
+/**
+ * Map finding id -> name of the eval case already made from it. Cases without a
+ * source finding (hand-written ones) are skipped.
+ */
+export function evalCaseNameByFinding(
+  cases: Pick<EvalCaseSummary, "source_finding_id" | "name">[] | undefined,
+): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const c of cases ?? []) {
+    if (c.source_finding_id) names.set(c.source_finding_id, c.name);
+  }
+  return names;
 }

@@ -11,6 +11,7 @@ import {
   type FileAnnotations,
 } from "@/components/diff-viewer";
 import { usePrComments, useCreatePrComment, usePrReviews, useFindingAction } from "@/lib/hooks/reviews";
+import { useEvalCasesForAgents } from "@/lib/hooks/eval";
 import { usePrSmartDiff } from "@/lib/hooks/smart-diff";
 import { notify } from "@/lib/toast";
 import type { FindingActionKind, PrFile } from "@devdigest/shared";
@@ -26,6 +27,7 @@ import {
   latestReviewPerAgent,
   mostSevereFinding,
 } from "./smart-diff-model";
+import { evalCaseNameByFinding } from "../FindingsPanel/helpers";
 import { s } from "./styles";
 
 interface DiffTabProps {
@@ -55,6 +57,13 @@ export function DiffTab({ prId, filesCount, files, canComment, target }: DiffTab
     () => latestReviewPerAgent(reviewsQuery.data ?? []),
     [reviewsQuery.data],
   );
+  // Each run's agent owns its eval cases; fetch per distinct agent of the latest runs.
+  const agentIds = React.useMemo(
+    () => [...new Set(latest.flatMap((r) => (r.agent_id ? [r.agent_id] : [])))],
+    [latest],
+  );
+  const evalCases = useEvalCasesForAgents(agentIds);
+  const caseNames = React.useMemo(() => evalCaseNameByFinding(evalCases), [evalCases]);
   const byFile = React.useMemo(() => findingsByFile(latest), [latest]);
   const hasReview = latest.length > 0;
   const totalFindings = React.useMemo(
@@ -126,6 +135,7 @@ export function DiffTab({ prId, filesCount, files, canComment, target }: DiffTab
               <InlineFinding
                 key={f.id}
                 finding={f}
+                evalCaseName={caseNames.get(f.id) ?? null}
                 pending={action.isPending && action.variables?.findingId === f.id}
                 onAction={(act: FindingActionKind) =>
                   action.mutate({ findingId: f.id, action: act, prId: prId ?? undefined })

@@ -156,6 +156,9 @@ export function useFindingAction() {
       ),
     onSuccess: (_d, { prId }) => {
       if (prId) qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      // A decision change also re-types the eval case made from the finding (server-side sync).
+      qc.invalidateQueries({ queryKey: ["eval-cases"] });
+      qc.invalidateQueries({ queryKey: ["eval-case"] });
     },
   });
 }

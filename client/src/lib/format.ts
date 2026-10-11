@@ -42,3 +42,38 @@ export function formatTokenCount(n: number): string {
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
+
+/**
+ * Eval metric (a fraction 0..1) as a whole percentage, e.g. 0.824 → "82%".
+ * `null` means the metric has no value (its denominator was 0) and renders as
+ * "—", never "0%" — a real 0 is a statement, a missing value is not one.
+ */
+export function formatMetricPct(fraction: number | null | undefined): string {
+  if (fraction == null || Number.isNaN(fraction)) return EMPTY;
+  return `${Math.round(fraction * 100)}%`;
+}
+
+/**
+ * Signed change of a metric in percentage points, with an arrow so the
+ * direction does not rest on colour alone: 4 → "▲ 4 pt", -2 → "▼ 2 pt".
+ * `null` (no previous value, or either side has none) → "" (show nothing).
+ * A change that rounds to 0 reads "0 pt" without an arrow.
+ */
+export function formatDeltaPts(pp: number | null | undefined): string {
+  if (pp == null || Number.isNaN(pp)) return "";
+  const n = Math.round(pp);
+  if (n === 0) return "0 pt";
+  return `${n > 0 ? "▲" : "▼"} ${Math.abs(n)} pt`;
+}
+
+/** Cost for eval tables: "—" when unknown (never "$0.00"), otherwise `formatCostUsd`. */
+export function formatCostOrDash(usd: number | null | undefined): string {
+  return usd == null ? EMPTY : formatCostUsd(usd);
+}
+
+/** "2026-05-29 09:14" (UTC) — stable, locale-free run time; unparseable input is returned as is. */
+export function formatRunTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toISOString().slice(0, 16).replace("T", " ");
+}

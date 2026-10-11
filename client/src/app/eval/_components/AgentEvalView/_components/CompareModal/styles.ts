@@ -1,0 +1,52 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for CompareModal. */
+export const s = {
+  body: { padding: 24, display: "flex", flexDirection: "column", gap: 20 } satisfies CSSProperties,
+  tiles: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 } satisfies CSSProperties,
+  tile: {
+    padding: "12px 14px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  } satisfies CSSProperties,
+  label: { fontSize: 11, letterSpacing: "0.08em", color: "var(--text-muted)", fontWeight: 600 } satisfies CSSProperties,
+  valueRow: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
+  older: { fontSize: 16, color: "var(--text-secondary)" } satisfies CSSProperties,
+  newer: { fontSize: 26, fontWeight: 700, color: "var(--text-primary)" } satisfies CSSProperties,
+  arrow: { color: "var(--text-muted)" } satisfies CSSProperties,
+  delta: (tone: number): CSSProperties => ({
+    fontSize: 12.5,
+    fontWeight: 600,
+    color: tone > 0 ? "var(--ok)" : tone < 0 ? "var(--crit)" : "var(--text-muted)",
+  }),
+  notice: {
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid var(--warn, #d9a441)",
+    background: "color-mix(in srgb, var(--warn, #d9a441) 10%, transparent)",
+    fontSize: 13.5,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  } satisfies CSSProperties,
+  section: { display: "flex", flexDirection: "column", gap: 8 } satisfies CSSProperties,
+  heading: {
+    fontSize: 11.5,
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+    margin: 0,
+  } satisfies CSSProperties,
+  list: { margin: 0, paddingLeft: 18, fontSize: 13.5, display: "flex", flexDirection: "column", gap: 4 } satisfies CSSProperties,
+  muted: { fontSize: 13.5, color: "var(--text-secondary)", margin: 0 } satisfies CSSProperties,
+  mono: { fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)" } satisfies CSSProperties,
+  footer: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } satisfies CSSProperties,
+  hint: { fontSize: 12.5, color: "var(--text-muted)" } satisfies CSSProperties,
+  ok: { fontSize: 13.5, color: "var(--ok)", fontWeight: 600 } satisfies CSSProperties,
+  error: { fontSize: 13.5, color: "var(--crit)" } satisfies CSSProperties,
+} as const;

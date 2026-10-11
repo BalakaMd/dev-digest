@@ -3,7 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { Agent, ModelInfo, Provider, ReviewStrategy } from "@devdigest/shared";
+import type { Agent, AgentRestoreResponse, ModelInfo, Provider, ReviewStrategy } from "@devdigest/shared";
 
 export function useAgents() {
   return useQuery({
@@ -100,6 +100,20 @@ export function useSetAgentContextDocs() {
       qc.setQueryData(["agent", agent.id], agent);
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.invalidateQueries({ queryKey: ["context-doc-usage"] });
+    },
+  });
+}
+
+/** "Promote": make a version current again (saved as a new version). */
+export function useRestoreAgentVersion(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (version: number) =>
+      api.post<AgentRestoreResponse>(`/agents/${agentId}/versions/${version}/restore`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent", agentId] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: ["eval-compare"] });
     },
   });
 }

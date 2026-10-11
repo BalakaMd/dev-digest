@@ -71,18 +71,20 @@ describe("A2 Agent Editor (smoke)", () => {
     expect(screen.getByText("Save agent")).toBeInTheDocument();
   });
 
-  it("has Config, Skills and Context tabs and no others", () => {
+  it("has Config, Skills, Context and Evals tabs and no Stats or CI (AC-60)", () => {
     renderWithIntl(<AgentEditor agent={AGENT} tab="config" onTab={() => {}} />);
     expect(screen.getByText("Skills")).toBeInTheDocument();
     expect(screen.getByText("Context")).toBeInTheDocument();
-    for (const absent of ["Evals", "Stats", "CI"]) expect(screen.queryByText(absent)).not.toBeInTheDocument();
+    expect(screen.getByText("Evals")).toBeInTheDocument();
+    for (const absent of ["Stats", "CI"]) expect(screen.queryByText(absent)).not.toBeInTheDocument();
   });
 });
 
 describe("Agent Editor — Context tab (AC-10)", () => {
   it("sits after Config and Skills in the tab bar, and is a valid ?tab= value", () => {
-    expect(TABS.map((t) => t.key)).toEqual(["config", "skills", "context"]);
+    expect(TABS.map((t) => t.key)).toEqual(["config", "skills", "context", "evals"]);
     expect(VALID_TABS).toContain("context");
+    expect(VALID_TABS).toContain("evals");
   });
 
   it("selecting it in the tab bar asks for the context tab", () => {

@@ -22,6 +22,8 @@ import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
 import { lineLabel } from "./helpers";
 import { githubBlobUrl } from "../../../../../../../lib/github-urls";
 import { CitedDocs } from "./_components/CitedDocs";
+import { EvalCaseButton } from "../EvalCaseButton";
+import { decisionButtonStyle } from "../../../../../../../lib/finding-decision-style";
 import { s } from "./styles";
 
 export function FindingCard({
@@ -33,6 +35,7 @@ export function FindingCard({
   repoFullName,
   headSha,
   repoId,
+  evalCaseName,
 }: {
   f: FindingRecord;
   focused?: boolean;
@@ -43,6 +46,8 @@ export function FindingCard({
   headSha?: string | null;
   /** Repository the cited project documents belong to (enables the citation chips). */
   repoId?: string | null;
+  /** Name of the eval case already made from this finding, if any (disables the button). */
+  evalCaseName?: string | null;
 }) {
   const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
@@ -101,11 +106,14 @@ export function FindingCard({
 
           <div style={s.actions}>
             <Button
-              kind="secondary"
+              kind="ghost"
               size="sm"
               icon="Check"
               disabled={pending}
               active={accepted}
+              aria-pressed={accepted}
+              data-decision={accepted ? "accepted" : undefined}
+              style={decisionButtonStyle("accept", accepted)}
               onClick={() => onAction?.("accept")}
             >
               {t("finding.accept")}
@@ -116,10 +124,14 @@ export function FindingCard({
               icon="X"
               disabled={pending}
               active={dismissed}
+              aria-pressed={dismissed}
+              data-decision={dismissed ? "dismissed" : undefined}
+              style={decisionButtonStyle("dismiss", dismissed)}
               onClick={() => onAction?.("dismiss")}
             >
               {t("finding.dismiss")}
             </Button>
+            <EvalCaseButton findingId={f.id} decided={muted} existingCaseName={evalCaseName} />
           </div>
         </div>
       )}

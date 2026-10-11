@@ -9,8 +9,9 @@ import { Toggle, EmptyState, Badge, Icon, SEV, type Severity } from "@devdigest/
 import type { FindingRecord } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
+import { useEvalCases } from "../../../../../../../lib/hooks/eval";
 import { FILTER_SEVERITIES, KEY_TO_ACTION, SEVERITY_ORDER } from "./constants";
-import { severityCounts, visibleFindings } from "./helpers";
+import { evalCaseNameByFinding, severityCounts, visibleFindings } from "./helpers";
 import { s } from "./styles";
 
 export function FindingsPanel({
@@ -19,15 +20,20 @@ export function FindingsPanel({
   repoFullName,
   headSha,
   repoId,
+  agentId,
 }: {
   findings: FindingRecord[];
   prId: string;
   repoFullName?: string | null;
   headSha?: string | null;
   repoId?: string | null;
+  /** Agent that produced this run; its eval cases tell which findings already have one. */
+  agentId?: string | null;
 }) {
   const t = useTranslations("prReview");
   const action = useFindingAction();
+  const { data: evalCases } = useEvalCases(agentId);
+  const caseNames = React.useMemo(() => evalCaseNameByFinding(evalCases), [evalCases]);
   // Deep link: /pulls/N?tab=findings&severity=CRITICAL pre-applies the filter
   // (the PR list's findings chips navigate here). Unknown values are ignored.
   const urlSeverity = useSearchParams().get("severity");
@@ -127,6 +133,7 @@ export function FindingsPanel({
               repoFullName={repoFullName}
               headSha={headSha}
               repoId={repoId}
+              evalCaseName={caseNames.get(f.id) ?? null}
               onAction={(act) => action.mutate({ findingId: f.id, action: act, prId })}
             />
           ))

@@ -1,6 +1,6 @@
 # Spec: Export to CI
 Spec ID: SPEC-08
-Status: draft
+Status: approved
 Supersedes: —
 
 Designs: specs/export-to-ci/designs/01-wizard-target.png, 02-agent-ci-tab.png, 03-wizard-preview.png,

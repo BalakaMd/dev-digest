@@ -1,15 +1,16 @@
 import type { CSSProperties } from "react";
 
 export const s = {
-  root: {
+  root: (color: string): CSSProperties => ({
     display: "flex",
     alignItems: "flex-start",
     gap: 16,
     padding: "14px 16px",
     borderRadius: 8,
     border: "1px solid var(--border)",
+    borderLeft: `3px solid ${color}`,
     background: "var(--bg-surface)",
-  } satisfies CSSProperties,
+  }),
   score: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 52 } satisfies CSSProperties,
   scoreLabel: { fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" } satisfies CSSProperties,
   scoreValue: { fontSize: 24, fontWeight: 700 } satisfies CSSProperties,

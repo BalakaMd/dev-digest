@@ -8,7 +8,7 @@ export const s = {
     flexWrap: "wrap",
     borderBottom: "1px solid var(--border)",
   } satisfies CSSProperties,
-  tab: (selected: boolean): CSSProperties => ({
+  tab: (selected: boolean, color: string): CSSProperties => ({
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
@@ -18,7 +18,7 @@ export const s = {
     color: selected ? "var(--text-primary)" : "var(--text-secondary)",
     background: "transparent",
     border: "none",
-    borderBottom: `2px solid ${selected ? "var(--accent, var(--text-primary))" : "transparent"}`,
+    borderBottom: `2px solid ${selected ? color : "transparent"}`,
     marginBottom: -1,
     cursor: "pointer",
     maxWidth: 260,

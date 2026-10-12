@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@devdigest/ui";
 import type { AgentColumn } from "@devdigest/shared";
 import { AgentStatus } from "../AgentStatus";
+import { AgentMark, agentTone } from "../AgentMark";
 import { formatDurationMs, formatRunCost } from "../format";
 import { s } from "./AgentSummary.styles";
 
@@ -25,13 +26,17 @@ export function AgentSummary({
   const summary = column.summary?.trim() ? column.summary : null;
 
   return (
-    <section style={s.root} aria-label={name}>
+    <section
+      style={s.root(agentTone({ id: column.agent_id, name: column.agent_name }).color)}
+      aria-label={name}
+    >
       <div style={s.score} aria-label={t("summary.score")}>
         <span style={s.scoreLabel}>{t("summary.score")}</span>
         <span style={s.scoreValue}>{column.score ?? tc("empty")}</span>
       </div>
       <div style={s.main}>
         <div style={s.nameRow}>
+          <AgentMark agent={{ id: column.agent_id, name: column.agent_name }} size={24} />
           <span style={s.name}>{name}</span>
           <AgentStatus status={column.status} />
         </div>

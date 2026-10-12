@@ -140,3 +140,17 @@ describe("DisagreeBlock", () => {
     expect(document.querySelector("img")).toBeNull();
   });
 });
+
+describe("DisagreeBlock — agent colour (NFR-5)", () => {
+  it("tints each cell by its agent and keeps the agent name as text", () => {
+    renderBlock([
+      conflict("g1", [
+        take("r1", { agent_name: "Security" }),
+        take("r2", { agent_name: "Performance" }),
+      ]),
+    ]);
+    const cell = (name: string) => screen.getByText(name).closest("[data-state]") as HTMLElement;
+    expect(cell("Security").querySelector("[data-agent-color]")).toHaveAttribute("data-agent-color", "#ef4444");
+    expect(cell("Performance").querySelector("[data-agent-color]")).toHaveAttribute("data-agent-color", "#f59e0b");
+  });
+});

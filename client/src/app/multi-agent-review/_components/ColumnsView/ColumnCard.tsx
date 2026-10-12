@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button, SeverityBadge } from "@devdigest/ui";
 import type { AgentColumn, FindingGroup } from "@devdigest/shared";
 import { AgentStatus } from "../AgentStatus";
+import { AgentMark, agentTone } from "../AgentMark";
 import { alsoFlaggedBy } from "../group-helpers";
 import { formatDurationMs, formatRunCost } from "../format";
 import { useElapsed } from "./use-elapsed";
@@ -28,12 +29,16 @@ export function ColumnCard({ column, columns, groups, onViewTrace, onCancel }: C
   const isEnded = column.status === "failed" || column.status === "cancelled";
   const elapsed = useElapsed(column.started_at, isRunning);
   const count = column.findings.length;
+  const tone = agentTone({ id: column.agent_id, name: column.agent_name });
 
   return (
-    <section style={s.column} aria-label={t("columnLabel", { name })} data-status={column.status}>
+    <section style={s.column(tone.color)} aria-label={t("columnLabel", { name })} data-status={column.status}>
       <div style={s.head}>
         <div style={s.headRow}>
-          <h3 style={s.name}>{name}</h3>
+          <div style={s.nameRow}>
+            <AgentMark agent={{ id: column.agent_id, name: column.agent_name }} size={26} />
+            <h3 style={s.name}>{name}</h3>
+          </div>
           {column.status === "done" && column.score != null && (
             <span style={s.score}>{t("score", { score: column.score })}</span>
           )}

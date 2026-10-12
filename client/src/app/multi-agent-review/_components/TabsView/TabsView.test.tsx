@@ -116,3 +116,20 @@ describe("TabsView", () => {
     expect(document.querySelector("img")).toBeNull();
   });
 });
+
+describe("TabsView — agent colour (NFR-5)", () => {
+  it("puts an agent mark in each tab, and in the summary of the selected one, with the name still as text", () => {
+    renderTabs([
+      column("r1", { agent_name: "Security", score: 91 }),
+      column("r2", { agent_name: "Performance", score: 70 }),
+    ]);
+    const colorIn = (el: HTMLElement) => el.querySelector("[data-agent-color]")?.getAttribute("data-agent-color");
+    expect(colorIn(screen.getByRole("tab", { name: /Security/ }))).toBe("#ef4444");
+    expect(colorIn(screen.getByRole("tab", { name: /Performance/ }))).toBe("#f59e0b");
+    // Summary of the selected agent (Security) carries the same colour; its name is text.
+    expect(colorIn(screen.getByRole("region", { name: "Security" }))).toBe("#ef4444");
+    fireEvent.click(screen.getByRole("tab", { name: /Performance/ }));
+    expect(colorIn(screen.getByRole("region", { name: "Performance" }))).toBe("#f59e0b");
+    expect(screen.getByRole("tab", { name: /Performance/ })).toHaveTextContent("Performance70");
+  });
+});

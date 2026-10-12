@@ -193,7 +193,7 @@ describe('main() env contract (AC-61, AC-21, AC-63)', () => {
     const summary = readFileSync(summaryPath, 'utf8');
     expect(summary).toContain('DevDigest review — Second Agent on PR #9');
     expect(summary).toContain('| Verdict | Request changes |');
-    expect(summary).not.toContain('Hardcoded key'); // model text never reaches the summary
+    expect(summary).toContain('Hardcoded key');
     expect(summary).not.toContain('sk-or-v1-FAKEFAKEFAKEFAKE');
   });
 

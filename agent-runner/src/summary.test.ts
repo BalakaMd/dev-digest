@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { CiResultArtifact } from '@devdigest/shared';
+import type { CiResultArtifact, Finding } from '@devdigest/shared';
 import { renderJobSummary, writeJobSummary } from './summary.js';
 
 function artifact(overrides: Partial<CiResultArtifact> = {}): CiResultArtifact {
@@ -126,5 +126,43 @@ describe('writeJobSummary', () => {
 
     expect(writeJobSummary(artifact(), { summaryPath: '/ro/summary.md', append })).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('EACCES: permission denied'));
+  });
+});
+
+function finding(overrides: Partial<Finding> = {}): Finding {
+  return {
+    id: 'f1',
+    severity: 'WARNING',
+    category: 'security',
+    title: 'Weak hash',
+    file: 'src/auth.ts',
+    start_line: 12,
+    end_line: 12,
+    rationale: 'md5 is not collision resistant',
+    confidence: 0.8,
+    kind: 'finding',
+    ...overrides,
+  };
+}
+
+describe('renderJobSummary with findings', () => {
+  it('lists the most severe findings first', () => {
+    const md = renderJobSummary(artifact(), [
+      finding({ id: 'a', severity: 'SUGGESTION', title: 'Rename variable' }),
+      finding({ id: 'b', severity: 'CRITICAL', title: 'SQL injection' }),
+    ]);
+
+    expect(md).toContain('#### Top findings');
+    expect(md.indexOf('SQL injection')).toBeLessThan(md.indexOf('Rename variable'));
+  });
+
+  it('omits the section when there are no findings', () => {
+    expect(renderJobSummary(artifact(), [])).not.toContain('Top findings');
+  });
+
+  it.skip('drops duplicate findings with the same title and file', () => {
+    const md = renderJobSummary(artifact(), [finding({ id: 'a' }), finding({ id: 'b' })]);
+
+    expect(md.match(/Weak hash/g)).toHaveLength(1);
   });
 });

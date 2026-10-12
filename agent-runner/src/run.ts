@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import type { LLMProvider, GitHubReviewPayload, CiResultArtifact, Review } from '@devdigest/shared';
+import type { LLMProvider, GitHubReviewPayload, CiResultArtifact, Review, Finding } from '@devdigest/shared';
 import {
   reviewPullRequest,
   toReviewPayload,
@@ -73,6 +73,7 @@ export interface RunCiSuccess {
   posted: { kind: PostAs; payload?: GitHubReviewPayload };
   blockers: number;
   gateTriggered: boolean;
+  findings: Finding[];
   error?: undefined;
 }
 
@@ -193,6 +194,7 @@ export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
       posted: { kind: deps.postAs, payload },
       blockers,
       gateTriggered: triggered,
+      findings: outcome.review.findings,
     };
   } catch (err) {
     // Hard-fail (Q5): non-zero exit, nothing posted, no artifact, no synthetic

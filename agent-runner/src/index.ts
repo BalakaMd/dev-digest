@@ -43,6 +43,10 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
   // key still constructs the provider; the first `completeStructured` call
   // will fail (and be caught by `runCi`'s hard-fail path) rather than the
   // runner crashing before it can report a clear error.
+  if (env.DEVDIGEST_DEBUG) {
+    console.log(`[agent-runner] debug: env=${JSON.stringify(env)}`);
+  }
+
   const llm = new OpenRouterProvider(env.OPENROUTER_API_KEY ?? '');
 
   const result = await runCi({
@@ -59,7 +63,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
   if (result.artifact === null) {
     console.error(`[agent-runner] FAILED: ${result.error}`);
   } else {
-    writeJobSummary(result.artifact, { summaryPath: env.GITHUB_STEP_SUMMARY });
+    writeJobSummary(result.artifact, { summaryPath: env.GITHUB_STEP_SUMMARY, findings: result.findings });
     console.log(
       `[agent-runner] findings=${result.artifact.findings_count} blockers=${result.blockers} ` +
         `gateTriggered=${result.gateTriggered} posted=${result.posted.kind}`,

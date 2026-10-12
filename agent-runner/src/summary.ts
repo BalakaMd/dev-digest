@@ -1,5 +1,5 @@
 import { appendFileSync } from 'node:fs';
-import type { CiResultArtifact } from '@devdigest/shared';
+import type { CiResultArtifact, Finding } from '@devdigest/shared';
 
 /**
  * GitHub Actions job summary — a short Markdown table of the run, appended to
@@ -41,8 +41,23 @@ function formatCost(costUsd: number | null): string {
   return costUsd === null ? '—' : `$${costUsd.toFixed(4)}`;
 }
 
+const MAX_LISTED_FINDINGS = 10;
+
+/** Top findings as a bullet list, most severe first. */
+function renderFindings(findings: Finding[]): string[] {
+  const order = ['CRITICAL', 'WARNING', 'SUGGESTION'];
+  const unique = findings.filter(
+    (f, i) => findings.findIndex((g) => g.title === f.title && g.file === f.file) === i,
+  );
+  const sorted = unique.sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity));
+  const lines = sorted
+    .slice(0, MAX_LISTED_FINDINGS)
+    .map((f) => `- **${f.severity}** ${f.title} — \`${f.file}:${f.start_line}\`\n  ${f.rationale}`);
+  return ['#### Top findings', '', ...lines, ''];
+}
+
 /** Render the summary for one agent run. Pure: no I/O, no clock, no env. */
-export function renderJobSummary(artifact: CiResultArtifact): string {
+export function renderJobSummary(artifact: CiResultArtifact, findings: Finding[] = []): string {
   const rows: [string, string][] = [
     ['Verdict', artifact.verdict ? VERDICT_LABEL[artifact.verdict] : '—'],
     ['Blockers', count(artifact.blockers)],
@@ -63,6 +78,7 @@ export function renderJobSummary(artifact: CiResultArtifact): string {
     '| --- | --- |',
     ...rows.map(([label, value]) => `| ${label} | ${cell(value)} |`),
     '',
+    ...(findings.length > 0 ? renderFindings(findings) : []),
   ];
   return `${lines.join('\n')}\n`;
 }
@@ -70,6 +86,7 @@ export function renderJobSummary(artifact: CiResultArtifact): string {
 export interface WriteJobSummaryDeps {
   /** Path from `GITHUB_STEP_SUMMARY`; unset outside GitHub Actions. */
   summaryPath: string | undefined;
+  findings?: Finding[];
   append?: typeof appendFileSync;
 }
 
@@ -82,7 +99,7 @@ export function writeJobSummary(artifact: CiResultArtifact, deps: WriteJobSummar
   if (!deps.summaryPath) return false;
   const append = deps.append ?? appendFileSync;
   try {
-    append(deps.summaryPath, renderJobSummary(artifact));
+    append(deps.summaryPath, renderJobSummary(artifact, deps.findings));
     return true;
   } catch (err) {
     console.warn(`[agent-runner] could not write the job summary: ${err instanceof Error ? err.message : String(err)}`);

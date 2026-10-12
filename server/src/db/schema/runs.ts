@@ -1,50 +1,87 @@
-import { pgTable, uuid, text, integer, jsonb, timestamp, doublePrecision, index, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  jsonb,
+  timestamp,
+  doublePrecision,
+  index,
+  uniqueIndex,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import type { RunEstimate } from '@devdigest/shared';
 import { workspaces } from './core';
 import { agents } from './agents';
 import { pullRequests } from './pulls';
+import { ciInstallations } from './ci';
 
 // ============================================================ Observability
 
 export const agentRuns = pgTable(
   'agent_runs',
   {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id, { onDelete: 'cascade' }),
-  agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'set null' }),
-  prId: uuid('pr_id').references(() => pullRequests.id, { onDelete: 'set null' }),
-  ranAt: timestamp('ran_at', { withTimezone: true }).defaultNow().notNull(),
-  provider: text('provider'),
-  model: text('model'),
-  durationMs: integer('duration_ms'),
-  tokensIn: integer('tokens_in'),
-  tokensOut: integer('tokens_out'),
-  /**
-   * USD billed for this run — OpenRouter's real `usage.cost` when it reports one,
-   * otherwise a PriceBook estimate. Null (never 0) when the model is unpriced or
-   * the run failed before reaching the model.
-   */
-  costUsd: doublePrecision('cost_usd'),
-  status: text('status'),
-  /** Failure reason when status='failed' (LLM/API error, timeout, quota, …). */
-  error: text('error'),
-  source: text('source', { enum: ['local', 'ci'] }).notNull().default('local'),
-  findingsCount: integer('findings_count'),
-  grounding: text('grounding'),
-  /** Review score (0-100) for this run; null on failed/cancelled runs. */
-  score: integer('score'),
-  /** Findings that tripped the agent's gate (severity ≥ ciFailOn). */
-  blockers: integer('blockers'),
-  /** Set when the run reaches a terminal state; null while running. */
-  finishedAt: timestamp('finished_at', { withTimezone: true }),
-  /** Batch this run belongs to (multi-agent review); null for single runs. */
-  multiAgentRunId: uuid('multi_agent_run_id').references((): AnyPgColumn => multiAgentRuns.id, {
-    onDelete: 'set null',
-  }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'set null' }),
+    prId: uuid('pr_id').references(() => pullRequests.id, { onDelete: 'set null' }),
+    ranAt: timestamp('ran_at', { withTimezone: true }).defaultNow().notNull(),
+    provider: text('provider'),
+    model: text('model'),
+    durationMs: integer('duration_ms'),
+    tokensIn: integer('tokens_in'),
+    tokensOut: integer('tokens_out'),
+    /**
+     * USD billed for this run — OpenRouter's real `usage.cost` when it reports one,
+     * otherwise a PriceBook estimate. Null (never 0) when the model is unpriced or
+     * the run failed before reaching the model.
+     */
+    costUsd: doublePrecision('cost_usd'),
+    status: text('status'),
+    /** Failure reason when status='failed' (LLM/API error, timeout, quota, …). */
+    error: text('error'),
+    source: text('source', { enum: ['local', 'ci'] }).notNull().default('local'),
+    findingsCount: integer('findings_count'),
+    grounding: text('grounding'),
+    /** Review score (0-100) for this run; null on failed/cancelled runs. */
+    score: integer('score'),
+    /** Findings that tripped the agent's gate (severity ≥ ciFailOn). */
+    blockers: integer('blockers'),
+    // ---- CI runs (source='ci'); null on local runs ----
+    ciInstallationId: uuid('ci_installation_id').references(() => ciInstallations.id, {
+      onDelete: 'set null',
+    }),
+    /** "owner/name" of the repository the Actions run belongs to. */
+    repo: text('repo'),
+    /** PR number in `repo` (CI runs have no local `pull_requests` row). */
+    externalPrNumber: integer('external_pr_number'),
+    actionsRunId: text('actions_run_id'),
+    actionsRunAttempt: integer('actions_run_attempt'),
+    actionsJobUrl: text('actions_job_url'),
+    headSha: text('head_sha'),
+    verdict: text('verdict'),
+    ciTrace: jsonb('ci_trace'),
+    /** Set when the run reaches a terminal state; null while running. */
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** Batch this run belongs to (multi-agent review); null for single runs. */
+    multiAgentRunId: uuid('multi_agent_run_id').references((): AnyPgColumn => multiAgentRuns.id, {
+      onDelete: 'set null',
+    }),
   },
-  (t) => [index('agent_runs_multi_idx').on(t.multiAgentRunId)],
+  (t) => [
+    // One row per (run, attempt): re-collection is idempotent.
+    uniqueIndex('agent_runs_ci_actions_run_uniq')
+      .on(t.workspaceId, t.repo, t.actionsRunId, t.actionsRunAttempt)
+      .where(sql`${t.source} = 'ci'`),
+    // Keyset-paginated CI Runs list.
+    index('agent_runs_ci_ran_at_idx')
+      .on(t.workspaceId, t.ranAt.desc(), t.id.desc())
+      .where(sql`${t.source} = 'ci'`),
+    index('agent_runs_multi_idx').on(t.multiAgentRunId),
+  ],
 );
 
 /** Whole trace of one run as a SINGLE jsonb document. */

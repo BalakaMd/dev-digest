@@ -1,0 +1,58 @@
+# agent-runner suite — the CI runner exported to user repos (@devdigest/agent-runner).
+# Uses pnpm. Its type-check resolves @devdigest/reviewer-core (raw TS, needs
+# reviewer-core's own deps installed via npm) and @devdigest/shared (server/src/vendor/shared).
+name: agent-runner
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent-runner/**'
+      - 'reviewer-core/**'
+      - 'server/src/vendor/shared/**'
+      - '.github/workflows/agent-runner.yml'
+  pull_request:
+    paths:
+      - 'agent-runner/**'
+      - 'reviewer-core/**'
+      - 'server/src/vendor/shared/**'
+      - '.github/workflows/agent-runner.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-runner-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: agent-runner/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install reviewer-core deps (needed by the type-check)
+        run: npm ci
+        working-directory: reviewer-core
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - run: pnpm build

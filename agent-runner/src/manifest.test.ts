@@ -2,11 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { loadManifest, findManifestPath, loadAgentManifest } from './manifest.js';
+import { loadManifest, manifestPathFor } from './manifest.js';
 import { RunnerError } from './errors.js';
 
 const VALID_MANIFEST_YAML = `
 name: "Security Reviewer"
+version: 3
 provider: "openrouter"
 model: "deepseek/deepseek-v4-flash"
 system_prompt: "Review this PR for security issues."
@@ -30,7 +31,9 @@ describe('manifest loading + validation (AC-20)', () => {
   it('loads and validates a well-formed manifest against the AgentManifest schema', () => {
     writeFileSync(path.join(dir, 'agents', 'security-reviewer.yaml'), VALID_MANIFEST_YAML);
 
-    const manifest = loadManifest(dir);
+    const { manifest, sha256 } = loadManifest(dir, 'security-reviewer');
+    expect(sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(manifest.version).toBe(3);
 
     expect(manifest.name).toBe('Security Reviewer');
     expect(manifest.model).toBe('deepseek/deepseek-v4-flash');
@@ -43,35 +46,35 @@ describe('manifest loading + validation (AC-20)', () => {
       path.join(dir, 'agents', 'bad.yaml'),
       `
 name: "Bad Agent"
+version: 1
 model: "gpt-4.1"
 system_prompt: "review"
 ci_fail_on: "sometimes"
 `,
     );
 
-    expect(() => loadManifest(dir)).toThrow(RunnerError);
-    expect(() => loadManifest(dir)).toThrow(/failed validation/i);
+    expect(() => loadManifest(dir, 'bad')).toThrow(RunnerError);
+    expect(() => loadManifest(dir, 'bad')).toThrow(/failed validation/i);
   });
 
   it('fails clearly when the manifest is missing required fields', () => {
     writeFileSync(path.join(dir, 'agents', 'incomplete.yaml'), 'name: "No model or prompt"\n');
-    expect(() => loadManifest(dir)).toThrow(RunnerError);
+    expect(() => loadManifest(dir, 'incomplete')).toThrow(RunnerError);
   });
 
-  it('fails clearly when no manifest file exists', () => {
-    rmSync(path.join(dir, 'agents', ), { recursive: true, force: true });
-    expect(() => findManifestPath(dir)).toThrow(/not found/i);
-  });
-
-  it('fails clearly when more than one manifest file exists', () => {
-    writeFileSync(path.join(dir, 'agents', 'a.yaml'), VALID_MANIFEST_YAML);
-    writeFileSync(path.join(dir, 'agents', 'b.yaml'), VALID_MANIFEST_YAML);
-    expect(() => findManifestPath(dir)).toThrow(/exactly one/i);
+  it('fails with a message naming the expected path when the slug manifest is missing, whatever else exists (AC-61)', () => {
+    writeFileSync(path.join(dir, 'agents', 'other.yaml'), VALID_MANIFEST_YAML);
+    expect(() => loadManifest(dir, 'security-reviewer')).toThrow(
+      /\.devdigest\/agents\/security-reviewer\.yaml/,
+    );
   });
 
   it('fails clearly on malformed YAML', () => {
     writeFileSync(path.join(dir, 'agents', 'broken.yaml'), 'name: "unterminated\n  bad: [1, 2\n');
-    const manifestPath = path.join(dir, 'agents', 'broken.yaml');
-    expect(() => loadAgentManifest(manifestPath)).toThrow(RunnerError);
+    expect(() => loadManifest(dir, 'broken')).toThrow(RunnerError);
+  });
+
+  it('rejects a slug that could escape the agents directory', () => {
+    expect(() => manifestPathFor(dir, '../x')).toThrow(RunnerError);
   });
 });

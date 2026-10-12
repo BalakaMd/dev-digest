@@ -195,3 +195,17 @@ describe("ColumnsView", () => {
     expect(document.querySelector("img")).toBeNull();
   });
 });
+
+describe("ColumnsView — agent colour (NFR-5)", () => {
+  it("marks each column with its agent colour, and the name stays in the heading", () => {
+    renderColumns([
+      column("r1", { agent_name: "Security" }),
+      column("r2", { agent_name: "Performance" }),
+    ]);
+    const colorOf = (name: string) => col(name).querySelector("[data-agent-color]")?.getAttribute("data-agent-color");
+    expect(colorOf("Security")).toBe("#ef4444");
+    expect(colorOf("Performance")).toBe("#f59e0b");
+    expect(within(col("Security")).getByRole("heading", { name: "Security" })).toBeInTheDocument();
+    expect(within(col("Performance")).getByRole("heading", { name: "Performance" })).toBeInTheDocument();
+  });
+});

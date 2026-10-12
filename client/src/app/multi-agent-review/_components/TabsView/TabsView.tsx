@@ -7,6 +7,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import type { AgentColumn, FindingGroup } from "@devdigest/shared";
+import { AgentMark, agentTone } from "../AgentMark";
 import { alsoFlaggedBy } from "../group-helpers";
 import { AgentSummary } from "./AgentSummary";
 import { ResultFindingCard } from "./ResultFindingCard";
@@ -84,10 +85,11 @@ export function TabsView({
               aria-controls={`${baseId}-panel`}
               tabIndex={isSel ? 0 : -1}
               title={nameOf(c)}
-              style={s.tab(isSel)}
+              style={s.tab(isSel, agentTone({ id: c.agent_id, name: c.agent_name }).color)}
               onClick={() => setSelectedId(c.run_id)}
               onKeyDown={(e) => onKeyDown(e, i)}
             >
+              <AgentMark agent={{ id: c.agent_id, name: c.agent_name }} size={20} />
               <span style={s.tabName}>{nameOf(c)}</span>
               <span style={s.tabValue}>{value}</span>
             </button>

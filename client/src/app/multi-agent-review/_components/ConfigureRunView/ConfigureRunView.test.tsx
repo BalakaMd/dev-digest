@@ -232,3 +232,31 @@ describe("ConfigureRunView — empty and error states (AC-58, EC-1, EC-4)", () =
     expect(screen.getByText("Could not load agents.")).toBeInTheDocument();
   });
 });
+
+describe("ConfigureRunView — agent colour (NFR-5)", () => {
+  it("gives each agent card its own colour mark, and the name stays a labelled checkbox", () => {
+    renderView();
+    pickPr("pr-open");
+    const marks = Array.from(document.querySelectorAll('[data-agent-color][aria-hidden="true"]'));
+    // Order of the agents list: Security, Style, Perf.
+    expect(marks.map((m) => m.getAttribute("data-agent-color"))).toEqual(["#ef4444", "#3b82f6", "#f59e0b"]);
+    for (const name of ["Security", "Style", "Perf"]) expect(screen.getByRole("checkbox", { name })).toBeInTheDocument();
+  });
+
+  it("outlines a ticked card in the agent colour, and an unticked one in the neutral border", () => {
+    renderView();
+    pickPr("pr-open");
+    const cardOf = (name: string) => {
+      let el: HTMLElement | null = screen.getByRole("checkbox", { name });
+      while (el && !el.style.border) el = el.parentElement;
+      return el as HTMLElement;
+    };
+    // jsdom normalises hex colours to rgb().
+    const RED = "rgb(239, 68, 68)";
+    const AMBER = "rgb(245, 158, 11)";
+    expect(cardOf("Security").style.border).not.toContain(RED);
+    tick("Security");
+    expect(cardOf("Security").style.border).toContain(RED);
+    expect(cardOf("Perf").style.border).not.toContain(AMBER);
+  });
+});

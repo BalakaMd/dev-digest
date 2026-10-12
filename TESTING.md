@@ -33,6 +33,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 | mcp | `mcp/` | unit (fake fetch, no network) | vitest | `mcp.yml` | no |
 | e2e web | `e2e/` | browser e2e (deterministic) | agent-browser + `run.ts` | `e2e-web.yml` | yes (stack) |
 | harness evals | `evals/` | LLM evals of skills, agents and CLAUDE.md routing (model calls, not hermetic) | vitest + Claude Agent SDK | `evals.yml` | yes (LiteLLM proxy, agents/workflow tiers) |
+| agent-runner | `agent-runner/` | unit (hermetic, stubbed model and fetch) + type-check + ncc build | vitest | `agent-runner.yml` | no |
 
 ## What each suite covers
 
@@ -40,7 +41,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 + jsdom). `fetch` is mocked; no API, DB, or browser. Covers the PR-review
 surface (list, diff, findings, run controls) and the agent editor, plus the
 Onboarding Tour guards (markdown without raw HTML or links, GitHub URL encoding,
-the sidebar item).
+the sidebar item), and the CI tab, the Export Wizard and the CI Runs page.
 
 **server-unit** — the DB-free majority: adapters, prompt assembly, grounding,
 repo-intel ranking & indexing, the onboarding module (assembly, run sources,
@@ -55,10 +56,15 @@ repo-intel symbol clamping, pulls comments, settings models. They self-skip when
 Docker is unavailable. The eval pipeline suites live in `server/test/eval/` (unit:
 scoring, compare, helpers, contracts, suggestion, structure, suggestion-fixtures; `*.it.test.ts`: cases, suggestion route, runs,
 dashboard/compare/restart, agent restore, repository). They inject a scripted LLM
-and trap `fetch`, so no model is called.
+and trap `fetch`, so no model is called. The Export to CI suites live in
+`server/test/ci/` (GitHub and secrets mocked; `*.it.test.ts` on a real Postgres).
 
 **reviewer-core** — the pure engine: `toReview` selection, prompt construction,
 and a `run` with a stubbed model → grounded findings. No DB / GitHub / FS.
+
+**agent-runner** — the CI runner bundled into exported pull requests: manifest and
+skill loading, the diff filter, the result artifact and the exit code, with a
+stubbed model and `fetch`. See [docs/export-to-ci.md](docs/export-to-ci.md).
 
 **mcp** — the stdio MCP server: identifier parsing/resolution, the
 `run_review` wait loop (fake clock, no real timers), findings projection, and

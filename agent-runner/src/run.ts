@@ -1,12 +1,18 @@
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import type { LLMProvider, GitHubReviewPayload, CiResultArtifact } from '@devdigest/shared';
-import { reviewPullRequest, toReviewPayload, gateTriggered, countBlockers } from '@devdigest/reviewer-core';
+import { readFileSync, writeFileSync } from 'node:fs';
+import type { LLMProvider, GitHubReviewPayload, CiResultArtifact, Review } from '@devdigest/shared';
+import {
+  reviewPullRequest,
+  toReviewPayload,
+  gateTriggered,
+  countBlockers,
+  type ReviewOutcome,
+} from '@devdigest/reviewer-core';
 import { loadManifest } from './manifest.js';
-import { loadSkillBodies } from './skills.js';
+import { loadSkills } from './skills.js';
 import { resolvePrContext, type CiEnv } from './context.js';
 import { parseUnifiedDiff, stripIgnoredFiles } from './diff.js';
 import { fetchPrDiff, postGithubReview, postPrComment, type FetchLike } from './github.js';
-import { buildResultArtifact } from './artifact.js';
+import { buildResultArtifact, serializeArtifact, verdictFromEvent } from './artifact.js';
 import { RunnerError } from './errors.js';
 
 /**
@@ -37,6 +43,8 @@ export type PostAs = 'github_review' | 'pr_comment' | 'none';
 export interface RunCiDeps {
   /** Directory containing `agents/` and `skills/` (checked-in `.devdigest/`). */
   devdigestDir: string;
+  /** Slug of the agent whose manifest to run (`DEVDIGEST_AGENT_SLUG`, AC-61). */
+  agentSlug: string;
   env: CiEnv;
   /** Injected LLM provider — `OpenRouterProvider` in production, a stub in tests. */
   llm: LLMProvider;
@@ -46,7 +54,6 @@ export interface RunCiDeps {
   resultPath: string;
   fetchImpl?: FetchLike;
   readFile?: typeof readFileSync;
-  readDir?: typeof readdirSync;
   writeFile?: typeof writeFileSync;
   now?: () => number;
   /**
@@ -80,9 +87,17 @@ export interface RunCiFailure {
 
 export type RunCiResult = RunCiSuccess | RunCiFailure;
 
+type EmptyOutcome = Pick<ReviewOutcome, 'costUsd'> & { review: Review };
+
+function emptyOutcome(): EmptyOutcome {
+  return {
+    review: { verdict: 'approve', summary: 'No reviewable changes in this pull request.', score: 100, findings: [] },
+    costUsd: 0,
+  };
+}
+
 export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
   const readFile = deps.readFile ?? readFileSync;
-  const readDir = deps.readDir ?? readdirSync;
   const writeFile = deps.writeFile ?? writeFileSync;
   const now = deps.now ?? Date.now;
   const fetchImpl = deps.fetchImpl ?? fetch;
@@ -90,8 +105,9 @@ export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
 
   try {
     // 1. Load + validate the manifest BEFORE it is used for anything (AC-20).
-    const manifest = loadManifest(deps.devdigestDir, { readFile, readDir });
-    const skills = loadSkillBodies(deps.devdigestDir, manifest.skills, readFile);
+    const loaded = loadManifest(deps.devdigestDir, deps.agentSlug, { readFile });
+    const manifest = loaded.manifest;
+    const skills = loadSkills(deps.devdigestDir, manifest.skills, readFile);
 
     // 2. Resolve CI context (PR number/title/body/repo) from env + event payload.
     const ctx = resolvePrContext(deps.env, readFile);
@@ -115,16 +131,21 @@ export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
     //    result is a valid zero-finding review, not an error — it flows through
     //    normally below).
     const start = now();
-    const outcome = await reviewPullRequest({
-      systemPrompt: manifest.system_prompt,
-      model: manifest.model,
-      diff,
-      llm: deps.llm,
-      strategy: manifest.strategy,
-      skills,
-      prDescription: ctx.body,
-      task: `Review PR #${ctx.prNumber}: ${ctx.title}`,
-    });
+    //    An empty diff (everything filtered out, or a no-op PR) short-circuits
+    //    BEFORE any model call to a zero-finding approve (EC-31).
+    const outcome: ReviewOutcome | EmptyOutcome =
+      diff.files.length === 0
+        ? emptyOutcome()
+        : await reviewPullRequest({
+          systemPrompt: manifest.system_prompt,
+          model: manifest.model,
+          diff,
+          llm: deps.llm,
+          strategy: manifest.strategy,
+          skills: skills.map((s) => s.body),
+          prDescription: ctx.body,
+          task: `Review PR #${ctx.prNumber}: ${ctx.title}`,
+        });
     const durationMs = now() - start;
 
     // 5. Deterministic verdict/gate from GROUNDED findings + `ci_fail_on`
@@ -145,8 +166,17 @@ export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
       durationMs,
       agent: manifest.name,
       prNumber: ctx.prNumber,
+      verdict: verdictFromEvent(payload.event),
+      blockers,
+      trace: {
+        manifestVersion: manifest.version,
+        manifestSha256: loaded.sha256,
+        model: manifest.model,
+        skillHashes: skills.map((s) => ({ slug: s.slug, sha256: s.sha256 })),
+        headSha: ctx.headSha,
+      },
     });
-    writeFile(deps.resultPath, `${JSON.stringify(artifact, null, 2)}\n`);
+    writeFile(deps.resultPath, serializeArtifact(artifact));
 
     // 7. Post per `post_as` (AC-24).
     if (deps.postAs === 'github_review') {

@@ -120,6 +120,13 @@
       "when": 1791742524013,
       "tag": "0016_exotic_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791816740092,
+      "tag": "0017_wooden_squirrel_girl",
+      "breakpoints": true
     }
   ]
 }

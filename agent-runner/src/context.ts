@@ -16,6 +16,7 @@ export interface CiEnv {
   GITHUB_REPOSITORY?: string;
   PR_NUMBER?: string;
   GITHUB_EVENT_PATH?: string;
+  GITHUB_SHA?: string;
   [key: string]: string | undefined;
 }
 
@@ -30,6 +31,8 @@ export interface PrContext {
   /** True when the PR head is a fork — informational only; the workflow
    *  itself is responsible for never scheduling this job for fork PRs. */
   isFork: boolean;
+  /** Reviewed commit: `pull_request.head.sha` (AC-51), else `GITHUB_SHA`, else ''. */
+  headSha: string;
 }
 
 interface PullRequestEventPayload {
@@ -37,7 +40,7 @@ interface PullRequestEventPayload {
     number?: number;
     title?: string;
     body?: string | null;
-    head?: { repo?: { fork?: boolean } | null };
+    head?: { sha?: string; repo?: { fork?: boolean } | null };
   };
 }
 
@@ -90,5 +93,6 @@ export function resolvePrContext(
     title: pr?.title ?? '',
     body: pr?.body ?? '',
     isFork: pr?.head?.repo?.fork ?? false,
+    headSha: pr?.head?.sha ?? env.GITHUB_SHA ?? '',
   };
 }

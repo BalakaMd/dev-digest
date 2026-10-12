@@ -56,6 +56,22 @@ describe("sidebar nav — Eval Dashboard (AC-34)", () => {
   });
 });
 
+describe("sidebar nav — CI Runs (SPEC-09 AC-46)", () => {
+  const global = NAV.find((g) => g.section === "GLOBAL")!;
+  const item = global?.items.find((i) => i.label === "CI Runs");
+
+  it('has a "CI Runs" item in the GLOBAL group that opens /ci-runs', () => {
+    expect(item).toBeDefined();
+    expect(item!.href).toBe("/ci-runs");
+  });
+
+  it("is highlighted on /ci-runs and not on neighbouring routes", () => {
+    expect(activeKeyFor("/ci-runs")).toBe(item!.key);
+    expect(activeKeyFor("/eval")).not.toBe(item!.key);
+    expect(activeKeyFor("/agents")).not.toBe(item!.key);
+  });
+});
+
 describe("sidebar nav — Multi-Agent Review (AC-9)", () => {
   const items = NAV.flatMap((g) => g.items);
   const item = items.find((i) => i.label === "Multi-Agent Review");

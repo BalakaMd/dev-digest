@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { SeverityBadge, Toggle } from "@devdigest/ui";
 import type { Conflict, ConflictTake } from "@devdigest/shared";
 import { AgentStatus } from "../AgentStatus";
+import { AgentMark, agentTone } from "../AgentMark";
 import { hasRunning, visibleRows } from "./helpers";
 import { s } from "./styles";
 
@@ -42,8 +43,11 @@ function Cell({ take }: { take: ConflictTake }) {
   }
 
   return (
-    <div style={s.cell} data-state={take.state}>
-      <span style={s.agent}>{name}</span>
+    <div style={s.cell(agentTone({ id: take.agent_id, name: take.agent_name }).color)} data-state={take.state}>
+      <span style={s.agentRow}>
+        <AgentMark agent={{ id: take.agent_id, name: take.agent_name }} size={18} />
+        <span style={s.agent}>{name}</span>
+      </span>
       {body}
     </div>
   );

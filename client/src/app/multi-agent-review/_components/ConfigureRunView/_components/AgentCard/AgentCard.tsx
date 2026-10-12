@@ -7,6 +7,7 @@ import { Checkbox } from "@devdigest/ui";
 import type { Agent, AgentEstimate } from "@devdigest/shared";
 import { formatCostUsd } from "@/lib/format";
 import { formatDurationMs } from "../../../format";
+import { AgentMark, agentTone } from "../../../AgentMark";
 import { s } from "./styles";
 
 export function AgentCard({
@@ -23,9 +24,12 @@ export function AgentCard({
   const t = useTranslations("multiAgentConfigure");
   const description = agent.description.trim();
   return (
-    <div style={s.card(checked)}>
+    <div style={s.card(checked, agentTone(agent).color)}>
       <div style={s.head}>
-        <Checkbox checked={checked} onChange={onChange} label={agent.name} />
+        <span style={s.title}>
+          <Checkbox checked={checked} onChange={onChange} label={agent.name} />
+          <AgentMark agent={agent} />
+        </span>
         <span style={s.meta}>
           <span>
             {t("estimate", {

@@ -16,8 +16,8 @@ executed by the target repo's workflow as `node .devdigest/runner/index.js`.
 2. **Resolves the PR context** (owner / repo / number / title / body / fork flag)
    from CI env vars + the `pull_request` event payload.
 3. **Fetches the PR diff** via the GitHub REST API (native `fetch`, no octokit)
-   and strips DevDigest's own exported files (`.devdigest/**`, the generated
-   workflow) before parsing.
+   and strips DevDigest's own exported files (everything under `.devdigest/` and
+   `.github/workflows/`) before parsing.
 4. **Runs the exact same `reviewer-core` pipeline** a local studio review uses —
    `assemblePrompt` / `wrapUntrusted` / `completeStructured` / mandatory
    `groundFindings` gate — via `reviewPullRequest`, with an injected
@@ -93,6 +93,7 @@ there is no `SecretsProvider` / DI graph to inject from (see `CLAUDE.md`).
 | `GITHUB_REPOSITORY` | yes | `owner/name` of the target repo |
 | `PR_NUMBER` | yes¹ | PR to review |
 | `GITHUB_EVENT_PATH` | auto (GHA) | `pull_request` event payload (title/body/fork) |
+| `DEVDIGEST_AGENT_SLUG` | yes | agent whose `.devdigest/agents/<slug>.yaml` manifest to run; unset → exit 1 |
 | `DEVDIGEST_DIR` | no | override the `.devdigest` dir (default: `cwd/.devdigest`) |
 | `DEVDIGEST_RESULT_PATH` | no | override artifact path (default: `cwd/devdigest-result.json`) |
 | `DEVDIGEST_POST_AS` | no | `github_review` (default) \| `pr_comment` \| `none` |
@@ -107,9 +108,11 @@ posted comment.
 - `0` — review completed; the deterministic gate did **not** request changes.
 - `1` — gate triggered `REQUEST_CHANGES`, **or** a hard failure anywhere in the
   pipeline (invalid manifest, missing skill file, unresolvable CI context,
-  diff-fetch error, or an LLM/model-call error). On hard failure the runner posts
-  nothing and writes no artifact — a failure upstream of "we have a grounded
-  review" produces **nothing**, never a synthetic review.
+  diff-fetch error, or an LLM/model-call error). On a hard failure before a
+  grounded review exists the runner posts nothing and writes no artifact — a
+  failure upstream of "we have a grounded review" produces **nothing**, never a
+  synthetic review. The result file is written before posting, so a failed post
+  (exit 1) leaves it.
 
 ## Invariants (do not break)
 

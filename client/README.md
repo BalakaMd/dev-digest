@@ -28,10 +28,11 @@ flowchart TD
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
   SKILLS["/skills<br/>grid · preview drawer"] --> SKILL["/skills/:id<br/>config · context · preview · versioning"]
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills · context · evals)"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills · context · evals · ci)"]
   EVALDASH["/eval<br/>agents list · recent runs"] --> EVALAGENT["/eval/:agentId<br/>tiles · trend · history · compare"]
   SETTINGS["/settings/:section<br/>API keys · feature models · workspace"]
   TOUR["/repos/:repoId/onboarding-tour<br/>stored tour · generate"]
+  CIRUNS["/ci-runs<br/>CI runs of the workspace · refresh"]
   MULTI["/multi-agent-review<br/>configure run"] --> MRES["/multi-agent-review/:id<br/>results"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
@@ -39,11 +40,12 @@ flowchart TD
   MULTI -->|"GET /review-estimates<br/>POST /pulls/:id/review"| API
   MRES -->|"GET /multi-agent-runs/:id<br/>POST /runs/:id/cancel"| API
   SKILLS -->|"/skills · /skills/import · /skills/:id/versions"| API
-  AGENTS -->|"/agents · /agents/:id · /agents/:id/skills"| API
+  AGENTS -->|"/agents · /agents/:id · /agents/:id/skills · /agents/:id/ci/(preview|check|secrets|install|installations)"| API
   EVALDASH -->|"GET /eval/dashboard · POST /eval/run-all"| API
   EVALAGENT -->|"GET /agents/:id/eval-runs · /eval/compare · /eval-runs/:id<br/>POST /agents/:id/eval-runs · /agents/:id/versions/:version/restore"| API
   SETTINGS -->|"/settings · /providers"| API
   TOUR -->|"GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"| API
+  CIRUNS -->|"POST /ci/refresh · GET /ci/runs · GET /ci/runs/:id"| API
 ```
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,

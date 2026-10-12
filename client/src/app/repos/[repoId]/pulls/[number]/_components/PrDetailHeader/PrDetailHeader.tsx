@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, Button, Tabs } from "@devdigest/ui";
@@ -32,6 +32,7 @@ export function PrDetailHeader({
   const t = useTranslations("agentPicker");
   const { data: latestRun } = useLatestMultiAgentRun(prId);
   const latestId = latestRun?.latest?.id ?? null;
+  const [latestHover, setLatestHover] = useState(false);
 
   // This header is itself `position: sticky; top: 0` in AppShell's scroll
   // container. Publish its live height as a generic CSS variable so any
@@ -109,8 +110,15 @@ export function PrDetailHeader({
             View on GitHub
           </Button>
           {latestId && (
-            <Link href={`/multi-agent-review/${latestId}`} style={{ alignSelf: "center", fontSize: 13, color: "var(--accent)" }}>
+            <Link
+              href={`/multi-agent-review/${latestId}`}
+              style={s.latestRun(latestHover)}
+              onMouseEnter={() => setLatestHover(true)}
+              onMouseLeave={() => setLatestHover(false)}
+            >
+              <Icon.History size={13} aria-hidden="true" />
               {t("latestMultiAgentRun")}
+              <Icon.ArrowRight size={12} aria-hidden="true" />
             </Link>
           )}
           {prId && (

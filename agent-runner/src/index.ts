@@ -22,6 +22,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { CI_RUNNER_ENV, CI_RESULT_FILE_NAME } from '@devdigest/shared';
 import { OpenRouterProvider } from '@devdigest/reviewer-core';
 import { runCi, type PostAs } from './run.js';
+import { writeJobSummary } from './summary.js';
 
 function resolvePostAs(value: string | undefined): PostAs {
   if (value === 'github_review' || value === 'pr_comment' || value === 'none') return value;
@@ -58,6 +59,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
   if (result.artifact === null) {
     console.error(`[agent-runner] FAILED: ${result.error}`);
   } else {
+    writeJobSummary(result.artifact, { summaryPath: env.GITHUB_STEP_SUMMARY });
     console.log(
       `[agent-runner] findings=${result.artifact.findings_count} blockers=${result.blockers} ` +
         `gateTriggered=${result.gateTriggered} posted=${result.posted.kind}`,

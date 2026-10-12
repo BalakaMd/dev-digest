@@ -11,7 +11,9 @@ the same commit.
 | `/` | entry; redirects to the active repo's PR list | `useRepos` → `GET /repos` |
 | `/onboarding` | add a repository by URL | `useAddRepo` → `POST /repos` |
 | `/repos/[repoId]/pulls` | PR list | `usePulls` → `GET /repos/:id/pulls`; `useRefreshRepo` → `POST /repos/:id/refresh` |
-| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace; query params `tab=diff&file=<path>&line=<n>` deep-link into Files changed | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast`, `usePrHistory` → `GET /pulls/:id/history`, `useBrief` → `GET /pulls/:id/brief`, `useGenerateBrief` → `POST /pulls/:id/brief`, `useBriefGenerating`, `useBriefSettings` |
+| `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace; query params `tab=diff&file=<path>&line=<n>` deep-link into Files changed | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useLatestMultiAgentRun` → `GET /pulls/:id/multi-agent-runs/latest`, `useReviewEstimates` → `GET /review-estimates`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast`, `usePrHistory` → `GET /pulls/:id/history`, `useBrief` → `GET /pulls/:id/brief`, `useGenerateBrief` → `POST /pulls/:id/brief`, `useBriefGenerating`, `useBriefSettings` |
+| `/multi-agent-review` | Configure run — pick an open PR of the active repository (`?pr=<id>` preselects), tick agents (none checked), see the estimate, start one multi-agent run | `usePulls`, `useAgents`, `useReviewEstimates` → `GET /review-estimates`, `useRunReview` → `POST /pulls/:id/review` with `agentIds` |
+| `/multi-agent-review/[id]` | Results of one multi-agent run — Columns / Tabs (`?view=`), "Where agents disagree", run trace drawer | `useMultiAgentRun` → `GET /multi-agent-runs/:id` (polls every 3 s while a column runs), `useCancelRun` → `POST /runs/:id/cancel`, `useFindingAction`, `useRunEvents`, `useRunTrace` |
 | `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
 | `/skills/[id]` | skill editor — Config, Context, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion`, `useSetSkillContextDocs` |
@@ -45,7 +47,12 @@ an error screen.
 
 ## PR detail
 
-Runs are started manually. `useRunReview` posts to `POST /pulls/:id/review`; the
+Runs are started manually, from the **Run Review** control (`AgentPicker`, which replaced
+`RunReviewDropdown`): it lists the enabled agents with none checked, each with its estimated
+duration, and "Run multi-agent review (N)" posts `agentIds` to `POST /pulls/:id/review` and opens
+the result page of the new multi-agent run. A "Latest multi-agent run" link in the header opens
+the PR's newest multi-agent run, and is absent when there is none. `useRunReview` posts to
+`POST /pulls/:id/review`; the
 returned run ids are kept in global state so an in-flight run survives a reload
 and a device switch, and `usePrActiveRuns` re-reads the server's view as the
 source of truth.
@@ -206,6 +213,13 @@ files) and when the API key is missing — the reason is shown. The tour languag
 comes from **Settings → Workspace**. How the tour is built and every state are
 described in [docs/onboarding-tour.md](../../docs/onboarding-tour.md).
 
+## Multi-Agent Review
+
+`/multi-agent-review` (sidebar, WORKSPACE) is the Configure-run screen; `/multi-agent-review/[id]`
+is the result page of one run. Status comes from the API and is polled, so a reload or a return
+shows the current state. How a run is built, grouped and measured is described in
+[docs/multi-agent-review.md](../../docs/multi-agent-review.md).
+
 ## Settings
 
 Keys entered here are sent to the API and stored server-side in
@@ -223,5 +237,5 @@ All visible text resolves through `next-intl` — no literal strings in componen
 
 ## Not here yet
 
-Memory, multi-agent and the other dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
+Memory and the other dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
 you will see `memory.json` with no screen behind it. (The `brief` namespace is used by the PR Brief block on Overview; the `eval` namespace by the Evals tab and the Eval Dashboard.)

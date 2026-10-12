@@ -25,6 +25,11 @@ import {
   OnboardingTour,
   OnboardingTourState,
   OnboardingBlocked,
+  RunRequest,
+  ReviewRunResponse,
+  MultiAgentRun,
+  LatestMultiAgentRun,
+  ReviewEstimates,
 } from '@devdigest/shared';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
@@ -514,5 +519,69 @@ describe('PUT /settings — tour_language validation (AC-42, 422 shape)', () => 
     const body = res.json();
     expect(body.error.code).toBe('validation_error');
     expect(JSON.stringify(body.error.details)).toContain('tour_language');
+  });
+});
+
+describe('Multi-agent review contracts (SPEC-08, AC-19/26/52)', () => {
+  const UUID_A = '3f1d2c4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
+
+  it('RunRequest accepts the legacy shapes unchanged and the new agentIds set', () => {
+    expect(RunRequest.parse({})).toEqual({});
+    expect(RunRequest.parse({ agentId: 'any-string' })).toEqual({ agentId: 'any-string' });
+    expect(RunRequest.parse({ all: true })).toEqual({ all: true });
+    expect(RunRequest.parse({ agentIds: [UUID_A] })).toEqual({ agentIds: [UUID_A] });
+  });
+
+  it('RunRequest rejects a non-uuid agent id in agentIds', () => {
+    expect(RunRequest.safeParse({ agentIds: ['not-a-uuid'] }).success).toBe(false);
+    expect(RunRequest.safeParse({ agentIds: 'x' }).success).toBe(false);
+  });
+
+  it('ReviewRunResponse parses with and without multi_agent_run_id', () => {
+    const base = { pr_id: 'pr-1', runs: [{ run_id: 'r1', agent_id: 'a1', agent_name: 'A' }], reviews: [] };
+    expect(ReviewRunResponse.parse(base).multi_agent_run_id).toBeUndefined();
+    expect(ReviewRunResponse.parse({ ...base, multi_agent_run_id: 'mar-1' }).multi_agent_run_id).toBe('mar-1');
+  });
+
+  it('MultiAgentRun round-trips with a running column, a failed column and nullable totals', () => {
+    const column = (run_id: string, status: string) => ({
+      run_id,
+      agent_id: 'a1',
+      agent_name: 'Agent',
+      provider: 'openai',
+      model: 'gpt-4.1',
+      status,
+      error: status === 'failed' ? 'boom' : null,
+      verdict: null,
+      score: null,
+      summary: null,
+      duration_ms: null,
+      tokens_in: null,
+      tokens_out: null,
+      cost_usd: null,
+      started_at: '2026-10-11T10:00:00.000Z',
+      latest_log: status === 'running' ? 'Calling model' : null,
+      findings: [],
+    });
+    const payload = {
+      id: 'mar-1',
+      pr_id: 'pr-1',
+      repo_id: 'repo-1',
+      pr_number: 482,
+      pr_title: 'Add rate limiting',
+      ran_at: '2026-10-11T10:00:00.000Z',
+      agent_count: 2,
+      total_duration_ms: null,
+      total_cost_usd: null,
+      cost_incomplete: true,
+      estimate: { time_ms: null, cost_usd: null, agents_without_time: 2, agents_without_cost: 2 },
+      columns: [column('r1', 'running'), column('r2', 'failed')],
+      groups: [],
+      conflicts: [],
+    };
+    expect(MultiAgentRun.parse(payload)).toEqual(payload);
+    expect(MultiAgentRun.safeParse({ ...payload, columns: [column('r1', 'exploded')] }).success).toBe(false);
+    expect(LatestMultiAgentRun.parse({ latest: null })).toEqual({ latest: null });
+    expect(ReviewEstimates.parse({ estimates: [{ agent_id: 'a', duration_ms: null, cost_usd: null, runs: 0, cost_runs: 0 }] }).estimates).toHaveLength(1);
   });
 });

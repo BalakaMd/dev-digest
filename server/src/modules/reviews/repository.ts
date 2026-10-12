@@ -22,6 +22,8 @@ export type ReviewRow = typeof t.reviews.$inferSelect;
 import * as reviewRepo from './repository/review.repo.js';
 import * as runRepo from './repository/run.repo.js';
 import * as pullRepo from './repository/pull.repo.js';
+import * as multiRepo from './repository/multi-agent.repo.js';
+export type { MultiAgentRecordRow, MultiAgentEntryRow } from './repository/multi-agent.repo.js';
 
 export class ReviewRepository {
   constructor(private db: Db) {}
@@ -180,5 +182,27 @@ export class ReviewRepository {
 
   getRunTrace(runId: string): Promise<RunTrace | undefined> {
     return runRepo.getRunTrace(this.db, runId);
+  }
+
+  // ---- multi-agent runs ---------------------------------------------------
+
+  createMultiAgentRun(values: Parameters<typeof multiRepo.createMultiAgentRun>[1]) {
+    return multiRepo.createMultiAgentRun(this.db, values);
+  }
+
+  getMultiAgentRun(workspaceId: string, id: string) {
+    return multiRepo.getMultiAgentRun(this.db, workspaceId, id);
+  }
+
+  listMultiAgentEntries(workspaceId: string, id: string) {
+    return multiRepo.listEntries(this.db, workspaceId, id);
+  }
+
+  latestMultiAgentRunForPull(workspaceId: string, prId: string) {
+    return multiRepo.latestForPull(this.db, workspaceId, prId);
+  }
+
+  estimateSamples(workspaceId: string, agentIds: string[]) {
+    return multiRepo.estimateSamples(this.db, workspaceId, agentIds);
   }
 }

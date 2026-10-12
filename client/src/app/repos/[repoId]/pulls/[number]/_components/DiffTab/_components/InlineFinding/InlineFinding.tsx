@@ -8,7 +8,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, Button, Markdown, SEV } from "@devdigest/ui";
 import type { FindingRecord, FindingActionKind } from "@devdigest/shared";
-import { EvalCaseButton } from "../../../EvalCaseButton";
+import { EvalCaseButton } from "@/components/eval-case-button";
 import { SEVERITY_LABEL_KEY } from "../../constants";
 import { decisionButtonStyle } from "../../../../../../../../../lib/finding-decision-style";
 import { s, chevronFor } from "./styles";

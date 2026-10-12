@@ -8,8 +8,10 @@ import {
   doublePrecision,
   index,
   uniqueIndex,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import type { RunEstimate } from '@devdigest/shared';
 import { workspaces } from './core';
 import { agents } from './agents';
 import { pullRequests } from './pulls';
@@ -62,6 +64,12 @@ export const agentRuns = pgTable(
     headSha: text('head_sha'),
     verdict: text('verdict'),
     ciTrace: jsonb('ci_trace'),
+    /** Set when the run reaches a terminal state; null while running. */
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** Batch this run belongs to (multi-agent review); null for single runs. */
+    multiAgentRunId: uuid('multi_agent_run_id').references((): AnyPgColumn => multiAgentRuns.id, {
+      onDelete: 'set null',
+    }),
   },
   (t) => [
     // One row per (run, attempt): re-collection is idempotent.
@@ -72,6 +80,7 @@ export const agentRuns = pgTable(
     index('agent_runs_ci_ran_at_idx')
       .on(t.workspaceId, t.ranAt.desc(), t.id.desc())
       .where(sql`${t.source} = 'ci'`),
+    index('agent_runs_multi_idx').on(t.multiAgentRunId),
   ],
 );
 
@@ -83,7 +92,9 @@ export const runTraces = pgTable('run_traces', {
   trace: jsonb('trace').notNull(),
 });
 
-export const multiAgentRuns = pgTable('multi_agent_runs', {
+export const multiAgentRuns = pgTable(
+  'multi_agent_runs',
+  {
   id: uuid('id').primaryKey().defaultRandom(),
   workspaceId: uuid('workspace_id')
     .notNull()
@@ -92,4 +103,8 @@ export const multiAgentRuns = pgTable('multi_agent_runs', {
     .notNull()
     .references(() => pullRequests.id, { onDelete: 'cascade' }),
   ranAt: timestamp('ran_at', { withTimezone: true }).defaultNow().notNull(),
-});
+  /** Pre-run time/cost estimate; null for rows created before the estimate existed. */
+  estimate: jsonb('estimate').$type<RunEstimate>(),
+  },
+  (t) => [index('multi_agent_runs_pr_ran_idx').on(t.prId, t.ranAt)],
+);

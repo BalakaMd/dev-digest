@@ -1,0 +1,27 @@
+{
+  "tabsLabel": "Agents",
+  "tabLabel": "{name} {value}",
+  "noFindings": "No findings from this agent.",
+  "findingsLabel": "Findings of {name}",
+  "summary": {
+    "score": "Score",
+    "noSummary": "No summary.",
+    "duration": "Duration",
+    "cost": "Cost",
+    "viewTrace": "View trace",
+    "viewTraceFor": "View trace of {name}",
+    "failed": "This agent run failed: {error}",
+    "cancelled": "This agent run was cancelled."
+  },
+  "finding": {
+    "confidence": "{percent}% confidence",
+    "suggestedFix": "Suggested fix",
+    "accepted": "Accepted",
+    "dismissed": "Dismissed",
+    "accept": "Accept",
+    "dismiss": "Dismiss",
+    "learn": "Learn",
+    "learnUnavailable": "not available yet",
+    "authoredBy": "Flagged by {name}"
+  }
+}

@@ -57,8 +57,8 @@ tokens) as surfaced by the studio's model list; verify live before relying on th
 ## How to A/B test
 
 1. Point one agent at the new model (studio model dropdown, or `PUT /agents/:id`).
-2. Re-run all agents on the same PR (`POST /pulls/:id/review { "all": true }` or the
-   **Run Review** button).
+2. Re-run the agents on the same PR (`POST /pulls/:id/review { "all": true }`, or
+   **Run Review**: tick the agents and click "Run multi-agent review (N)").
 3. Compare the runs in the timeline + the raw model output in each run's trace
    (`run_traces.raw_output`). Look at: were the findings real, was severity honest,
    did the verdict match the findings, any duplicates or false trifecta?

@@ -567,7 +567,7 @@ as duplicate and discarded as invalid, and each invalid artifact logs its reason
 
 ### `ci_installations`
 
-Extended by migration `0016_lonely_prism.sql` on top of the existing table
+Extended by migration `0017_wooden_squirrel_girl.sql` on top of the existing table
 ([`schema/ci.ts`](../server/src/db/schema/ci.ts)).
 
 ```mermaid

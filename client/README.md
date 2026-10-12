@@ -33,9 +33,12 @@ flowchart TD
   SETTINGS["/settings/:section<br/>API keys · feature models · workspace"]
   TOUR["/repos/:repoId/onboarding-tour<br/>stored tour · generate"]
   CIRUNS["/ci-runs<br/>CI runs of the workspace · refresh"]
+  MULTI["/multi-agent-review<br/>configure run"] --> MRES["/multi-agent-review/:id<br/>results"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
-  PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments · /pulls/:id/blast · /pulls/:id/history<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
+  PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments · /pulls/:id/blast · /pulls/:id/history · /pulls/:id/multi-agent-runs/latest<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
+  MULTI -->|"GET /review-estimates<br/>POST /pulls/:id/review"| API
+  MRES -->|"GET /multi-agent-runs/:id<br/>POST /runs/:id/cancel"| API
   SKILLS -->|"/skills · /skills/import · /skills/:id/versions"| API
   AGENTS -->|"/agents · /agents/:id · /agents/:id/skills · /agents/:id/ci/(preview|check|secrets|install|installations)"| API
   EVALDASH -->|"GET /eval/dashboard · POST /eval/run-all"| API

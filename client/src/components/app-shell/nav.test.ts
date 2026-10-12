@@ -71,3 +71,20 @@ describe("sidebar nav — CI Runs (SPEC-08 AC-46)", () => {
     expect(activeKeyFor("/agents")).not.toBe(item!.key);
   });
 });
+
+describe("sidebar nav — Multi-Agent Review (AC-9)", () => {
+  const items = NAV.flatMap((g) => g.items);
+  const item = items.find((i) => i.label === "Multi-Agent Review");
+
+  it('has a "Multi-Agent Review" item that opens /multi-agent-review', () => {
+    expect(item).toBeDefined();
+    expect(item!.href).toBe("/multi-agent-review");
+  });
+
+  it("is highlighted on the configure page and on a result page, not on neighbouring routes", () => {
+    expect(activeKeyFor("/multi-agent-review")).toBe(item!.key);
+    expect(activeKeyFor("/multi-agent-review/run-1")).toBe(item!.key);
+    expect(activeKeyFor("/agents")).not.toBe(item!.key);
+    expect(activeKeyFor("/repos/r1/pulls")).not.toBe(item!.key);
+  });
+});

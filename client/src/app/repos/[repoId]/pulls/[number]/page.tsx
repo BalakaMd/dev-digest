@@ -1,6 +1,6 @@
 /* PR Detail — /repos/:repoId/pulls/:number. F2 shell extended by A2 with:
    - Findings panel (VerdictBanner + FindingCards)
-   - RunReviewDropdown (run all / a specific agent) + live SSE RunStatus
+   - AgentPicker (multi-agent run) + live SSE RunStatus
    - Basic file-by-file diff viewer in the Files tab
    Tab state lives in query (?tab). */
 "use client";
@@ -16,7 +16,7 @@ import { FindingsTab } from "./_components/FindingsTab";
 import { DiffTab, parseDiffTarget } from "./_components/DiffTab";
 import { IntentCard } from "./_components/IntentCard";
 import { BlastRadiusCard } from "./_components/BlastRadiusCard";
-import RunTraceDrawer from "./_components/RunTraceDrawer";
+import RunTraceDrawer from "@/components/run-trace-drawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -174,7 +174,6 @@ export default function PRDetailPage() {
         findingsCount={findingsCount}
         githubUrl={repoFullName ? githubPrUrl(repoFullName, pr.number) : null}
         onSetTab={setTab}
-        onRunStart={() => setTab("findings")}
         onRunsStarted={() => invalidateActiveRuns()}
       />
 

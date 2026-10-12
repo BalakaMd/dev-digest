@@ -119,18 +119,24 @@ export interface RunReviewInput {
   prId: string;
   agentId?: string;
   all?: boolean;
+  /** Explicit agent set (multi-agent run). Sent only when given. */
+  agentIds?: string[];
 }
 
 export function useRunReview() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prId, agentId, all }: RunReviewInput) =>
+    mutationFn: ({ prId, agentId, all, agentIds }: RunReviewInput) =>
       api.post<ReviewRunResponse>(`/pulls/${prId}/review`, {
         ...(agentId ? { agentId } : {}),
         ...(all ? { all } : {}),
+        ...(agentIds ? { agentIds } : {}),
       }),
     onSuccess: (_d, { prId }) => {
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: ["pr-active-runs", prId] });
+      qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
+      qc.invalidateQueries({ queryKey: ["latest-multi-agent-run", prId] });
     },
   });
 }
@@ -166,7 +172,7 @@ export function useFindingAction() {
 /**
  * Subscribe to a run's SSE event stream. Returns the accumulated RunEvents and a
  * `running` flag (true until the stream closes). Live status for the
- * RunReviewDropdown / Live Log. Multiple runIds are subscribed in parallel.
+ * Run Review picker / Live Log. Multiple runIds are subscribed in parallel.
  */
 export function useRunEvents(runIds: string[]) {
   const [events, setEvents] = React.useState<RunEvent[]>([]);

@@ -1,0 +1,10 @@
+{
+  "title": "Pick agents to run",
+  "panelLabel": "Pick agents to run",
+  "clear": "Clear",
+  "configureAgents": "Configure agents…",
+  "runButton": "Run multi-agent review ({count})",
+  "estimateAria": "Estimated duration {value}",
+  "latestMultiAgentRun": "Latest multi-agent run",
+  "noEnabledLink": "Open the Agents page"
+}

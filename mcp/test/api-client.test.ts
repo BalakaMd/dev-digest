@@ -78,6 +78,36 @@ describe('DevDigestApi', () => {
     await expect(api.listAgents()).rejects.toBeInstanceOf(ApiContractError);
   });
 
+  // AC-52 — the multi-agent change must leave the legacy trigger shapes untouched.
+  describe('startReview (AC-52: legacy request/response shapes unchanged)', () => {
+    const RUN = { run_id: 'run-1', agent_id: 'agent-1', agent_name: 'General Reviewer' };
+    const sent = (fetchImpl: ReturnType<typeof vi.fn>) => {
+      const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+      return { url, method: init.method, body: JSON.parse(String(init.body)) };
+    };
+
+    it.each([
+      ['{ agentId }', { agentId: 'agent-1' }],
+      ['{ all: true }', { all: true }],
+    ])('posts exactly %s and parses a response without multi_agent_run_id', async (_label, body) => {
+      const fetchImpl = vi.fn(async () => jsonResponse({ pr_id: 'pr-1', runs: [RUN], reviews: [] }));
+      const api = new DevDigestApi({ baseUrl: 'http://localhost:3001', fetchImpl: fetchImpl as never });
+      const res = await api.startReview('pr-1', body);
+      expect(sent(fetchImpl)).toEqual({ url: 'http://localhost:3001/pulls/pr-1/review', method: 'POST', body });
+      expect(res.runs).toEqual([RUN]);
+      expect(res.multi_agent_run_id).toBeUndefined();
+    });
+
+    it('still parses a response that carries the new optional multi_agent_run_id', async () => {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({ pr_id: 'pr-1', runs: [RUN], reviews: [], multi_agent_run_id: 'mar-1' }),
+      );
+      const api = new DevDigestApi({ baseUrl: 'http://localhost:3001', fetchImpl: fetchImpl as never });
+      const res = await api.startReview('pr-1', { all: true });
+      expect(res.multi_agent_run_id).toBe('mar-1');
+    });
+  });
+
   it('lookupPull returns null on a 404 (PR not imported) instead of throwing', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ error: { code: 'not_found', message: 'Pull request not found' } }, 404),

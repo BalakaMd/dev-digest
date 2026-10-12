@@ -1,0 +1,12 @@
+{
+  "title": "Where agents disagree",
+  "onlyConflicts": "Show only conflicts",
+  "incomplete": "Incomplete: some agents are still running. This block updates as each agent ends.",
+  "empty": "No findings to compare.",
+  "emptyFiltered": "No conflicts: the agents that finished agree on every location.",
+  "rowsLabel": "Finding locations and what each agent said",
+  "didNotFlag": "did not flag",
+  "agentSummary": "Agent summary:",
+  "more": "+{count} more",
+  "flaggedLabel": "{severity}: {title}"
+}

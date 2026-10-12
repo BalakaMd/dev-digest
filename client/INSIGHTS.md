@@ -74,7 +74,7 @@ one query spanning the boundary. This applies to any component that renders user
 `Cannot find module '@testing-library/user-event'`, even though the general RTL guidance (and the
 `react-testing-library` skill) says to always prefer it over `fireEvent`.
 **Cause** — the package was never added to `client/package.json`; every existing `*.test.tsx` in this repo
-(`FindingCard`, `RunReviewDropdown`, `ConventionsView`, …) uses `fireEvent` + synchronous assertions instead.
+(`FindingCard`, `AgentPicker`, `ConventionsView`, …) uses `fireEvent` + synchronous assertions instead.
 Adding the dependency to fix this is itself off-limits without a plan step naming it (`CLAUDE.md` § no new
 dependencies).
 **Takeaway** — write new component tests with `fireEvent.click(...)` here, not `userEvent`, until a plan step

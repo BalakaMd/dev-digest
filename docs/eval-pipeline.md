@@ -170,9 +170,10 @@ a case of that name. Every finding kind is accepted, including `secret_leak`, `l
 `phantom` and `hook`. A concurrent double click is resolved by the unique index: the second request
 returns the existing case.
 
-The finding card in the findings list and the inline finding in the Diff tab both show the button
+The finding card in the findings list, the inline finding in the Diff tab and the finding card of the
+multi-agent result page (Tabs mode) all show the button
 **Turn into eval case** after Accept and Dismiss
-([`EvalCaseButton`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/EvalCaseButton.tsx),
+([`EvalCaseButton`](../client/src/components/eval-case-button/EvalCaseButton.tsx),
 shared by [`FindingCard`](../client/src/app/repos/[repoId]/pulls/[number]/_components/FindingCard/FindingCard.tsx)
 and [`InlineFinding`](../client/src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/_components/InlineFinding/InlineFinding.tsx)).
 It is disabled with a visible description until the finding is accepted or dismissed. A click first
@@ -303,7 +304,7 @@ Retargeting needs a code-like term in the title or the rationale. A title with n
 input validation on route parameters", keeps the cited range, so that finding still needs a manual
 edit in the dialog.
 
-**The dialog.** [`RangeDialog`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/_components/RangeDialog/RangeDialog.tsx)
+**The dialog.** [`RangeDialog`](../client/src/components/eval-case-button/_components/RangeDialog/RangeDialog.tsx)
 opens only when the suggested range differs from the cited one (after normalising a reversed range).
 It is a dialog with its own accessible name and focus handling, because the shared modal has none:
 focus moves into it on open and stays inside while Tab is pressed, Escape, Cancel and Close dismiss
@@ -333,9 +334,9 @@ it without creating a case, and focus returns to the button.
 The hooks are `useEvalCaseSuggestion` (a mutation, so a suggestion is computed on every click and
 never cached) and `useCaseFromFinding` in [`lib/hooks/eval.ts`](../client/src/lib/hooks/eval.ts); the
 state machine is in
-[`use-eval-case-flow.ts`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/use-eval-case-flow.ts)
+[`use-eval-case-flow.ts`](../client/src/components/eval-case-button/use-eval-case-flow.ts)
 and the pure dialog logic (validation, preview, selected option) in
-[`range-model.ts`](../client/src/app/repos/[repoId]/pulls/[number]/_components/EvalCaseButton/range-model.ts).
+[`range-model.ts`](../client/src/components/eval-case-button/range-model.ts).
 
 ### By hand
 

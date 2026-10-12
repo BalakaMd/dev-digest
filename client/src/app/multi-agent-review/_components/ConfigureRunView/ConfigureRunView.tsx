@@ -6,7 +6,7 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, SelectInput } from "@devdigest/ui";
+import { Button, Icon, SelectInput } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
 import { useAgents } from "@/lib/hooks/agents";
 import { usePulls } from "@/lib/hooks/core";
@@ -94,7 +94,17 @@ export function ConfigureRunView() {
   const cost = sum.costUsd == null ? "—" : formatCostUsd(sum.costUsd);
 
   let step2: React.ReactNode;
-  if (!prId) step2 = <p style={s.message}>{t("pickPrFirst")}</p>;
+  if (!prId) {
+    step2 = (
+      <div style={s.empty}>
+        <span style={s.emptyIcon} aria-hidden="true">
+          <Icon.GitPullRequest size={20} />
+        </span>
+        <div style={s.emptyTitle}>{t("pickPrFirst")}</div>
+        <div style={s.emptyHint}>{t("pickPrFirstHint")}</div>
+      </div>
+    );
+  }
   else if (agentsError) step2 = <p style={s.message}>{t("agentsError")}</p>;
   else if (enabled.length === 0) {
     step2 = (
@@ -129,21 +139,23 @@ export function ConfigureRunView() {
 
         <section style={s.step}>
           <div style={s.stepHead}>
-            <span style={s.stepTitle}>{t("step1")}</span>
+            <span style={s.stepBadge(true)}>1</span>
+            <span style={s.stepTitle(true)}>{t("step1")}</span>
           </div>
-          {step1}
+          <div style={s.stepBody}>{step1}</div>
         </section>
 
         <section style={s.step}>
           <div style={s.stepHead}>
-            <span style={s.stepTitle}>{t("step2")}</span>
+            <span style={s.stepBadge(!!prId)}>2</span>
+            <span style={s.stepTitle(!!prId)}>{t("step2")}</span>
             {prId && enabled.length > 0 && (
               <button type="button" style={s.link} onClick={() => setChecked(new Set(enabled.map((a) => a.id)))}>
                 {t("selectAll")}
               </button>
             )}
           </div>
-          {step2}
+          <div style={s.stepBody}>{step2}</div>
         </section>
 
         <div style={s.footer}>

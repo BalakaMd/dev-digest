@@ -39,6 +39,6 @@ export function agentTone(agent: { id?: string | null; name?: string | null }): 
 }
 
 /** Tinted background for an icon square, derived from the agent colour. */
-export function toneBackground(color: string): string {
-  return `color-mix(in srgb, ${color} 14%, transparent)`;
+export function toneBackground(color: string, percent = 14): string {
+  return `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 }

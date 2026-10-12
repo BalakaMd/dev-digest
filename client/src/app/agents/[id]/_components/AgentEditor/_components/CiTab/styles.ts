@@ -24,7 +24,7 @@ export const s = {
   radio: { display: "flex", alignItems: "center", gap: 8, fontSize: 13 } satisfies CSSProperties,
   actions: { display: "flex", gap: 8, alignItems: "center" } satisfies CSSProperties,
   failOnRow: { display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" } satisfies CSSProperties,
-  failOnSelect: { width: 260, maxWidth: "100%" } satisfies CSSProperties,
+  failOnSelect: { width: 340, maxWidth: "100%" } satisfies CSSProperties,
   sectionTitle: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } satisfies CSSProperties,
   h3: { fontSize: 15, fontWeight: 700, margin: 0 } satisfies CSSProperties,
 } as const;

@@ -70,7 +70,7 @@ it('applies the VIP discount', () => {
 });
 ```
 
-1. **Without skills.** Run **Run Review → Test Quality Reviewer**. Expected result:
+1. **Without skills.** Open **Run Review**, tick **Test Quality Reviewer** and click "Run multi-agent review (1)". Expected result:
    no finding about the untested branches.
 2. **With skills.** Link `test-coverage-nudge` and `corner-case-checklist`, then
    re-run. Expected result: the no-code branch, the non-VIP branch, the
@@ -90,7 +90,7 @@ and a new required body field:
  });
 ```
 
-1. **Without skills.** Run **Run Review → API Contract Reviewer**. Expected result:
+1. **Without skills.** Open **Run Review**, tick **API Contract Reviewer** and click "Run multi-agent review (1)". Expected result:
    the contract change is not reported as breaking.
 2. **With skills.** Link `contract-breaking-change` (imported from the zip) and
    `response-shape-guard`, then re-run. Expected result: the new required

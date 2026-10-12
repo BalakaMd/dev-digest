@@ -1,0 +1,60 @@
+import type { CSSProperties } from "react";
+import { PANEL_WIDTH } from "./constants";
+
+export const s = {
+  root: { position: "relative", display: "inline-block" } satisfies CSSProperties,
+  panel: {
+    position: "absolute",
+    top: "calc(100% + 6px)",
+    right: 0,
+    width: PANEL_WIDTH,
+    zIndex: 20,
+    background: "var(--bg-elevated, var(--bg-primary))",
+    border: "1px solid var(--border)",
+    borderRadius: 10,
+    boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+    overflow: "hidden",
+  } satisfies CSSProperties,
+  head: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "10px 14px 6px",
+  } satisfies CSSProperties,
+  title: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  clear: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--accent)",
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  warning: {
+    padding: "6px 14px",
+    fontSize: 12,
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  list: { display: "flex", flexDirection: "column", padding: "4px 14px 8px", gap: 4 } satisfies CSSProperties,
+  row: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "5px 0" } satisfies CSSProperties,
+  estimate: { fontSize: 12, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
+  runWrap: { padding: "8px 14px", borderTop: "1px solid var(--border)" } satisfies CSSProperties,
+  footer: { padding: "8px 14px", borderTop: "1px solid var(--border)" } satisfies CSSProperties,
+  link: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    fontSize: 13,
+    color: "var(--text-muted)",
+    cursor: "pointer",
+    textAlign: "left",
+  } satisfies CSSProperties,
+  empty: { padding: "12px 14px", fontSize: 13, color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,
+} as const;

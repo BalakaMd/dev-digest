@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, Button, Tabs } from "@devdigest/ui";
-import { RunReviewDropdown } from "../RunReviewDropdown";
+import { AgentPicker } from "../AgentPicker";
+import { useLatestMultiAgentRun } from "../../../../../../../lib/hooks/multi-agent-review";
 import { s } from "./styles";
 import type { PrDetail } from "@/lib/types";
 
@@ -14,7 +17,6 @@ interface PrDetailHeaderProps {
   /** github.com PR URL; null when the repo's full_name isn't known yet. */
   githubUrl?: string | null;
   onSetTab: (tab: string) => void;
-  onRunStart: () => void;
   onRunsStarted: () => void;
 }
 
@@ -25,16 +27,11 @@ export function PrDetailHeader({
   findingsCount,
   githubUrl,
   onSetTab,
-  onRunStart,
   onRunsStarted,
 }: PrDetailHeaderProps) {
-  const handleRunStart = useCallback(() => {
-    onRunStart();
-  }, [onRunStart]);
-
-  const handleRunsStarted = useCallback(() => {
-    onRunsStarted();
-  }, [onRunsStarted]);
+  const t = useTranslations("agentPicker");
+  const { data: latestRun } = useLatestMultiAgentRun(prId);
+  const latestId = latestRun?.latest?.id ?? null;
 
   // This header is itself `position: sticky; top: 0` in AppShell's scroll
   // container. Publish its live height as a generic CSS variable so any
@@ -111,12 +108,16 @@ export function PrDetailHeader({
           >
             View on GitHub
           </Button>
+          {latestId && (
+            <Link href={`/multi-agent-review/${latestId}`} style={{ alignSelf: "center", fontSize: 13, color: "var(--accent)" }}>
+              {t("latestMultiAgentRun")}
+            </Link>
+          )}
           {prId && (
-            <RunReviewDropdown
+            <AgentPicker
               prId={prId}
               warnMerged={pr.status === "merged" || pr.status === "closed"}
-              onRunStart={handleRunStart}
-              onRunsStarted={handleRunsStarted}
+              onRunsStarted={onRunsStarted}
             />
           )}
         </div>

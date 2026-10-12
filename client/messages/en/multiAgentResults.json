@@ -1,0 +1,19 @@
+{
+  "breadcrumbLab": "Lab",
+  "breadcrumb": "Multi-Agent Review",
+  "prTitle": "#{number} {title}",
+  "agentsParallel": "{count, plural, one {# agent} other {# agents}} · parallel",
+  "totalTime": "Total time",
+  "totalCost": "Total cost",
+  "unpricedMarker": "excludes unpriced agents",
+  "estimate": "estimate {value}",
+  "configureRun": "Configure run",
+  "cancelRemaining": "Cancel remaining",
+  "viewToggleLabel": "Result view",
+  "columns": "Columns",
+  "tabs": "Tabs",
+  "loading": "Loading the multi-agent run",
+  "notFound": "This multi-agent run was not found.",
+  "notFoundLink": "Configure a new run",
+  "loadError": "Could not load the multi-agent run."
+}

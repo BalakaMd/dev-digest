@@ -22,7 +22,7 @@ import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
 import { lineLabel } from "./helpers";
 import { githubBlobUrl } from "../../../../../../../lib/github-urls";
 import { CitedDocs } from "./_components/CitedDocs";
-import { EvalCaseButton } from "../EvalCaseButton";
+import { EvalCaseButton } from "@/components/eval-case-button";
 import { decisionButtonStyle } from "../../../../../../../lib/finding-decision-style";
 import { s } from "./styles";
 

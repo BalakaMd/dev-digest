@@ -102,6 +102,7 @@ export class ReviewRunExecutor {
       }
     };
 
+    const prepStart = Date.now();
     let diff: UnifiedDiff;
     try {
       diff = await runLog.step('Loading PR diff', () => loadDiff(this.container, this.repo, workspaceId, pull, repo), {
@@ -118,8 +119,11 @@ export class ReviewRunExecutor {
     // derive when none exists. NEVER fails the run — `getForReview` swallows
     // and logs any failure (missing key, LLM error, …) and returns undefined.
     const intent = await this.container.intent.getForReview(workspaceId, pull.id, runLog);
+    runLog.info(`Shared preparation (diff + intent) done (${Date.now() - prepStart}ms)`);
 
-    for (const { agent, runId } of jobs) {
+    // All agents of the batch run concurrently (no parallelism cap). Failure
+    // isolation lives inside `runOneAgent`; `runJob` never rejects.
+    const runJob = async ({ agent, runId }: (typeof jobs)[number]): Promise<void> => {
       const agentStart = Date.now();
       logger?.info(
         { runId, agent: agent.name, provider: agent.provider, model: agent.model, prId: pull.id },
@@ -146,7 +150,8 @@ export class ReviewRunExecutor {
           `review: agent "${agent.name}" ${cancelled ? 'cancelled' : 'failed'}`,
         );
       }
-    }
+    };
+    await Promise.allSettled(jobs.map(runJob));
   }
 
   /** Execute a single agent's review against a PR, streaming progress. */

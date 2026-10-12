@@ -69,7 +69,7 @@ flowchart TB
     polling["polling<br/>/repos/:id/poll"]
   end
   subgraph Review["Review & runs"]
-    reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
+    reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)<br/>/multi-agent-runs/:id · /pulls/:id/multi-agent-runs/latest · /review-estimates"]
     intent["intent<br/>GET/POST /pulls/:id/intent"]
     brief["brief<br/>GET/POST /pulls/:id/brief"]
   end

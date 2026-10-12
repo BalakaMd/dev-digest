@@ -52,7 +52,9 @@ The sidebar item **Multi-Agent Review** opens
 
 1. **Pull request.** A selector lists the **open** PRs (not merged or closed) of the active repository as
    `#<number> · <title>`. Without an active repository, or without open PRs, a message replaces the
-   selector. `?pr=<id>` preselects a PR when it is still open. Changing the PR clears the selection.
+   selector. `?pr=<id>` preselects a PR when it is still open. Changing the PR clears the selection. When the picked PR has a multi-agent run, a
+   **Latest multi-agent run** card under the selector (with the start time) opens that run's result page;
+   it is absent otherwise.
 2. **Agents to run.** Until a PR is picked the step reads "Pick a pull request first". Then every
    enabled agent is a card with a checkbox, its estimated duration and cost, "based on N runs", and its
    description (omitted when empty). **Select all** checks every card; none is checked on arrival.

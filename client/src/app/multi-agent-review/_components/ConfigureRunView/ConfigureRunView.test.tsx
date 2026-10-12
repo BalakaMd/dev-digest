@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   pulls: { data: [] as unknown[], isError: false, isLoading: false },
   agents: { data: [] as unknown[], isError: false },
   estimates: [] as unknown[],
+  latest: null as { id: string; ran_at: string } | null,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -26,6 +27,7 @@ vi.mock("@/lib/hooks/core", () => ({ usePulls: () => state.pulls }));
 vi.mock("@/lib/hooks/agents", () => ({ useAgents: () => state.agents }));
 vi.mock("@/lib/hooks/multi-agent-review", () => ({
   useReviewEstimates: () => ({ data: { estimates: state.estimates } }),
+  useLatestMultiAgentRun: () => ({ data: { latest: state.latest } }),
 }));
 vi.mock("@/lib/hooks/reviews", () => ({
   useRunReview: () => ({ mutateAsync: mockMutateAsync, isPending: false }),
@@ -57,6 +59,7 @@ beforeEach(() => {
   state.pulls = { data: PULLS, isError: false, isLoading: false };
   state.agents = { data: AGENTS, isError: false };
   state.estimates = ESTIMATES;
+  state.latest = null;
   mockMutateAsync.mockResolvedValue({ multi_agent_run_id: "mar-1" });
 });
 
@@ -99,6 +102,25 @@ describe("ConfigureRunView — step 1, the pull request (AC-9, AC-10, AC-11)", (
     renderView();
     expect(prSelect().value).toBe("");
     expect(screen.getByText("Pick a pull request first")).toBeInTheDocument();
+  });
+});
+
+describe("ConfigureRunView — latest run link", () => {
+  it("links the picked pull request to its latest multi-agent run", () => {
+    state.latest = { id: "mar-7", ran_at: "2026-10-01T10:00:00Z" };
+    renderView();
+    expect(screen.queryByRole("link", { name: /Latest multi-agent run/ })).not.toBeInTheDocument();
+    pickPr("pr-open");
+    expect(screen.getByRole("link", { name: /Latest multi-agent run/ })).toHaveAttribute(
+      "href",
+      "/multi-agent-review/mar-7",
+    );
+  });
+
+  it("is absent when the pull request has no multi-agent run", () => {
+    renderView();
+    pickPr("pr-open");
+    expect(screen.queryByRole("link", { name: /Latest multi-agent run/ })).not.toBeInTheDocument();
   });
 });
 

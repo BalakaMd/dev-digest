@@ -16,6 +16,7 @@ import { useActiveRepo } from "@/lib/repo-context";
 import { formatCostUsd } from "@/lib/format";
 import { formatDurationMs } from "../format";
 import { AgentCard } from "./_components/AgentCard";
+import { LatestRunLink } from "./_components/LatestRunLink";
 import { openPulls, summariseSelection } from "./helpers";
 import { s } from "./styles";
 
@@ -86,6 +87,7 @@ export function ConfigureRunView() {
             ]}
           />
         </label>
+        {prId && <LatestRunLink prId={prId} />}
       </div>
     );
   }

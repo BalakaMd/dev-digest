@@ -62,7 +62,8 @@ Each package has its own README with deeper diagrams:
 [`client`](client/README.md) (UI route map) ·
 [`server`](server/README.md) (API map) ·
 [`reviewer-core`](reviewer-core/README.md) (review pipeline) ·
-[`e2e`](e2e/README.md).
+[`e2e`](e2e/README.md) ·
+[`agent-runner`](agent-runner/README.md) (CI runner).
 
 ## What works on day 1
 
@@ -150,6 +151,7 @@ path filter — full strategy in **[`TESTING.md`](TESTING.md)**.
 | reviewer-core (engine) | `reviewer-core.yml` | no |
 | mcp (stdio server, fake fetch) | `mcp.yml` | no |
 | web e2e (agent-browser, real stack) | `e2e-web.yml` | yes |
+| agent-runner (typecheck, tests, ncc build) | `agent-runner.yml` | no |
 
 Server tests split by filename: `*.it.test.ts` are DB-backed (testcontainers
 Postgres); everything else is hermetic. The browser e2e flows live in

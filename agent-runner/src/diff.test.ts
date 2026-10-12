@@ -111,3 +111,43 @@ diff --git a/.github/workflows/devdigest-review.yml b/.github/workflows/devdiges
     expect(stripIgnoredFiles(FIXTURE_DIFF_RAW)).toBe(FIXTURE_DIFF_RAW);
   });
 });
+
+describe('stripIgnoredFiles: the whole .github/workflows/ folder (AC-64)', () => {
+  const section = (p: string) =>
+    `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1,1 +1,2 @@\n keep\n+added in ${p}\n`;
+
+  it('drops every workflow file, not only the generated one, including nested paths', () => {
+    const raw = [
+      section('src/app.ts'),
+      section('.github/workflows/ci.yml'),
+      section('.github/workflows/release/publish.yaml'),
+    ].join('');
+
+    const diff = parseUnifiedDiff(stripIgnoredFiles(raw));
+
+    expect(diff.files.map((f) => f.path)).toEqual(['src/app.ts']);
+    expect(diff.raw).not.toContain('.github/workflows');
+  });
+
+  it('keeps look-alike paths that are real project code (no over-filtering)', () => {
+    const raw = [
+      section('.github/CODEOWNERS'),
+      section('.github/workflows-docs/readme.md'),
+      section('src/.devdigest/notes.ts'),
+    ].join('');
+
+    const diff = parseUnifiedDiff(stripIgnoredFiles(raw));
+
+    expect(diff.files.map((f) => f.path)).toEqual([
+      '.github/CODEOWNERS',
+      '.github/workflows-docs/readme.md',
+      'src/.devdigest/notes.ts',
+    ]);
+  });
+
+  it('leaves an empty diff when only exported files changed (the export PR itself, EC-31)', () => {
+    const raw = [section('.devdigest/agents/a.yaml'), section('.github/workflows/devdigest-a.yml')].join('');
+
+    expect(parseUnifiedDiff(stripIgnoredFiles(raw)).files).toEqual([]);
+  });
+});

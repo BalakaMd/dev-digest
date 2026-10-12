@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { LLMProvider, StructuredResult, Review, CiResultArtifact } from '@devdigest/shared';
@@ -30,6 +31,7 @@ const FIXTURE_DIFF_RAW = `diff --git a/src/config.ts b/src/config.ts
 
 const VALID_MANIFEST_YAML = `
 name: "Security Reviewer"
+version: 1
 provider: "openrouter"
 model: "deepseek/deepseek-v4-flash"
 system_prompt: "Review this PR for security issues."
@@ -182,6 +184,7 @@ describe('runCi (T8 agent-runner orchestrator)', () => {
   function baseDeps(overrides: Partial<RunCiDeps> = {}): RunCiDeps {
     return {
       devdigestDir: dir,
+      agentSlug: 'security-reviewer',
       env: {
         GITHUB_REPOSITORY: 'acme/widgets',
         GITHUB_EVENT_PATH: path.join(dir, 'event.json'),
@@ -198,7 +201,7 @@ describe('runCi (T8 agent-runner orchestrator)', () => {
   it('AC-20: fails clearly (non-zero exit, no artifact) when the manifest is invalid, before any LLM call is made', async () => {
     writeFileSync(
       path.join(dir, 'agents', 'security-reviewer.yaml'),
-      'name: "bad"\nmodel: "m"\nsystem_prompt: "p"\nci_fail_on: "sometimes"\n',
+      'name: "bad"\nversion: 1\nmodel: "m"\nsystem_prompt: "p"\nci_fail_on: "sometimes"\n',
     );
     const stub = makeStubLlm(GROUNDED_PLUS_HALLUCINATED_REVIEW);
     const result = await runCi(baseDeps({ llm: stub.llm }));
@@ -360,5 +363,202 @@ describe('runCi (T8 agent-runner orchestrator)', () => {
     });
 
     expect(result.posted!.payload).toEqual(directPayload);
+  });
+
+  describe('SPEC-08 result artifact, exit codes and hard failures', () => {
+    const sha256 = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex');
+    const HEAD_SHA = '0123456789abcdef0123456789abcdef01234567';
+
+    function section(p: string): string {
+      return `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1,1 +1,2 @@\n keep ${p}\n+added in ${p}\n`;
+    }
+
+    it('AC-51 + AC-63: the written artifact carries verdict, blockers and a trace of independently recomputed hashes, model, SHA and Node version', async () => {
+      const manifestBytes = Buffer.from(
+        VALID_MANIFEST_YAML.replace('version: 1', 'version: 5').replace('skills: []', 'skills: ["zeta", "alpha"]'),
+      );
+      writeFileSync(path.join(dir, 'agents', 'security-reviewer.yaml'), manifestBytes);
+      const zetaBytes = Buffer.from('# zeta skill\nbe strict\n');
+      const alphaBytes = Buffer.from('# alpha skill\n');
+      writeFileSync(path.join(dir, 'skills', 'zeta.md'), zetaBytes);
+      writeFileSync(path.join(dir, 'skills', 'alpha.md'), alphaBytes);
+      writeFileSync(
+        path.join(dir, 'event.json'),
+        JSON.stringify({ pull_request: { number: 42, title: 't', body: 'b', head: { sha: HEAD_SHA } } }),
+      );
+
+      const result = await runCi(
+        baseDeps({ llm: makeStubLlm(GROUNDED_PLUS_HALLUCINATED_REVIEW).llm, fetchDiff: async () => FIXTURE_DIFF_RAW }),
+      );
+
+      expect(result.error).toBeUndefined();
+      const onDisk = CiResultArtifactSchema.parse(JSON.parse(readFileSync(resultPath, 'utf8')));
+      expect(onDisk.verdict).toBe('request_changes');
+      expect(onDisk.blockers).toBe(1);
+      expect(onDisk.trace).toMatchObject({
+        manifest: { agent_version: 5, sha256: sha256(manifestBytes) },
+        model: 'deepseek/deepseek-v4-flash',
+        node_version: process.version,
+        head_sha: HEAD_SHA,
+        skill_hashes: [
+          { slug: 'zeta', sha256: sha256(zetaBytes) },
+          { slug: 'alpha', sha256: sha256(alphaBytes) },
+        ],
+      });
+      expect(onDisk.trace!.runner_version).not.toBe('');
+      expect(onDisk.trace!.reviewer_core_revision).not.toBe('');
+    });
+
+    it('AC-48: verdict and blockers in the artifact follow the manifest ci_fail_on, not the findings alone (never -> comment, 0 blockers, exit 0)', async () => {
+      writeFileSync(
+        path.join(dir, 'agents', 'security-reviewer.yaml'),
+        VALID_MANIFEST_YAML.replace('ci_fail_on: "critical"', 'ci_fail_on: "never"'),
+      );
+
+      const result = await runCi(
+        baseDeps({ llm: makeStubLlm(GROUNDED_PLUS_HALLUCINATED_REVIEW).llm, fetchDiff: async () => FIXTURE_DIFF_RAW }),
+      );
+
+      expect(result.exitCode).toBe(0); // AC-62: findings below the gate do not fail the job
+      const onDisk = CiResultArtifactSchema.parse(JSON.parse(readFileSync(resultPath, 'utf8')));
+      expect(onDisk.findings_count).toBe(1);
+      expect(onDisk.verdict).toBe('comment');
+      expect(onDisk.blockers).toBe(0);
+    });
+
+    it('AC-63 + NFR-1: neither the model key nor the GitHub token reaches the artifact file, the result, the posted body or the logs', async () => {
+      const OPENROUTER_KEY = 'sk-or-v1-FAKEFAKEFAKEFAKE';
+      const GH_TOKEN = 'ghp_FAKEFAKEFAKEFAKEFAKE';
+      const logged: string[] = [];
+      const spies = (['log', 'info', 'warn', 'error'] as const).map((m) =>
+        vi.spyOn(console, m).mockImplementation((...args: unknown[]) => {
+          logged.push(args.map(String).join(' '));
+        }),
+      );
+      try {
+        const { fetchImpl, calls } = makeFetchRecorder();
+        const result = await runCi(
+          baseDeps({
+            env: {
+              GITHUB_REPOSITORY: 'acme/widgets',
+              GITHUB_EVENT_PATH: path.join(dir, 'event.json'),
+              GITHUB_TOKEN: GH_TOKEN,
+              OPENROUTER_API_KEY: OPENROUTER_KEY,
+            },
+            llm: makeStubLlm(GROUNDED_PLUS_HALLUCINATED_REVIEW).llm,
+            fetchDiff: async () => FIXTURE_DIFF_RAW,
+            fetchImpl,
+          }),
+        );
+
+        expect(result.exitCode).toBe(1); // the run really went through the posting path
+        expect(calls).toHaveLength(1);
+        const everything = [
+          readFileSync(resultPath, 'utf8'),
+          JSON.stringify(result),
+          ...calls.map((c) => c.body ?? ''),
+          ...logged,
+        ].join('\n');
+        expect(everything).not.toContain(OPENROUTER_KEY);
+        expect(everything).not.toContain(GH_TOKEN);
+      } finally {
+        spies.forEach((s) => s.mockRestore());
+      }
+    });
+
+    it('AC-60 + EC-24: a missing manifest fails before any model call, naming the expected path, with no artifact and nothing posted', async () => {
+      const stub = makeStubLlm(GROUNDED_PLUS_HALLUCINATED_REVIEW);
+      const { fetchImpl, calls } = makeFetchRecorder();
+
+      const result = await runCi(
+        baseDeps({ agentSlug: 'no-such-agent', llm: stub.llm, fetchImpl, fetchDiff: async () => FIXTURE_DIFF_RAW }),
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(result.artifact).toBeNull();
+      expect(result.error).toMatch(/\.devdigest\/agents\/no-such-agent\.yaml/);
+      expect(stub.capturedMessages).toHaveLength(0);
+      expect(calls).toHaveLength(0);
+      expect(existsSync(resultPath)).toBe(false);
+    });
+
+    it('AC-61: the slug selects its own manifest when another agent manifest sits next to it', async () => {
+      writeFileSync(
+        path.join(dir, 'agents', 'other-agent.yaml'),
+        VALID_MANIFEST_YAML.replace('Security Reviewer', 'Other Agent'),
+      );
+
+      const result = await runCi(
+        baseDeps({
+          agentSlug: 'other-agent',
+          llm: makeStubLlm(ALL_HALLUCINATED_REVIEW).llm,
+          fetchDiff: async () => FIXTURE_DIFF_RAW,
+        }),
+      );
+
+      expect(result.error).toBeUndefined();
+      expect(result.artifact!.agent).toBe('Other Agent');
+    });
+
+    it('AC-62: an artifact over CI_ARTIFACT_MAX_BYTES is a hard error - exit 1, no artifact file, nothing posted', async () => {
+      const skillCount = 9000; // each trace entry is ~150 bytes once pretty-printed
+      const slugs = Array.from({ length: skillCount }, (_, i) => `s${i}`);
+      writeFileSync(
+        path.join(dir, 'agents', 'security-reviewer.yaml'),
+        VALID_MANIFEST_YAML.replace('skills: []', `skills: ${JSON.stringify(slugs)}`),
+      );
+      const realRead = readFileSync;
+      const readFile = ((p: string, ...rest: unknown[]) =>
+        String(p).endsWith('.md') ? Buffer.from('skill') : (realRead as (...a: unknown[]) => unknown)(p, ...rest)) as unknown as typeof readFileSync;
+      const { fetchImpl, calls } = makeFetchRecorder();
+
+      const result = await runCi(
+        baseDeps({
+          llm: makeStubLlm(ALL_HALLUCINATED_REVIEW).llm,
+          fetchDiff: async () => FIXTURE_DIFF_RAW,
+          fetchImpl,
+          readFile,
+        }),
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(result.artifact).toBeNull();
+      expect(result.error).toMatch(/byte limit/);
+      expect(existsSync(resultPath)).toBe(false);
+      expect(calls).toHaveLength(0);
+    });
+
+    it('AC-64: .devdigest/ and .github/workflows/ sections never reach the model; reviewable files still do', async () => {
+      const stub = makeStubLlm(ALL_HALLUCINATED_REVIEW);
+      const rawDiff = [
+        section('src/real.ts'),
+        section('.devdigest/runner/index.js'),
+        section('.github/workflows/ci.yml'),
+      ].join('');
+
+      await runCi(baseDeps({ llm: stub.llm, fetchDiff: async () => rawDiff }));
+
+      expect(stub.capturedMessages).toHaveLength(1);
+      const prompt = stub.capturedMessages[0]!.map((m) => m.content).join('\n');
+      expect(prompt).toContain('added in src/real.ts');
+      expect(prompt).not.toContain('.devdigest/runner/index.js');
+      expect(prompt).not.toContain('.github/workflows');
+    });
+
+    it('EC-31: a diff holding only exported files yields a zero-finding approve without any model call', async () => {
+      const stub = makeStubLlm('throw'); // would hard-fail the run if it were ever called
+      const { fetchImpl, calls } = makeFetchRecorder();
+      const rawDiff = [section('.devdigest/agents/security-reviewer.yaml'), section('.github/workflows/devdigest-security-reviewer.yml')].join('');
+
+      const result = await runCi(baseDeps({ llm: stub.llm, fetchDiff: async () => rawDiff, fetchImpl }));
+
+      expect(stub.capturedMessages).toHaveLength(0);
+      expect(result.error).toBeUndefined();
+      expect(result.exitCode).toBe(0);
+      expect(result.posted!.payload!.event).toBe('APPROVE');
+      const onDisk = CiResultArtifactSchema.parse(JSON.parse(readFileSync(resultPath, 'utf8')));
+      expect(onDisk).toMatchObject({ findings_count: 0, verdict: 'approve', blockers: 0 });
+      expect(calls).toHaveLength(1); // the approve review is still posted
+    });
   });
 });

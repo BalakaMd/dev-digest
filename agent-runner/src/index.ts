@@ -18,7 +18,8 @@
  * real world and maps the result onto `process.exitCode`.
  */
 import path from 'node:path';
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { CI_RUNNER_ENV, CI_RESULT_FILE_NAME } from '@devdigest/shared';
 import { OpenRouterProvider } from '@devdigest/reviewer-core';
 import { runCi, type PostAs } from './run.js';
 
@@ -29,8 +30,13 @@ function resolvePostAs(value: string | undefined): PostAs {
 
 export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number> {
   const devdigestDir = env.DEVDIGEST_DIR ?? path.join(process.cwd(), '.devdigest');
-  const resultPath = env.DEVDIGEST_RESULT_PATH ?? path.join(process.cwd(), 'devdigest-result.json');
-  const postAs = resolvePostAs(env.DEVDIGEST_POST_AS);
+  const resultPath = env[CI_RUNNER_ENV.RESULT_PATH] ?? path.join(process.cwd(), CI_RESULT_FILE_NAME);
+  const postAs = resolvePostAs(env[CI_RUNNER_ENV.POST_AS]);
+  const agentSlug = env[CI_RUNNER_ENV.AGENT_SLUG];
+  if (!agentSlug) {
+    console.error(`[agent-runner] FAILED: ${CI_RUNNER_ENV.AGENT_SLUG} is not set (the workflow must name the agent)`);
+    return 1;
+  }
 
   // No global LLM client — always injected (reviewer-core invariant). An empty
   // key still constructs the provider; the first `completeStructured` call
@@ -40,12 +46,12 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
 
   const result = await runCi({
     devdigestDir,
+    agentSlug,
     env,
     llm,
     postAs,
     resultPath,
     readFile: readFileSync,
-    readDir: readdirSync,
     writeFile: writeFileSync,
   });
 

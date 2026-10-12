@@ -149,6 +149,43 @@ export interface CommitFilesPayload {
   base: string;
   message: string;
   files: CommitFile[];
+  /**
+   * When true and `branch` exists, parent the new commit on the head of `base`
+   * and force-update the ref (a fresh single-agent branch). Otherwise the
+   * commit layers on the branch head and keeps other files.
+   */
+  fromBase?: boolean;
+}
+
+/** An opened/found pull request. */
+export interface PrRef {
+  url: string;
+  number: number;
+}
+
+/** A completed `pull_request` Actions workflow run. */
+export interface WorkflowRunInfo {
+  id: number;
+  run_attempt: number;
+  conclusion: string | null;
+  head_sha: string;
+  html_url: string;
+  path: string;
+  created_at: string;
+  /** Null when the run is not linked to a pull request. */
+  pull_request_number: number | null;
+}
+
+export interface ListWorkflowRunsQuery {
+  workflowPath: string;
+  /** ISO timestamp: only runs created at or after it. */
+  since: string;
+}
+
+export interface RunArtifactInfo {
+  id: number;
+  size_bytes: number;
+  expired: boolean;
 }
 
 /** Input of `GitHubClient.listPathPullHistory`. */
@@ -189,7 +226,7 @@ export interface GitHubClient {
     n: number,
     input: CreateReviewCommentInput,
   ): Promise<PrReviewComment>;
-  openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }>;
+  openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<PrRef>;
   /**
    * Commit `files` onto `branch` as ONE atomic commit (Git Data API: blobs →
    * tree → commit → ref). Creates the branch from `base` if missing, else
@@ -197,7 +234,23 @@ export interface GitHubClient {
    */
   commitFiles(repo: RepoRef, payload: CommitFilesPayload): Promise<{ branch: string }>;
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
-  findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null>;
+  findOpenPr(repo: RepoRef, branch: string): Promise<PrRef | null>;
+  /** The repository's default branch name. */
+  getDefaultBranch(repo: RepoRef): Promise<string>;
+  /**
+   * Names (never values) of the repository's Actions secrets. Throws
+   * `GitHubPermissionError` on 403/404 so callers can report "unknown".
+   */
+  listActionsSecretNames(repo: RepoRef): Promise<string[]>;
+  /** Completed `pull_request` runs of one workflow file, newest first, paginated. */
+  listWorkflowRuns(repo: RepoRef, q: ListWorkflowRunsQuery): Promise<WorkflowRunInfo[]>;
+  /** The named artifact of a run, or null when absent. */
+  findRunArtifact(repo: RepoRef, runId: number, name: string): Promise<RunArtifactInfo | null>;
+  /** Raw bytes of an Actions artifact (a zip archive). */
+  downloadArtifact(repo: RepoRef, artifactId: number): Promise<Uint8Array>;
+  fileExistsOnBranch(repo: RepoRef, path: string, branch: string): Promise<boolean>;
+  /** Current state of a pull request. */
+  getPullRequestState(repo: RepoRef, n: number): Promise<'open' | 'closed' | 'merged'>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
   /**
    * Read one file's content at `ref` (repos.getContent, decoded as UTF-8).

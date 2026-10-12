@@ -27,6 +27,15 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-10-12 — [gotcha] `yaml` `prettyErrors: false` drops error line numbers
+**Symptom** — the workflow check reported YAML error line 1 for a syntax error on
+line 3; `error.linePos` was `undefined` and the `?? 1` fallback hid it.
+**Cause** — `parseDocument(text, { prettyErrors: false })` skips the step that
+fills `linePos`; only the character offset `error.pos` is set.
+**Takeaway** — pass a `LineCounter` (`parseDocument(text, { lineCounter })`) and read
+`lineCounter.linePos(error.pos[0]).line`, or leave `prettyErrors` on and use
+`linePos` (its messages then embed a code frame, so keep taking only the first line).
+
 ## 2026-10-09 — [gotcha] An optional route body needs `.nullish()`, and `.optional()` rejects a POST with no body
 **Symptom** — after adding `body: Schema.optional()` to `POST /findings/:id/eval-case`, every
 existing call without a payload became 422 "Request validation failed" ("Expected object, received null").

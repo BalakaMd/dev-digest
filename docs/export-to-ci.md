@@ -10,7 +10,7 @@ and its security properties and limits. Read this before touching the `ci` modul
 and `CiResultArtifact` contracts, the `agent-runner` package, the runner-bundle adapter, the CI tab
 of the agent editor, the Export Wizard or the `/ci-runs` page.
 
-Requirements: [`specs/export-to-ci/spec.md`](../specs/export-to-ci/spec.md) (SPEC-08); the
+Requirements: [`specs/export-to-ci/spec.md`](../specs/export-to-ci/spec.md) (SPEC-09); the
 implementation plan is [`specs/export-to-ci/plan.md`](../specs/export-to-ci/plan.md) and the design
 review is [`specs/export-to-ci/design-review.md`](../specs/export-to-ci/design-review.md).
 

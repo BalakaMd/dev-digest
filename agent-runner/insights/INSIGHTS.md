@@ -39,6 +39,6 @@ None open.
 
 ## Resolved
 
-2026-07-08 (closed in SPEC-08) — `post_as` is NOT part of `AgentManifest`: the generated workflow sets `DEVDIGEST_POST_AS` (`CI_RUNNER_ENV.POST_AS`) and the runner reads it in `index.ts`, defaulting to `github_review`. The agent is chosen the same way: `DEVDIGEST_AGENT_SLUG` selects `.devdigest/agents/<slug>.yaml` (no env var -> exit 1; the runner never globs the agents directory). ref: agent-runner/src/index.ts:33
+2026-07-08 (closed in SPEC-09) — `post_as` is NOT part of `AgentManifest`: the generated workflow sets `DEVDIGEST_POST_AS` (`CI_RUNNER_ENV.POST_AS`) and the runner reads it in `index.ts`, defaulting to `github_review`. The agent is chosen the same way: `DEVDIGEST_AGENT_SLUG` selects `.devdigest/agents/<slug>.yaml` (no env var -> exit 1; the runner never globs the agents directory). ref: agent-runner/src/index.ts:33
 
 2026-10-11 — `reviewer_core_revision` in the result trace is the git TREE hash of `reviewer-core/` (plus `-dirty` for local edits), written by `scripts/write-build-info.mjs` into the git-ignored `src/build-info.generated.json` and hooked via `prebuild`/`pretypecheck`/`pretest`. Run those through `pnpm`; calling `tsc`/`vitest`/`ncc` directly skips the hook and fails on the missing JSON. In the bundle, `grep -c "^import\|require(" dist/index.js` is now 1 (ncc's `createRequire` shim for Node builtins) and `dist/300.index.js` is an unused lazy chunk from `formdata-node`; the real check is zero `@devdigest` specifiers (`grep -o "from ['\"]@devdigest"`). ref: agent-runner/scripts/write-build-info.mjs

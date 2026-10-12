@@ -1,5 +1,5 @@
 /* CiTab — the agent's CI deployment: installations, "Fail CI on", run history
-   (SPEC-08 AC-38…45, AC-69, AC-8, AC-58, EC-34). "Add to CI" / "Add repository" /
+   (SPEC-09 AC-38…45, AC-69, AC-8, AC-58, EC-34). "Add to CI" / "Add repository" /
    "Update" open the Export wizard through the `Wizard` slot (contract: WizardProps). */
 "use client";
 

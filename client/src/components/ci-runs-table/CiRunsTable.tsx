@@ -1,5 +1,5 @@
 /* CiRunsTable — the CI runs list shared by the CI Runs page and the agent's CI tab
-   (SPEC-08 AC-47…AC-49, AC-52). A missing value renders "—"; the verdict is text,
+   (SPEC-09 AC-47…AC-49, AC-52). A missing value renders "—"; the verdict is text,
    never colour alone; links go to github.com only and open in a new tab. */
 "use client";
 

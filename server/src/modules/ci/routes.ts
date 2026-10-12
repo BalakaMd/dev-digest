@@ -18,7 +18,7 @@ import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 
 /**
- * Export-to-CI module (SPEC-08).
+ * Export-to-CI module (SPEC-09).
  *
  *   POST /agents/:id/ci/preview         → files an export would write (nothing is written)
  *   POST /agents/:id/ci/check           → validate a hand-edited workflow

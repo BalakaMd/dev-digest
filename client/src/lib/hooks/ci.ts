@@ -1,4 +1,4 @@
-/* hooks/ci.ts — React Query hooks for Export-to-CI and CI Runs (SPEC-08).
+/* hooks/ci.ts — React Query hooks for Export-to-CI and CI Runs (SPEC-09).
    Types only from @devdigest/shared (value imports blank the page, see INSIGHTS). */
 "use client";
 

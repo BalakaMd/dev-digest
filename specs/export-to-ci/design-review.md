@@ -1,4 +1,4 @@
-# Design review: Export to CI (SPEC-08)
+# Design review: Export to CI (SPEC-09)
 Sources: specs/export-to-ci/designs/01-wizard-target.png, 02-agent-ci-tab.png, 03-wizard-preview.png, 04-wizard-configure.png, 05-wizard-install.png; reference draft inbox/dev-digest-lesson-7-lab-multiagents-finish/specs/2026-07-08-export-to-ci.md (reference only) · Current code read: agent-runner/src/manifest.ts:25-46, agent-runner/src/run.ts:83-173, agent-runner/src/index.ts:25-39, agent-runner/src/diff.ts:21, agent-runner/src/artifact.ts:6-44, server/src/vendor/shared/contracts/eval-ci.ts:133-239, server/src/vendor/shared/contracts/trace.ts:87-95, server/src/db/schema/ci.ts:4-26, server/src/db/schema/runs.ts:8-37, server/src/db/schema/agents.ts:16,26,34,36, server/src/adapters/github/octokit.ts:250-354, server/src/adapters/auth/local.ts:14-37, server/src/modules/index.ts:33-51, client/src/vendor/ui/nav.ts:21-45, client/src/app/agents/[id]/_components/AgentEditor/AgentEditor.tsx:17-37, client/src/app/agents/[id]/_components/AgentEditor/constants.ts:12-15, client/src/app/agents/[id]/_components/AgentEditor/_components/ConfigTab/ConfigTab.tsx:118-124
 
 ## States coverage

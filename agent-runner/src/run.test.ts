@@ -365,7 +365,7 @@ describe('runCi (T8 agent-runner orchestrator)', () => {
     expect(result.posted!.payload).toEqual(directPayload);
   });
 
-  describe('SPEC-08 result artifact, exit codes and hard failures', () => {
+  describe('SPEC-09 result artifact, exit codes and hard failures', () => {
     const sha256 = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex');
     const HEAD_SHA = '0123456789abcdef0123456789abcdef01234567';
 

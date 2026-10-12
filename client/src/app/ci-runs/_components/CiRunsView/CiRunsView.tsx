@@ -1,4 +1,4 @@
-/* CiRunsView — /ci-runs: every CI run of the workspace, newest first (SPEC-08 AC-47…AC-52).
+/* CiRunsView — /ci-runs: every CI run of the workspace, newest first (SPEC-09 AC-47…AC-52).
    Opening the page triggers one refresh from GitHub (AC-59); a degraded refresh keeps
    the stored runs and shows a notice instead of an error. */
 "use client";

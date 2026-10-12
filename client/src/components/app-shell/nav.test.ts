@@ -56,7 +56,7 @@ describe("sidebar nav — Eval Dashboard (AC-34)", () => {
   });
 });
 
-describe("sidebar nav — CI Runs (SPEC-08 AC-46)", () => {
+describe("sidebar nav — CI Runs (SPEC-09 AC-46)", () => {
   const global = NAV.find((g) => g.section === "GLOBAL")!;
   const item = global?.items.find((i) => i.label === "CI Runs");
 

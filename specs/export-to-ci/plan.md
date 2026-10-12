@@ -1,7 +1,7 @@
 # Development Plan: Export to CI
 
 Created: 2026-10-11 · Branch: claude/export-to-ci-d99f5e · HEAD: 140b6ed · Status: ready
-Spec: specs/export-to-ci/spec.md · SPEC-08 · approved
+Spec: specs/export-to-ci/spec.md · SPEC-09 · approved
 Recommended mode: multi-agent — three packages (server, agent-runner, client) are independent after the contracts step, the work is ~100 files, and the security-heavy generators/ingest benefit from a separate test-writer.
 
 Language note: this file is English because repo files must be English (`pr-self-review` repo-invariants §8 flags Cyrillic in a diff). The planner's reply to the caller is in Russian.
@@ -202,12 +202,12 @@ Verify keys: **VS** = `cd server && pnpm typecheck && pnpm exec vitest run --exc
 ## Non-functional requirements
 | NFR | Source | Mechanism (step) | Verification |
 |---|---|---|---|
-| NFR-1 | SPEC-08 | Token only via `container.github()`; error mapper forwards GitHub `message`/status only, never request headers (S2, S6); logs carry repo/branch/URL (S6, S7); runner redacts: never logs env, result built from typed fields (S8) | T-3, T-11, T-15, T-17 with fake token `ghp_FAKE…` asserted absent from responses, logs, files |
-| NFR-2 | SPEC-08 | `artifact.ts` checks `size_in_bytes` before download and entry `originalSize` via fflate `filter` (zip-bomb safe) before `JSON.parse` (S4, S7); client renders text via React children, `isGithubUrl()` guard server (before store) and client (before `href`) (S7, S10) | T-12 (1 MiB and 1 MiB+1), T-28 hostile strings and `javascript:` link |
-| NFR-3 | SPEC-08 | Own dialog shell with `role=dialog`, `aria-modal`, `aria-labelledby`, focus trap, Escape, focus return (vendor `Modal` has none: client/src/vendor/ui/kit/Modal.tsx:26); own Stepper with `aria-current="step"`; text on every badge (S12, S13, S10, S11) | T-33, T-30; hands-on keyboard-only walk |
-| NFR-4 | SPEC-08 | Preview stats runner files (no read) and never calls GitHub (S6); partial index `(workspace_id, ran_at desc, id desc) WHERE source='ci'` + keyset pagination (S3, S5, S7) | T-24: 20-skill preview < 2000 ms with fakes; 10,000 seeded rows first page of 50 < 1000 ms (`*.it.test.ts`) |
-| NFR-5 | SPEC-08 | Installation upserted only after commit and PR calls resolve (S6) | T-17 |
-| NFR-6 | SPEC-08 | Structured `req.log`/pino lines per installation and per install (S6, S7) | T-16, T-20 log spy |
+| NFR-1 | SPEC-09 | Token only via `container.github()`; error mapper forwards GitHub `message`/status only, never request headers (S2, S6); logs carry repo/branch/URL (S6, S7); runner redacts: never logs env, result built from typed fields (S8) | T-3, T-11, T-15, T-17 with fake token `ghp_FAKE…` asserted absent from responses, logs, files |
+| NFR-2 | SPEC-09 | `artifact.ts` checks `size_in_bytes` before download and entry `originalSize` via fflate `filter` (zip-bomb safe) before `JSON.parse` (S4, S7); client renders text via React children, `isGithubUrl()` guard server (before store) and client (before `href`) (S7, S10) | T-12 (1 MiB and 1 MiB+1), T-28 hostile strings and `javascript:` link |
+| NFR-3 | SPEC-09 | Own dialog shell with `role=dialog`, `aria-modal`, `aria-labelledby`, focus trap, Escape, focus return (vendor `Modal` has none: client/src/vendor/ui/kit/Modal.tsx:26); own Stepper with `aria-current="step"`; text on every badge (S12, S13, S10, S11) | T-33, T-30; hands-on keyboard-only walk |
+| NFR-4 | SPEC-09 | Preview stats runner files (no read) and never calls GitHub (S6); partial index `(workspace_id, ran_at desc, id desc) WHERE source='ci'` + keyset pagination (S3, S5, S7) | T-24: 20-skill preview < 2000 ms with fakes; 10,000 seeded rows first page of 50 < 1000 ms (`*.it.test.ts`) |
+| NFR-5 | SPEC-09 | Installation upserted only after commit and PR calls resolve (S6) | T-17 |
+| NFR-6 | SPEC-09 | Structured `req.log`/pino lines per installation and per install (S6, S7) | T-16, T-20 log spy |
 
 ## Requirements review
 No blocking findings (`R-n`). Non-blocking readings (planned with the recommended option):

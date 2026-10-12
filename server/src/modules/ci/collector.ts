@@ -27,7 +27,7 @@ interface Counts {
 }
 
 /**
- * Pulls CI results (SPEC-08): for every installation of the workspace it re-evaluates the
+ * Pulls CI results (SPEC-09): for every installation of the workspace it re-evaluates the
  * installation status and, for installed ones, reads the finished `pull_request` runs of the
  * workflow file and downloads their result artifacts with the studio's GitHub token (AC-53,
  * AC-59). Nothing is accepted from outside — there is no inbound endpoint.

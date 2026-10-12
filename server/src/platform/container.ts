@@ -377,7 +377,7 @@ export class Container {
   }
 
   /**
-   * Export to CI use cases (SPEC-08) — ports over the agents repository, the CI repository,
+   * Export to CI use cases (SPEC-09) — ports over the agents repository, the CI repository,
    * the secrets provider (presence only), GitHub and the runner bundle.
    */
   get ciService(): CiService {
@@ -417,7 +417,7 @@ export class Container {
     return this._ciService;
   }
 
-  /** Pulls finished CI runs from GitHub (SPEC-08); one instance so concurrent refreshes coalesce. */
+  /** Pulls finished CI runs from GitHub (SPEC-09); one instance so concurrent refreshes coalesce. */
   get ciCollector(): CiCollector {
     this._ciCollector ??= new CiCollector({
       repo: new CiRepository(this.db),

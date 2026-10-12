@@ -59,7 +59,7 @@ interface Prepared {
 }
 
 /**
- * Export to CI use cases (SPEC-08): preview, check, secrets status, install
+ * Export to CI use cases (SPEC-09): preview, check, secrets status, install
  * (PR or zip) and the installation / CI run queries. Talks to the world through
  * explicit ports (`CiServiceDeps`) — never the Container.
  */

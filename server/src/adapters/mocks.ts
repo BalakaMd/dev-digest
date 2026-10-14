@@ -19,6 +19,10 @@ import type {
   IssueMeta,
   PathPullHistoryQuery,
   PathPullHistory,
+  PrRef,
+  WorkflowRunInfo,
+  ListWorkflowRunsQuery,
+  RunArtifactInfo,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -49,6 +53,8 @@ import {
 import { DEFAULT_CONTEXT_GLOBS, compileGlobs, docTypeOf, searchRoots } from './context-docs/glob.js';
 import { createHash } from 'node:crypto';
 import { parseUnifiedDiff } from './git/diff-parser.js';
+import { GitHubPermissionError } from '../platform/errors.js';
+import type { RunnerBundle, RunnerBundleFile } from './runner-bundle/types.js';
 
 /**
  * Deterministic MOCK adapters for tests/dev — NO real network. Each mirrors the
@@ -149,6 +155,23 @@ export interface MockGitHubOptions {
   pathHistory?: (q: PathPullHistoryQuery) => PathPullHistory;
   /** When set, listPathPullHistory throws it. */
   pathHistoryError?: Error;
+  /** Default branch returned by getDefaultBranch (default 'main'). */
+  defaultBranch?: string;
+  /** Actions secret names; `null` makes listActionsSecretNames throw GitHubPermissionError. */
+  secretNames?: string[] | null;
+  /** Completed workflow runs returned by listWorkflowRuns. */
+  workflowRuns?: WorkflowRunInfo[];
+  /** Artifacts by `${runId}:${name}`; absent key = no artifact. */
+  artifacts?: Record<string, RunArtifactInfo>;
+  /** Artifact bytes by artifact id. */
+  artifactBytes?: Record<number, Uint8Array>;
+  /** Paths that exist on any branch (fileExistsOnBranch). */
+  existingPaths?: string[];
+  /** State per PR number for getPullRequestState (default 'open'). */
+  prStates?: Record<number, 'open' | 'closed' | 'merged'>;
+  /** When set, commitFiles / openPullRequest throw it (simulates a GitHub failure). */
+  commitError?: Error;
+  openPrError?: Error;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -157,6 +180,8 @@ export class MockGitHubClient implements GitHubClient {
   public committed: CommitFilesPayload[] = [];
   public createdComments: CreateReviewCommentInput[] = [];
   public pathHistoryQueries: { repo: RepoRef; q: PathPullHistoryQuery }[] = [];
+  public workflowRunQueries: { repo: RepoRef; q: ListWorkflowRunsQuery }[] = [];
+  public downloadedArtifacts: number[] = [];
 
   constructor(private opts: MockGitHubOptions = {}) {}
 
@@ -240,19 +265,64 @@ export class MockGitHubClient implements GitHubClient {
     };
   }
 
-  async openPullRequest(_repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }> {
+  async openPullRequest(_repo: RepoRef, payload: OpenPrPayload): Promise<PrRef> {
+    if (this.opts.openPrError) throw this.opts.openPrError;
     this.openedPrs.push(payload);
-    return { url: 'https://github.com/mock/mock/pull/1' };
+    return { url: 'https://github.com/mock/mock/pull/1', number: 1 };
   }
 
   async commitFiles(_repo: RepoRef, payload: CommitFilesPayload): Promise<{ branch: string }> {
+    if (this.opts.commitError) throw this.opts.commitError;
     this.committed.push(payload);
     return { branch: payload.branch };
   }
 
-  async findOpenPr(_repo: RepoRef, branch: string): Promise<{ url: string } | null> {
+  async findOpenPr(_repo: RepoRef, branch: string): Promise<PrRef | null> {
     const pr = this.openedPrs.find((p) => p.head === branch);
-    return pr ? { url: 'https://github.com/mock/mock/pull/1' } : null;
+    return pr ? { url: 'https://github.com/mock/mock/pull/1', number: 1 } : null;
+  }
+
+  async getDefaultBranch(_repo: RepoRef): Promise<string> {
+    return this.opts.defaultBranch ?? 'main';
+  }
+
+  async listActionsSecretNames(_repo: RepoRef): Promise<string[]> {
+    if (this.opts.secretNames === null) {
+      throw new GitHubPermissionError('Resource not accessible by personal access token', {
+        status: 403,
+      });
+    }
+    return this.opts.secretNames ?? [];
+  }
+
+  async listWorkflowRuns(repo: RepoRef, q: ListWorkflowRunsQuery): Promise<WorkflowRunInfo[]> {
+    this.workflowRunQueries.push({ repo, q });
+    return (this.opts.workflowRuns ?? []).filter(
+      (r) => r.path === q.workflowPath && r.created_at >= q.since,
+    );
+  }
+
+  async findRunArtifact(
+    _repo: RepoRef,
+    runId: number,
+    name: string,
+  ): Promise<RunArtifactInfo | null> {
+    return this.opts.artifacts?.[`${runId}:${name}`] ?? null;
+  }
+
+  async downloadArtifact(_repo: RepoRef, artifactId: number): Promise<Uint8Array> {
+    this.downloadedArtifacts.push(artifactId);
+    const bytes = this.opts.artifactBytes?.[artifactId];
+    if (!bytes) throw new Error(`artifact ${artifactId} not found`);
+    return bytes;
+  }
+
+  async fileExistsOnBranch(_repo: RepoRef, path: string, _branch: string): Promise<boolean> {
+    return this.opts.existingPaths?.includes(path) ?? false;
+  }
+
+  async getPullRequestState(_repo: RepoRef, n: number): Promise<'open' | 'closed' | 'merged'> {
+    return this.opts.prStates?.[n] ?? 'open';
   }
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
@@ -595,5 +665,21 @@ export class MockContextDocStore implements ContextDocStore {
 
   searchRoots(): string[] {
     return [...this.roots];
+  }
+}
+
+/** In-memory `RunnerBundle`: a small deterministic stand-in for `agent-runner/dist/`. */
+export class MockRunnerBundle implements RunnerBundle {
+  constructor(
+    private files: RunnerBundleFile[] = [
+      { path: 'index.js', contents: '// mock devdigest runner\n' },
+      { path: 'package.json', contents: '{"type":"module"}\n' },
+    ],
+  ) {}
+  async list() {
+    return this.files.map((f) => ({ path: f.path, size_bytes: Buffer.byteLength(f.contents) }));
+  }
+  async read() {
+    return this.files.map((f) => ({ ...f }));
   }
 }

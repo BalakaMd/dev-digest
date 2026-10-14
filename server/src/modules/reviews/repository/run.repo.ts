@@ -94,7 +94,7 @@ export async function deleteAgentRun(
 export async function cancelRunIfRunning(db: Db, runId: string): Promise<boolean> {
   const rows = await db
     .update(t.agentRuns)
-    .set({ status: 'cancelled' })
+    .set({ status: 'cancelled', finishedAt: new Date() })
     .where(and(eq(t.agentRuns.id, runId), eq(t.agentRuns.status, 'running')))
     .returning({ id: t.agentRuns.id });
   return rows.length > 0;
@@ -105,7 +105,7 @@ export async function cancelRunIfRunning(db: Db, runId: string): Promise<boolean
 export async function reapStaleRunningRuns(db: Db): Promise<number> {
   const rows = await db
     .update(t.agentRuns)
-    .set({ status: 'failed' })
+    .set({ status: 'failed', finishedAt: new Date() })
     .where(eq(t.agentRuns.status, 'running'))
     .returning({ id: t.agentRuns.id });
   return rows.length;
@@ -175,6 +175,7 @@ export async function completeAgentRun(
       score: values.score ?? null,
       blockers: values.blockers ?? null,
       error: values.error ?? null,
+      finishedAt: new Date(),
     })
     .where(eq(t.agentRuns.id, runId));
 }

@@ -56,6 +56,11 @@ import { collectPaths } from '../modules/reviews/context-docs.js';
 import { parseIntentLinks } from '../modules/intent/helpers.js';
 import { EvalRepository } from '../modules/eval/repository.js';
 import { EvalService } from '../modules/eval/service.js';
+import { CiRepository } from '../modules/ci/repository.js';
+import { CiService } from '../modules/ci/service.js';
+import { CiCollector } from '../modules/ci/collector.js';
+import { FsRunnerBundle } from '../adapters/runner-bundle/index.js';
+import type { RunnerBundle } from '../adapters/runner-bundle/types.js';
 import { SkillsRepository } from '../modules/skills/repository.js';
 import { loadDiff } from '../modules/reviews/diff-loader.js';
 import { toSkillPromptBlock } from '../modules/reviews/helpers.js';
@@ -84,6 +89,8 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  /** Prebuilt agent-runner bundle reader — tests inject `MockRunnerBundle`. */
+  runnerBundle?: RunnerBundle;
   /** Context-document reader — tests inject `MockContextDocStore`. */
   contextDocs?: ContextDocStore;
   /** Intent facade (S4) — tests inject a fake to skip DB/LLM/GitHub entirely. */
@@ -126,6 +133,9 @@ export class Container {
   private _onboarding?: OnboardingService;
   private _brief?: BriefService;
   private _evalService?: EvalService;
+  private _runnerBundle?: RunnerBundle;
+  private _ciService?: CiService;
+  private _ciCollector?: CiCollector;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -358,6 +368,63 @@ export class Container {
       });
     })();
     return this._evalService;
+  }
+
+  /** The prebuilt agent-runner (`agent-runner/dist/`) an export commits to the target repo. */
+  get runnerBundle(): RunnerBundle {
+    if (this.overrides.runnerBundle) return this.overrides.runnerBundle;
+    return (this._runnerBundle ??= new FsRunnerBundle());
+  }
+
+  /**
+   * Export to CI use cases (SPEC-09) — ports over the agents repository, the CI repository,
+   * the secrets provider (presence only), GitHub and the runner bundle.
+   */
+  get ciService(): CiService {
+    this._ciService ??= (() => {
+      const agentsRepo = this.agentsRepo;
+      return new CiService({
+        repo: new CiRepository(this.db),
+        agents: {
+          getById: async (workspaceId, id) => {
+            const a = await agentsRepo.getById(workspaceId, id);
+            return a
+              ? {
+                  id: a.id,
+                  name: a.name,
+                  provider: a.provider as Provider,
+                  model: a.model,
+                  systemPrompt: a.systemPrompt,
+                  strategy: a.strategy ?? REVIEW_STRATEGY,
+                  ciFailOn: a.ciFailOn,
+                  version: a.version,
+                  contextDocsCount: a.contextDocs.length,
+                }
+              : undefined;
+          },
+          linkedSkills: async (agentId) =>
+            (await agentsRepo.linkedSkills(agentId)).map((l) => ({
+              name: l.skill.name,
+              body: l.skill.body,
+            })),
+        },
+        secrets: { has: async (name) => Boolean(await this.secrets.get(name)) },
+        github: () => this.github(),
+        bundle: this.runnerBundle,
+        now: () => new Date(),
+      });
+    })();
+    return this._ciService;
+  }
+
+  /** Pulls finished CI runs from GitHub (SPEC-09); one instance so concurrent refreshes coalesce. */
+  get ciCollector(): CiCollector {
+    this._ciCollector ??= new CiCollector({
+      repo: new CiRepository(this.db),
+      github: () => this.github(),
+      now: () => new Date(),
+    });
+    return this._ciCollector;
   }
 
   /** Project context documents use cases (SPEC-01) — assembled here so routes never touch `db`. */

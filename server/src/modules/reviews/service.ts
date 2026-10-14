@@ -7,6 +7,7 @@ import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
+import { MultiAgentService } from './multi-agent/service.js';
 import { buildSmartDiff, selectLatestReviews } from './smart-diff/index.js';
 
 // Re-export DTO types + converters for backward-compatible imports from
@@ -30,11 +31,18 @@ export class ReviewService {
   private repo: ReviewRepository;
   private agents: Container['agentsRepo'];
   private executor: ReviewRunExecutor;
+  private multiAgent: MultiAgentService;
 
   constructor(private container: Container) {
     this.repo = new ReviewRepository(container.db);
     this.agents = container.agentsRepo;
     this.executor = new ReviewRunExecutor(container, this.repo, this.agents);
+    this.multiAgent = new MultiAgentService({
+      repo: this.repo,
+      agents: this.agents,
+      runBus: container.runBus,
+      executor: this.executor,
+    });
   }
 
   // ===========================================================================
@@ -90,6 +98,50 @@ export class ReviewService {
     this.container.runBus.complete(runId);
   }
 
+  /**
+   * Rerun a completed review. Loads the original review's agent and PR,
+   * creates a new run with the same agent, and kicks off execution.
+   */
+  async rerunReview(
+    workspaceId: string,
+    reviewId: string,
+    logger?: Logger,
+  ): Promise<{ run_id: string; agent_id: string; agent_name: string }> {
+    // Load the original review to get agent ID and PR ID
+    const review = await this.repo.getReviewScoped(workspaceId, reviewId);
+    if (!review) throw new NotFoundError('Review not found');
+    if (!review.agentId) throw new AppError('invalid_review', 'Cannot rerun a review without an agent', 400);
+
+    // Load the PR and repo for the rerun
+    const pull = await this.repo.getPull(workspaceId, review.prId);
+    if (!pull) throw new NotFoundError('Pull request not found');
+    const repo = await this.repo.getRepo(pull.repoId);
+    if (!repo) throw new NotFoundError('Repo not found');
+
+    // Load the agent to verify it still exists and is enabled
+    const agent = await this.agents.getById(workspaceId, review.agentId);
+    if (!agent) throw new NotFoundError('Agent not found or disabled');
+
+    // Create a new run with the same agent
+    const runId = await this.repo.createAgentRun({
+      workspaceId,
+      agentId: agent.id,
+      prId: review.prId,
+      provider: agent.provider,
+      model: agent.model,
+    });
+
+    // Fire-and-forget: execute the new run in the background
+    void this.executor.executeRuns(workspaceId, pull, repo, [{ agent, runId }], logger).catch((err) => {
+      logger?.error(
+        { reviewId, runId, err: (err as Error).message },
+        'review: background rerun execution crashed',
+      );
+    });
+
+    return { run_id: runId, agent_id: agent.id, agent_name: agent.name };
+  }
+
   /** Reap runs left 'running' by a previous (now-dead) process. Called on boot. */
   async reapStaleRuns(): Promise<number> {
     return this.repo.reapStaleRunningRuns();
@@ -136,6 +188,23 @@ export class ReviewService {
     });
 
     return { runs, reviews: [] };
+  }
+
+  /** Multi-agent: run an explicit agent set as one batch (see MultiAgentService). */
+  runMultiAgent(workspaceId: string, prId: string, agentIds: string[], logger?: Logger) {
+    return this.multiAgent.trigger(workspaceId, prId, agentIds, logger);
+  }
+
+  getMultiAgentRun(workspaceId: string, id: string) {
+    return this.multiAgent.get(workspaceId, id);
+  }
+
+  latestMultiAgentRun(workspaceId: string, prId: string) {
+    return this.multiAgent.latestForPull(workspaceId, prId);
+  }
+
+  reviewEstimates(workspaceId: string) {
+    return this.multiAgent.estimates(workspaceId);
   }
 
   private publish(runId: string, kind: RunEventKind, msg: string, data?: unknown) {

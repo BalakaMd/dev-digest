@@ -41,7 +41,7 @@ resolved through `SecretsProvider` rather than config.
 |------|--------------------|-------|
 | `secrets` | `LocalSecretsProvider` | `~/.devdigest/secrets.json` (mode `0600`), `process.env` fallback |
 | `auth` | `LocalNoAuthProvider` | single-user local studio |
-| `github()` | `OctokitGitHubClient` | **throws `ConfigError` when `GITHUB_TOKEN` is unset**; REST reads plus one GraphQL read, `listPathPullHistory` |
+| `github()` | `OctokitGitHubClient` | **throws `ConfigError` when `GITHUB_TOKEN` is unset**; REST reads and writes (PRs, reviews, the export commit and pull request, Actions runs, artifacts and secret names) plus one GraphQL read, `listPathPullHistory` |
 | `git` | `SimpleGitClient` | real `git` into `DEVDIGEST_CLONE_DIR` |
 | `llm(id)` | OpenAI / Anthropic / OpenRouter | resolved per agent's `provider` |
 | `codeIndex` | `RipgrepCodeIndex` | |
@@ -52,6 +52,7 @@ resolved through `SecretsProvider` rather than config.
 | `priceBook` | `PriceBook` | live OpenRouter prices, 6h TTL, static fallback |
 | `jobs` | `JobRunner` | p-queue; clone and re-index run here |
 | `runBus` | in-memory bus | fans run events out to SSE |
+| `runnerBundle` | `FsRunnerBundle` | reads the built `agent-runner/dist/` files an export commits; `ConfigError` (500) when not built; used by `ciService` |
 
 `ContainerOverrides` lets a test inject any of these. The mocks live in
 `src/adapters/mocks.ts` (`MockLLMProvider`, `MockGitHubClient`, `MockGitClient`,

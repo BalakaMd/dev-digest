@@ -74,7 +74,7 @@ one query spanning the boundary. This applies to any component that renders user
 `Cannot find module '@testing-library/user-event'`, even though the general RTL guidance (and the
 `react-testing-library` skill) says to always prefer it over `fireEvent`.
 **Cause** — the package was never added to `client/package.json`; every existing `*.test.tsx` in this repo
-(`FindingCard`, `RunReviewDropdown`, `ConventionsView`, …) uses `fireEvent` + synchronous assertions instead.
+(`FindingCard`, `AgentPicker`, `ConventionsView`, …) uses `fireEvent` + synchronous assertions instead.
 Adding the dependency to fix this is itself off-limits without a plan step naming it (`CLAUDE.md` § no new
 dependencies).
 **Takeaway** — write new component tests with `fireEvent.click(...)` here, not `userEvent`, until a plan step
@@ -122,3 +122,13 @@ sides explicitly (`borderTopColor` / `borderRightColor` / `borderBottomColor` /
 applies to `borderWidth`, `borderStyle`, `margin`, `padding` and `background`,
 all of which React treats as shorthands. Do not trust the comment in
 `FindingCard/styles.ts` — it describes the intent, not the current behaviour.
+
+## 2026-10-12 — [gotcha] `mutate()` in a StrictMode effect behind a `useRef` guard leaves `isPending` stuck
+
+**Symptom** — a "Refreshing…" button stayed disabled forever although the POST returned 200
+in ~0.3 s (Next dev, `reactStrictMode: true`; production was fine).
+**Cause** — `useCiRuns` called `mutate()` once on mount, guarded by a `useRef` flag. StrictMode's
+simulated unmount/remount detaches the mutation observer from the first `mutate()`; the ref
+survives, so the second effect run is skipped and nothing re-attaches the observer to the result.
+**Takeaway** — never guard a mount-time `mutate()` with a ref; let the effect run twice (make the
+endpoint idempotent/coalescing) or fire it from an event handler.

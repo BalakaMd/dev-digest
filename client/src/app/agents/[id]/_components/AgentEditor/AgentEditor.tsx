@@ -1,6 +1,6 @@
-/* AgentEditor — the agent's four tabs: Config (model, strategy, system prompt),
+/* AgentEditor — the agent's five tabs: Config (model, strategy, system prompt),
    Skills (which skills it links, in prompt order), Context (project documents)
-   and Evals (eval cases + metrics). Tab state lives in ?tab=. */
+   Evals (eval cases + metrics) and CI (export to CI, installations, runs). Tab state lives in ?tab=. */
 "use client";
 
 import React from "react";
@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Tabs } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
 import { ConfigTab } from "./_components/ConfigTab";
+import { CiTab } from "./_components/CiTab";
 import { ContextTab } from "./_components/ContextTab";
 import { EvalsTab } from "./_components/EvalsTab";
 import { SkillsTab } from "./_components/SkillsTab";
@@ -29,6 +30,8 @@ export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; 
           <ContextTab agent={agent} />
         ) : tab === "evals" ? (
           <EvalsTab agent={agent} />
+        ) : tab === "ci" ? (
+          <CiTab agent={agent} onTab={onTab} />
         ) : (
           <ConfigTab agent={agent} />
         )}

@@ -13,9 +13,14 @@ import type {
   IssueMeta,
   PathPullHistoryQuery,
   PathPullHistory,
+  PrRef,
+  WorkflowRunInfo,
+  ListWorkflowRunsQuery,
+  RunArtifactInfo,
 } from '@devdigest/shared';
 import { PATH_ALIASES_PER_QUERY, buildPathHistoryQuery, parsePathHistory } from './path-history.js';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
+import { ExternalServiceError, GitHubPermissionError } from '../../platform/errors.js';
 
 const TIMEOUT = 30_000;
 const MAX_FILE_BYTES = 1_000_000;
@@ -27,6 +32,23 @@ function mapStatus(state: string, merged: boolean | undefined): PrStatus {
 }
 
 /**
+ * Map an Octokit failure to `ExternalServiceError` carrying GitHub's `message`
+ * and HTTP status only — never request headers (they hold the token).
+ * `permission` maps 403/404 to `GitHubPermissionError`.
+ */
+function mapGitHubError(err: unknown, opts: { permission?: boolean } = {}): never {
+  if (err instanceof ExternalServiceError) throw err;
+  const e = err as { status?: number; message?: unknown };
+  const status = typeof e?.status === 'number' ? e.status : undefined;
+  const message = typeof e?.message === 'string' ? e.message : 'GitHub request failed';
+  const details = { status };
+  if (opts.permission && (status === 403 || status === 404)) {
+    throw new GitHubPermissionError(message, details);
+  }
+  throw new ExternalServiceError(message, details);
+}
+
+/**
  * GitHubClient over Octokit REST — thin. PAT auth (fine-grained).
  * Reads PR list/detail/files/commits/issue; posts reviews; opens PRs.
  * One GraphQL read: per-path pull-request history (`listPathPullHistory`).
@@ -34,8 +56,9 @@ function mapStatus(state: string, merged: boolean | undefined): PrStatus {
 export class OctokitGitHubClient implements GitHubClient {
   private octokit: Octokit;
 
-  constructor(token: string) {
-    this.octokit = new Octokit({ auth: token });
+  /** `octokit` is injectable so tests can script GitHub without the network. */
+  constructor(token: string, octokit?: Octokit) {
+    this.octokit = octokit ?? new Octokit({ auth: token });
   }
 
   async listPullRequests(repo: RepoRef): Promise<PrMeta[]> {
@@ -247,7 +270,11 @@ export class OctokitGitHubClient implements GitHubClient {
     );
   }
 
-  async openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }> {
+  async openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<PrRef> {
+    return this.mapped(() => this.openPullRequestRaw(repo, payload));
+  }
+
+  private async openPullRequestRaw(repo: RepoRef, payload: OpenPrPayload): Promise<PrRef> {
     return withRetry(() =>
       withTimeout(
         (async () => {
@@ -259,7 +286,7 @@ export class OctokitGitHubClient implements GitHubClient {
             base: payload.base,
             body: payload.body,
           });
-          return { url: res.data.html_url };
+          return { url: res.data.html_url, number: res.data.number };
         })(),
         TIMEOUT,
       ),
@@ -267,6 +294,13 @@ export class OctokitGitHubClient implements GitHubClient {
   }
 
   async commitFiles(
+    repo: RepoRef,
+    payload: CommitFilesPayload,
+  ): Promise<{ branch: string }> {
+    return this.mapped(() => this.commitFilesRaw(repo, payload));
+  }
+
+  private async commitFilesRaw(
     repo: RepoRef,
     payload: CommitFilesPayload,
   ): Promise<{ branch: string }> {
@@ -278,6 +312,7 @@ export class OctokitGitHubClient implements GitHubClient {
           const g = this.octokit.rest.git;
 
           // Parent commit: the target branch if it already exists, else the base.
+          // `fromBase` re-parents an existing branch on the base head instead.
           let parentSha: string;
           let branchExists = false;
           try {
@@ -288,6 +323,24 @@ export class OctokitGitHubClient implements GitHubClient {
             const baseRef = await g.getRef({ owner, repo: name, ref: `heads/${payload.base}` });
             parentSha = baseRef.data.object.sha;
           }
+          if (branchExists && payload.fromBase) {
+            const baseRef = await g.getRef({ owner, repo: name, ref: `heads/${payload.base}` });
+            parentSha = baseRef.data.object.sha;
+          }
+
+          // Blobs first (a tree entry with empty `content` is rejected, which
+          // breaks 0-byte files); the tree then references them by sha.
+          const blobs = await Promise.all(
+            payload.files.map(async (f) => {
+              const blob = await g.createBlob({
+                owner,
+                repo: name,
+                content: f.contents,
+                encoding: 'utf-8',
+              });
+              return { path: f.path, sha: blob.data.sha };
+            }),
+          );
 
           // New tree layered on the parent's tree (so unrelated files are kept).
           const parentCommit = await g.getCommit({ owner, repo: name, commit_sha: parentSha });
@@ -295,11 +348,11 @@ export class OctokitGitHubClient implements GitHubClient {
             owner,
             repo: name,
             base_tree: parentCommit.data.tree.sha,
-            tree: payload.files.map((f) => ({
-              path: f.path,
-              mode: '100644',
-              type: 'blob',
-              content: f.contents,
+            tree: blobs.map((b) => ({
+              path: b.path,
+              mode: '100644' as const,
+              type: 'blob' as const,
+              sha: b.sha,
             })),
           });
 
@@ -334,7 +387,11 @@ export class OctokitGitHubClient implements GitHubClient {
     );
   }
 
-  async findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null> {
+  async findOpenPr(repo: RepoRef, branch: string): Promise<PrRef | null> {
+    return this.mapped(() => this.findOpenPrRaw(repo, branch));
+  }
+
+  private async findOpenPrRaw(repo: RepoRef, branch: string): Promise<PrRef | null> {
     return withRetry(() =>
       withTimeout(
         (async () => {
@@ -346,11 +403,136 @@ export class OctokitGitHubClient implements GitHubClient {
             per_page: 1,
           });
           const pr = res.data[0];
-          return pr ? { url: pr.html_url } : null;
+          return pr ? { url: pr.html_url, number: pr.number } : null;
         })(),
         TIMEOUT,
       ),
     );
+  }
+
+  async getDefaultBranch(repo: RepoRef): Promise<string> {
+    return this.call(async () => {
+      const res = await this.octokit.rest.repos.get({ owner: repo.owner, repo: repo.name });
+      return res.data.default_branch;
+    });
+  }
+
+  async listActionsSecretNames(repo: RepoRef): Promise<string[]> {
+    return this.call(
+      async () => {
+        const items = await this.octokit.paginate(this.octokit.rest.actions.listRepoSecrets, {
+          owner: repo.owner,
+          repo: repo.name,
+          per_page: 100,
+        });
+        return items.map((s) => s.name);
+      },
+      { permission: true },
+    );
+  }
+
+  async listWorkflowRuns(repo: RepoRef, q: ListWorkflowRunsQuery): Promise<WorkflowRunInfo[]> {
+    const workflowId = q.workflowPath.split('/').pop() ?? q.workflowPath;
+    return this.call(async () => {
+      const runs = await this.octokit.paginate(this.octokit.rest.actions.listWorkflowRuns, {
+        owner: repo.owner,
+        repo: repo.name,
+        workflow_id: workflowId,
+        event: 'pull_request',
+        status: 'completed',
+        created: `>=${q.since}`,
+        per_page: 100,
+      });
+      return runs.map((r) => ({
+        id: r.id,
+        run_attempt: r.run_attempt ?? 1,
+        conclusion: r.conclusion ?? null,
+        head_sha: r.head_sha,
+        html_url: r.html_url,
+        path: r.path,
+        created_at: r.created_at,
+        pull_request_number: r.pull_requests?.[0]?.number ?? null,
+      }));
+    });
+  }
+
+  async findRunArtifact(
+    repo: RepoRef,
+    runId: number,
+    name: string,
+  ): Promise<RunArtifactInfo | null> {
+    return this.call(async () => {
+      const res = await this.octokit.rest.actions.listWorkflowRunArtifacts({
+        owner: repo.owner,
+        repo: repo.name,
+        run_id: runId,
+        name,
+        per_page: 100,
+      });
+      const a = res.data.artifacts.find((x) => x.name === name);
+      return a ? { id: a.id, size_bytes: a.size_in_bytes, expired: a.expired } : null;
+    });
+  }
+
+  async downloadArtifact(repo: RepoRef, artifactId: number): Promise<Uint8Array> {
+    return this.call(async () => {
+      const res = await this.octokit.rest.actions.downloadArtifact({
+        owner: repo.owner,
+        repo: repo.name,
+        artifact_id: artifactId,
+        archive_format: 'zip',
+      });
+      return new Uint8Array(res.data as ArrayBuffer);
+    });
+  }
+
+  async fileExistsOnBranch(repo: RepoRef, path: string, branch: string): Promise<boolean> {
+    try {
+      await withRetry(() =>
+        withTimeout(
+          this.octokit.rest.repos.getContent({
+            owner: repo.owner,
+            repo: repo.name,
+            path,
+            ref: branch,
+          }),
+          TIMEOUT,
+        ),
+      );
+      return true;
+    } catch (err) {
+      if ((err as { status?: number })?.status === 404) return false;
+      return mapGitHubError(err);
+    }
+  }
+
+  async getPullRequestState(repo: RepoRef, n: number): Promise<'open' | 'closed' | 'merged'> {
+    return this.call(async () => {
+      const res = await this.octokit.rest.pulls.get({
+        owner: repo.owner,
+        repo: repo.name,
+        pull_number: n,
+      });
+      return mapStatus(res.data.state, Boolean(res.data.merged_at)) as 'open' | 'closed' | 'merged';
+    });
+  }
+
+  /** Map failures of an already retried/timed-out call (no header leakage). */
+  private async mapped<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      return mapGitHubError(err);
+    }
+  }
+
+  /** Retry + timeout wrapper that maps failures without leaking headers. */
+  private async call<T>(fn: () => Promise<T>, opts: { permission?: boolean } = {}): Promise<T> {
+    try {
+      return await withRetry(() => withTimeout(fn(), TIMEOUT));
+    } catch (err) {
+      return mapGitHubError(err, opts);
+    }
   }
 
   async getIssue(repo: RepoRef, n: number): Promise<IssueMeta> {

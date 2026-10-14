@@ -6,10 +6,20 @@ either wrong or this file needs updating in the same commit.
 
 ## Trigger
 
-`POST /pulls/:id/review`, body `{ agentId }` **or** `{ all: true }`. Both fields
-are optional in the schema but one is required in practice — neither given is a
-`400 invalid_run_request`. An empty body is accepted and then rejected by that
-same rule, so the failure is a clear message rather than a parse error.
+`POST /pulls/:id/review`, body `{ agentId }`, `{ all: true }` **or**
+`{ agentIds: [uuid, …] }`. All fields are optional in the schema but one form is
+required in practice — none given is a `400 invalid_run_request`. An empty body is
+accepted and then rejected by that same rule, so the failure is a clear message
+rather than a parse error.
+
+`agentIds` cannot be combined with `agentId` or `all` (`400 invalid_run_request`).
+It is the only form that creates a multi-agent run: one `multi_agent_runs` record
+that links its `agent_runs`. The ids are de-duplicated and validated against the
+workspace before anything is written: an empty set, an unknown id or a disabled
+agent is a `400 invalid_run_request` and creates nothing. An id that is not a uuid
+is rejected by the body schema with `422`. `{ agentId }` and `{ all: true }` create
+no multi-agent record and keep their request and response shape. See
+[`docs/multi-agent-review.md`](../../docs/multi-agent-review.md).
 
 Reviews are **never** triggered automatically. Polling syncs the PR list and
 explicitly does not start a run.
@@ -25,17 +35,24 @@ run ids and subscribes to `GET /runs/:id/events` while the run is still starting
 Creating the row after the work began would leave a window where the stream
 cannot be subscribed and early events are lost.
 
-The response is `{ pr_id, runs: [{ run_id, agent_id, agent_name }], reviews }`.
+The response is `{ pr_id, runs: [{ run_id, agent_id, agent_name }], reviews }`. For
+`agentIds` it also carries `multi_agent_run_id`, and the record and all its
+`agent_runs` rows are created in one transaction.
 
 ## Isolation between agents
 
-`all: true` fans out to every enabled agent. **A failure in one agent must not
-abort the others** — each run is caught and persisted as `failed` with its error
-text, and the remaining runs continue.
+Every review trigger — `agentIds`, `{ all: true }`, `{ agentId }` and a rerun —
+starts all agents of its batch at once (`Promise.allSettled` in `executeRuns`,
+no parallelism cap); no agent waits for another. **A failure in one agent must
+not abort the others** — each run is caught and persisted as `failed` (or
+`cancelled`) with its error text, and the remaining runs continue.
 
-Shared pre-work (loading the diff) is the exception: it happens once for all
-queued runs, so its failure fails every one of them. The error is fanned out to
-each run's log and each row is marked `failed`.
+Shared pre-work (loading the diff, resolving the intent) is the exception: it
+happens once per batch, before any agent starts, so a failure to load the diff
+fails every queued run with the same error. The error is fanned out to each run's
+log and each row is marked `failed`. Intent resolution never fails a run. Every
+agent's log and trace carry the shared lines, including
+`Shared preparation (diff + intent) done (<n>ms)`.
 
 ## The diff
 
@@ -63,7 +80,7 @@ resolves context and passes it in:
   with a log line (see [`docs/project-context.md`](../../docs/project-context.md))
 - `intent` — only when a PR intent is available (see below)
 
-The intent is resolved **once per batch**, before the per-agent loop, through
+The intent is resolved **once per batch**, before any agent starts, through
 `container.intent.getForReview` (`modules/intent`): the stored intent if one
 exists (even if stale — a stale intent is still used, logged, never
 auto-re-derived), otherwise a best-effort derive. `getForReview` never throws —
@@ -118,13 +135,16 @@ buffered into `run_traces` so the log survives a page reload, readable at
 project-context documents) and `context` (per-document tokens and skipped
 documents with a reason).
 
-Cancellation is cooperative: `checkCancelled` is polled between units of work and
-throws `RunCancelledError`, so a cancel lands between chunks rather than tearing
-down mid-call.
+Cancellation is cooperative: `checkCancelled` is polled before each chunk's model
+call and throws `RunCancelledError`, so a cancel never tears down a call in
+progress. `RunBus.complete()` clears the cancelled flag right after the row is
+marked `cancelled`, so a run that is inside a model call can still finish and be
+recorded as `done` (see "Known limitations" in
+[`docs/multi-agent-review.md`](../../docs/multi-agent-review.md)).
 
 ## Persistence
 
-On completion the run row gets `status`, `duration_ms`, `tokens_in`,
+On completion the run row gets `status`, `finished_at`, `duration_ms`, `tokens_in`,
 `tokens_out`, `cost_usd`, and the grounding summary; the review and its surviving
 findings are written alongside.
 
@@ -134,7 +154,9 @@ null as `—`.
 
 ## What this spec does not cover
 
-Multi-agent composition and memory retrieval are later lessons. Their tables
-exist in the schema and sit empty until then. The eval pipeline (regression
+Memory retrieval is a later lesson; its tables exist in the schema and sit empty
+until then. Multi-agent runs (the `multi_agent_runs` table, grouping, disagreement
+rows and estimates) are described in
+[docs/multi-agent-review.md](../../docs/multi-agent-review.md). The eval pipeline (regression
 harness for review agents) is described in
 [docs/eval-pipeline.md](../../docs/eval-pipeline.md).

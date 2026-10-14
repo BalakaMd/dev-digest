@@ -1,0 +1,11 @@
+{
+  "status": {
+    "running": "running",
+    "done": "done",
+    "failed": "failed",
+    "cancelled": "cancelled"
+  },
+  "unknownAgent": "Unknown agent",
+  "alsoFlaggedBy": "also flagged by {names}",
+  "empty": "—"
+}

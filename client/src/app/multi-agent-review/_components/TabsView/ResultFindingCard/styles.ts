@@ -1,0 +1,71 @@
+import type { CSSProperties } from "react";
+
+/** Severity → CSS colour token (the left edge; the badge carries the text). */
+const SEV_COLOR: Record<string, string> = {
+  CRITICAL: "var(--crit)",
+  WARNING: "var(--warn)",
+  SUGGESTION: "var(--sugg)",
+  INFO: "var(--info)",
+};
+
+export const s = {
+  card: (sev: string, muted: boolean): CSSProperties => ({
+    borderRadius: 8,
+    borderStyle: "solid",
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderColor: "var(--border)",
+    borderLeftColor: SEV_COLOR[sev] ?? "var(--text-muted)",
+    background: "var(--bg-elevated)",
+    overflow: "hidden",
+    opacity: muted ? 0.7 : 1,
+  }),
+  header: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    width: "100%",
+    padding: "14px 16px",
+    textAlign: "left",
+    background: "transparent",
+    border: "none",
+    color: "inherit",
+    font: "inherit",
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  headerMain: { flex: 1, minWidth: 0 } satisfies CSSProperties,
+  titleRow: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } satisfies CSSProperties,
+  title: (dismissed: boolean): CSSProperties => ({
+    fontSize: 14,
+    fontWeight: 600,
+    overflowWrap: "anywhere",
+    textDecoration: dismissed ? "line-through" : "none",
+  }),
+  tag: { fontSize: 12, fontWeight: 600, color: "var(--text-muted)" } satisfies CSSProperties,
+  tagOk: { fontSize: 12, fontWeight: 600, color: "var(--ok)" } satisfies CSSProperties,
+  metaRow: { display: "flex", alignItems: "center", gap: 12, marginTop: 5, flexWrap: "wrap" } satisfies CSSProperties,
+  location: { fontSize: 12, color: "var(--text-muted)", overflowWrap: "anywhere" } satisfies CSSProperties,
+  confidence: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  chevron: (expanded: boolean): CSSProperties => ({
+    color: "var(--text-muted)",
+    transform: expanded ? "rotate(180deg)" : "none",
+    transition: "transform .15s",
+    marginTop: 2,
+    flexShrink: 0,
+  }),
+  body: { padding: "14px 16px 16px", borderTop: "1px solid var(--border)" } satisfies CSSProperties,
+  prose: { fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" } satisfies CSSProperties,
+  also: { marginTop: 10, fontSize: 13, color: "var(--text-secondary)", overflowWrap: "anywhere" } satisfies CSSProperties,
+  suggestionWrap: { marginTop: 14 } satisfies CSSProperties,
+  suggestionLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.05em",
+    color: "var(--text-muted)",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  } satisfies CSSProperties,
+  actions: { display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, flexWrap: "wrap" } satisfies CSSProperties,
+  learnWrap: { display: "inline-flex", flexDirection: "column", gap: 2 } satisfies CSSProperties,
+  hint: { fontSize: 11, color: "var(--text-muted)" } satisfies CSSProperties,
+} as const;

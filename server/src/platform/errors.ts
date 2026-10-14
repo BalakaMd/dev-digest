@@ -40,6 +40,14 @@ export class ExternalServiceError extends AppError {
   }
 }
 
+/** GitHub refused a read because the token lacks permission (HTTP 403/404). */
+export class GitHubPermissionError extends ExternalServiceError {
+  constructor(message: string, details?: unknown) {
+    super(message, details);
+    this.name = 'GitHubPermissionError';
+  }
+}
+
 export class ConfigError extends AppError {
   constructor(message: string, details?: unknown) {
     super('config_error', message, 500, details);

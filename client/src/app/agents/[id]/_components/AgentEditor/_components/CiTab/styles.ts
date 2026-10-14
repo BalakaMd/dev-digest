@@ -1,0 +1,30 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for the agent editor's CI tab. */
+export const s = {
+  wrap: { display: "flex", flexDirection: "column", gap: 20 } satisfies CSSProperties,
+  header: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } satisfies CSSProperties,
+  h2: { fontSize: 17, fontWeight: 700, margin: 0 } satisfies CSSProperties,
+  headerActions: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 } satisfies CSSProperties,
+  reason: { fontSize: 12.5, color: "var(--text-muted)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } satisfies CSSProperties,
+  linkBtn: { background: "none", border: "none", padding: 0, color: "var(--accent)", cursor: "pointer", fontSize: 12.5, textDecoration: "underline" } satisfies CSSProperties,
+  notice: { fontSize: 13, color: "var(--text-secondary)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", background: "var(--bg-surface)" } satisfies CSSProperties,
+  list: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 } satisfies CSSProperties,
+  row: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--bg-surface)" } satisfies CSSProperties,
+  repo: { fontSize: 14, fontWeight: 600, flex: "1 1 200px", minWidth: 0, overflowWrap: "anywhere" } satisfies CSSProperties,
+  meta: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
+  muted: { fontSize: 12.5, color: "var(--text-muted)" } satisfies CSSProperties,
+  addRow: { width: "100%", padding: "14px 16px", border: "1px dashed var(--border-strong)", borderRadius: 10, background: "transparent", color: "var(--text-secondary)", fontSize: 14, cursor: "pointer", display: "inline-flex", justifyContent: "center", alignItems: "center", gap: 8 } satisfies CSSProperties,
+  empty: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, padding: "20px 18px", border: "1px dashed var(--border-strong)", borderRadius: 10 } satisfies CSSProperties,
+  emptyTitle: { fontSize: 15, fontWeight: 600, margin: 0 } satisfies CSSProperties,
+  emptyBody: { fontSize: 13, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 } satisfies CSSProperties,
+  panel: { display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--bg-surface)" } satisfies CSSProperties,
+  panelTitle: { fontSize: 13, fontWeight: 600, margin: 0 } satisfies CSSProperties,
+  fieldset: { border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,
+  radio: { display: "flex", alignItems: "center", gap: 8, fontSize: 13 } satisfies CSSProperties,
+  actions: { display: "flex", gap: 8, alignItems: "center" } satisfies CSSProperties,
+  failOnRow: { display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" } satisfies CSSProperties,
+  failOnSelect: { width: 340, maxWidth: "100%" } satisfies CSSProperties,
+  sectionTitle: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } satisfies CSSProperties,
+  h3: { fontSize: 15, fontWeight: 700, margin: 0 } satisfies CSSProperties,
+} as const;

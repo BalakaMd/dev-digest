@@ -6,14 +6,27 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import type { RunTrace } from "@devdigest/shared";
 
-export function useRunTrace(runId: string | null | undefined, enabled = true) {
+const MISSING_RETRIES = 5;
+const MISSING_RETRY_DELAY_MS = 1000;
+
+/** `retryMissing`: the trace may be saved a moment after the run reports done,
+   so a 404 is retried (5 x 1 s) instead of failing at once. Default: no retry. */
+export function useRunTrace(
+  runId: string | null | undefined,
+  enabled = true,
+  opts: { retryMissing?: boolean } = {},
+) {
+  const retryMissing = !!opts.retryMissing;
   return useQuery({
     queryKey: ["run-trace", runId],
     queryFn: () => api.get<RunTrace>(`/runs/${runId}/trace`),
     enabled: !!runId && enabled,
-    retry: false,
+    retry: retryMissing
+      ? (count, err) => err instanceof ApiError && err.status === 404 && count < MISSING_RETRIES
+      : false,
+    retryDelay: MISSING_RETRY_DELAY_MS,
   });
 }

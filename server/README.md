@@ -37,7 +37,7 @@ flowchart LR
   VAL --> MOD["feature module plugin<br/>modules/&lt;name&gt;/routes.ts"]
   MOD --> SVC["service<br/>(e.g. ReviewService)"]
   SVC --> DI{"DI container<br/>platform/container.ts"}
-  DI --> ADP["adapters (ports)<br/>llm · github · git · astgrep · tokenizer · secrets"]
+  DI --> ADP["adapters (ports)<br/>llm · github · git · astgrep · tokenizer · secrets · runner-bundle"]
   ADP -->|"prod"| EXT["LLM (OpenAI/Anthropic) · GitHub · git · pgvector"]
   ADP -->|"tests"| MOCK["src/adapters/mocks.ts<br/>MockLLMProvider · MockGitClient · …"]
   SVC --> DB[("Drizzle → Postgres")]
@@ -69,7 +69,7 @@ flowchart TB
     polling["polling<br/>/repos/:id/poll"]
   end
   subgraph Review["Review & runs"]
-    reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
+    reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)<br/>/multi-agent-runs/:id · /pulls/:id/multi-agent-runs/latest · /review-estimates"]
     intent["intent<br/>GET/POST /pulls/:id/intent"]
     brief["brief<br/>GET/POST /pulls/:id/brief"]
   end
@@ -78,6 +78,9 @@ flowchart TB
   end
   subgraph Eval["Eval"]
     evalMod["eval<br/>/findings/:id/eval-case (+ /suggestion) · /agents/:id/eval-cases · /eval-cases/:id(/run)<br/>/agents/:id/eval-runs · /eval-runs/:id(/cases/:caseRunId)<br/>/eval/run-all · /eval/dashboard · /eval/compare"]
+  end
+  subgraph CI["Export to CI"]
+    ciMod["ci<br/>/agents/:id/ci/(preview|check|secrets|install|installations)<br/>/ci/refresh · /ci/runs · /ci/runs/:id"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -102,7 +105,7 @@ flowchart TB
 | `DATABASE_URL` | `postgres://devdigest:devdigest@localhost:5432/devdigest` | required to migrate/serve |
 | `API_PORT` / `WEB_PORT` | `3001` / `3000` | API port; `WEB_PORT` also sets the allowed CORS origin |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` | — | optional, per-provider; also settable via Settings UI |
-| `GITHUB_TOKEN` | — | optional; PAT with repo scope (`GITHUB_PAT` accepted as a fallback) |
+| `GITHUB_TOKEN` | — | optional; PAT with repo scope (`GITHUB_PAT` accepted as a fallback). Export to CI also writes workflow files and reads Actions: classic PAT scopes `repo` + `workflow`; fine-grained Metadata=read, Contents=write, Pull requests=write, Workflows=write, Actions=read, Secrets=read ([docs/export-to-ci.md](../docs/export-to-ci.md#github-token-permissions)) |
 | `EMBEDDINGS_ENABLED` | `false` | memory/RAG embeddings (OpenAI); off → **zero** OpenAI calls |
 | `REPO_INTEL_ENABLED` | `true` | repo skeleton + callers in the prompt; `false` → ripgrep-only |
 | `DEVDIGEST_CLONE_DIR` | `./clones` | imported-repo checkouts (git-ignored) |

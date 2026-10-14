@@ -1,0 +1,23 @@
+{
+  "regionLabel": "Agent results, one column per agent",
+  "columnLabel": "{name} results",
+  "duration": "Duration",
+  "cost": "Cost",
+  "score": "Score {score}",
+  "elapsed": "Elapsed {time}",
+  "latestLog": "Latest log line",
+  "noLogYet": "Waiting for output…",
+  "errorLabel": "Error",
+  "noError": "No error text was recorded.",
+  "noFindings": "No findings",
+  "findingCount": "{count, plural, one {# finding} other {# findings}}",
+  "viewTrace": "View trace",
+  "viewTraceFor": "View trace for {name}",
+  "cancel": "Cancel",
+  "cancelFor": "Cancel {name}",
+  "severity": "Severity {severity}",
+  "finding": {
+    "accepted": "Accepted",
+    "dismissed": "Dismissed"
+  }
+}

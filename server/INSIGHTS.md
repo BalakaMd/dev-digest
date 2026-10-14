@@ -27,6 +27,27 @@ remove this line, will Claude start making mistakes?"
 
 ---
 
+## 2026-10-12 — [gotcha] `yaml` `prettyErrors: false` drops error line numbers
+**Symptom** — the workflow check reported YAML error line 1 for a syntax error on
+line 3; `error.linePos` was `undefined` and the `?? 1` fallback hid it.
+**Cause** — `parseDocument(text, { prettyErrors: false })` skips the step that
+fills `linePos`; only the character offset `error.pos` is set.
+**Takeaway** — pass a `LineCounter` (`parseDocument(text, { lineCounter })`) and read
+`lineCounter.linePos(error.pos[0]).line`, or leave `prettyErrors` on and use
+`linePos` (its messages then embed a code frame, so keep taking only the first line).
+
+## 2026-10-12 — [gotcha] Cancelling a run mid-model-call does not stop it, and the run can still end as `done`
+**Symptom** — a run cancelled while the model call was in flight showed `cancelled` for a moment, then
+its review and findings appeared and the row was `done`.
+**Cause** — `ReviewService.cancelRun` sets the `RunBus` cancelled flag, marks the row `cancelled`, then calls
+`RunBus.complete()`, which deletes the flag. The only checkpoint (`checkCancelled`, polled by reviewer-core
+before each chunk's model call) therefore sees the flag only inside that short window. Single-pass has one
+checkpoint, before its only call. When the run finishes, `completeAgentRun` overwrites the status with `done`.
+**Takeaway** — do not build on "cancel stops the run". A real fix needs the flag to outlive `complete()` (or
+the executor to re-check after the call and before `completeAgentRun`). Until then a test or UI that relies
+on a cancelled run staying cancelled is wrong; see "Known limitations" in `docs/multi-agent-review.md`.
+(Read from code, not reproduced at runtime.)
+
 ## 2026-10-09 — [gotcha] An optional route body needs `.nullish()`, and `.optional()` rejects a POST with no body
 **Symptom** — after adding `body: Schema.optional()` to `POST /findings/:id/eval-case`, every
 existing call without a payload became 422 "Request validation failed" ("Expected object, received null").

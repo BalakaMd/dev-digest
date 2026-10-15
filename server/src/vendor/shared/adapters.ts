@@ -80,12 +80,17 @@ export interface StructuredRequest<T> {
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
 }
 
+/** Where a run's recorded cost came from. */
+export type RunCostSource = 'provider' | 'estimate' | 'mixed';
+
 export interface StructuredResult<T> {
   data: T;
   model: string;
   tokensIn: number;
   tokensOut: number;
   costUsd: number | null;
+  /** Absent = not provider-reported (estimate). `provider` = every attempt returned a provider cost; `mixed` = some did. */
+  costSource?: RunCostSource;
   raw: string;
   attempts: number;
 }

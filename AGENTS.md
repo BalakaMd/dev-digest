@@ -114,5 +114,6 @@ rubric, the bar, and the dedup procedure.
 | [docs/eval-pipeline.md](docs/eval-pipeline.md) | you touch the `eval` module, `restoreVersion`, the Evals tab, `EvalCaseButton`, the `/eval` pages or `pnpm verify:l06` |
 | [docs/onboarding-tour.md](docs/onboarding-tour.md) | you touch the onboarding module, `getOnboardingFacts`, `singleAttempt` or the tour page |
 | [docs/multi-agent-review.md](docs/multi-agent-review.md) | you touch `POST /pulls/:id/review` with `agentIds`, `modules/reviews/multi-agent`, the `multi_agent_runs` table, `AgentPicker`, the `/multi-agent-review` pages, or the 1-agent vs 3-agent measurement |
+| [docs/agent-performance.md](docs/agent-performance.md) | you touch the `agent-performance` module, `GET /agent-performance` or `GET /agents/:id/performance`, `agent_runs.cost_source`, `ReviewOutcome.costSource`, the `/agent-performance` page or its sidebar item |
 | [specs/](specs/) | you are picking up a cross-package feature |
 | [INSIGHTS.md](INSIGHTS.md) | before a non-trivial change — past traps are logged there |

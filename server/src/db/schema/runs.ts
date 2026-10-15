@@ -35,11 +35,17 @@ export const agentRuns = pgTable(
     tokensIn: integer('tokens_in'),
     tokensOut: integer('tokens_out'),
     /**
-     * USD billed for this run — OpenRouter's real `usage.cost` when it reports one,
-     * otherwise a PriceBook estimate. Null (never 0) when the model is unpriced or
-     * the run failed before reaching the model.
+     * USD cost of this run — OpenRouter's provider-reported `usage.cost` when it
+     * reports one, otherwise a PriceBook estimate (see `cost_source`). Null (never 0)
+     * when the model is unpriced or the run failed before reaching the model.
      */
     costUsd: doublePrecision('cost_usd'),
+    /**
+     * Where `cost_usd` came from: provider-reported, estimated, or mixed across the
+     * run's model calls. Null when there is no cost, and on rows that predate the
+     * column (read as 'unknown'; no backfill).
+     */
+    costSource: text('cost_source', { enum: ['provider', 'estimate', 'mixed'] }),
     status: text('status'),
     /** Failure reason when status='failed' (LLM/API error, timeout, quota, …). */
     error: text('error'),
@@ -81,6 +87,8 @@ export const agentRuns = pgTable(
       .on(t.workspaceId, t.ranAt.desc(), t.id.desc())
       .where(sql`${t.source} = 'ci'`),
     index('agent_runs_multi_idx').on(t.multiAgentRunId),
+    // Agent Performance reads: workspace + time range.
+    index('agent_runs_ws_ran_idx').on(t.workspaceId, t.ranAt),
   ],
 );
 

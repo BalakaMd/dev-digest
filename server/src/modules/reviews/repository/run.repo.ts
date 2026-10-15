@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
-import type { RunSummary, RunTrace } from '@devdigest/shared';
+import type { RunCostSource, RunSummary, RunTrace } from '@devdigest/shared';
 
 // ---- in-flight / history --------------------------------------------------
 
@@ -148,10 +148,12 @@ export async function completeAgentRun(
     tokensIn: number;
     tokensOut: number;
     /**
-     * USD billed for this run. Omit (or pass null) on failed/cancelled runs and
-     * whenever the model is unpriced — 0 would claim the review was free.
+     * USD cost of this run (provider-reported or estimated). Omit (or pass null) on
+     * failed/cancelled runs and whenever the model is unpriced — 0 would claim the review was free.
      */
     costUsd?: number | null;
+    /** Where `costUsd` came from; stored only when `costUsd` is non-null. */
+    costSource?: RunCostSource | null;
     findingsCount: number;
     grounding: string;
     /** Review score (0-100); null on failed/cancelled runs. */
@@ -170,6 +172,7 @@ export async function completeAgentRun(
       tokensIn: values.tokensIn,
       tokensOut: values.tokensOut,
       costUsd: values.costUsd ?? null,
+      costSource: values.costUsd == null ? null : (values.costSource ?? null),
       findingsCount: values.findingsCount,
       grounding: values.grounding,
       score: values.score ?? null,

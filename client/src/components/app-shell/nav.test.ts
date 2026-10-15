@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { NAV } from "@devdigest/ui";
+import { NAV, resolveHref } from "@devdigest/ui";
 import { activeKeyFor } from "./helpers";
 
 describe("sidebar nav — Project Context (AC-51)", () => {
@@ -86,5 +86,32 @@ describe("sidebar nav — Multi-Agent Review (AC-9)", () => {
     expect(activeKeyFor("/multi-agent-review/run-1")).toBe(item!.key);
     expect(activeKeyFor("/agents")).not.toBe(item!.key);
     expect(activeKeyFor("/repos/r1/pulls")).not.toBe(item!.key);
+  });
+});
+
+describe("sidebar nav — Agent Performance (SPEC-10 AC-1)", () => {
+  const global = NAV.find((g) => g.section === "GLOBAL")!;
+  const item = global?.items.find((i) => i.label === "Agent Performance");
+
+  it('has an "Agent Performance" item in the GLOBAL group, directly above "CI Runs"', () => {
+    expect(item).toBeDefined();
+    const labels = global.items.map((i) => i.label);
+    expect(labels.indexOf("CI Runs") - labels.indexOf("Agent Performance")).toBe(1);
+  });
+
+  it("opens the Agent Performance page for the active repository", () => {
+    expect(resolveHref(item!.href, "r1")).toBe("/agent-performance?repo=r1");
+  });
+
+  it("is highlighted on the page and not on the neighbouring routes", () => {
+    expect(activeKeyFor("/agent-performance")).toBe(item!.key);
+    expect(activeKeyFor("/agents")).not.toBe(item!.key);
+    expect(activeKeyFor("/ci-runs")).not.toBe(item!.key);
+  });
+
+  it('leaves "Multi-Agent Review" where it was, in the WORKSPACE group', () => {
+    const workspace = NAV.find((g) => g.section === "WORKSPACE")!;
+    expect(workspace.items.map((i) => i.label)).toContain("Multi-Agent Review");
+    expect(global.items.map((i) => i.label)).not.toContain("Multi-Agent Review");
   });
 });

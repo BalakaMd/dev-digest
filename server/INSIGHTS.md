@@ -127,3 +127,26 @@ status only, so it can return in the gap between the two writes.
 until it returns a document (see `traceFor` in `test/skills-prompt.it.test.ts`),
 not just wait for a terminal run status. The same gap exists for any UI that
 opens the trace the instant a run turns `done`.
+
+## 2026-10-15 — [perf] Join keys `reviews.run_id` and `findings.review_id` had no index: a read took ~17 s on a cold DB
+**Symptom** — the Agent Performance read (decision counts: `agent_runs → reviews → findings`) answered in ~21 ms
+in a warm development DB but ~17 s on 10 000 runs right after a bulk load, far over the 2 s budget (NFR-1).
+**Cause** — neither join key was indexed. Without planner statistics (no ANALYZE yet) Postgres picked a nested
+loop over both tables; after `ANALYZE` the plan was fine, which hid the problem in every warm test.
+**Takeaway** — index the foreign keys a read joins on instead of relying on planner statistics (migration 0019
+adds `reviews_run_idx` and `findings_review_idx`). A perf test must also run on cold statistics: seed without
+`ANALYZE` and turn autovacuum off on those tables, or autovacuum may analyze in the middle of the test (see
+`test/agent-performance-cold-stats.it.test.ts`).
+
+## 2026-10-15 — [gotcha] `buildApp` reaps `running` runs on start, so a `running` fixture seeded before it disappears
+**Symptom** — an integration test seeded a `running` run, built the app, and the run was already `failed`
+(or the count was off by one).
+**Cause** — `buildApp` marks leftover `running` runs as failed at boot (crash recovery).
+**Takeaway** — build the app first, then seed fixtures that need a `running` run (see the note in
+`test/helpers/agent-performance.ts`).
+
+## 2026-10-15 — [tooling] `pnpm typecheck` does not cover `server/test/**`
+**Symptom** — a test file with a type error passed `pnpm typecheck` and only failed (or not at all) under vitest.
+**Cause** — `tsconfig.json` includes `src/**` only; vitest strips types without checking them.
+**Takeaway** — to type-check new tests run the compiler over them separately with the same options and path
+aliases; do not read a green `pnpm typecheck` as proof that the tests are typed.

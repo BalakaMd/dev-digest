@@ -14,6 +14,7 @@ the same commit.
 | `/repos/[repoId]/pulls/[number]` | PR detail — overview, diff, findings, run trace; query params `tab=diff&file=<path>&line=<n>` deep-link into Files changed | `usePullDetail`, `usePrRuns`, `usePrReviews`, `usePrComments`, `useRunReview`, `useLatestMultiAgentRun` → `GET /pulls/:id/multi-agent-runs/latest`, `useReviewEstimates` → `GET /review-estimates`, `useFindingAction`, `useRunEvents`, `useRunTrace`, `usePrIntent` → `GET /pulls/:id/intent`, `useDeriveIntent` → `POST /pulls/:id/intent`, `usePrBlastRadius` → `GET /pulls/:id/blast`, `usePrHistory` → `GET /pulls/:id/history`, `useBrief` → `GET /pulls/:id/brief`, `useGenerateBrief` → `POST /pulls/:id/brief`, `useBriefGenerating`, `useBriefSettings` |
 | `/multi-agent-review` | Configure run — pick an open PR of the active repository (`?pr=<id>` preselects), tick agents (none checked), see the estimate, start one multi-agent run | `usePulls`, `useAgents`, `useReviewEstimates` → `GET /review-estimates`, `useRunReview` → `POST /pulls/:id/review` with `agentIds` |
 | `/multi-agent-review/[id]` | Results of one multi-agent run — Columns / Tabs (`?view=`), "Where agents disagree", run trace drawer | `useMultiAgentRun` → `GET /multi-agent-runs/:id` (polls every 3 s while a column runs), `useCancelRun` → `POST /runs/:id/cancel`, `useFindingAction`, `useRunEvents`, `useRunTrace` |
+| `/agent-performance` | Agent Performance — runs, cost and accept rate of every agent on one repository for 1 day / 30 days / a custom range; state in the address (`repo`, `range`, `start`, `end`, `sort`, `dir`, `expanded`) | `useAgentPerformance` → `GET /agent-performance`; `useAgentPerformanceDetail` → `GET /agents/:id/performance` (expanded row) |
 | `/repos/[repoId]/conventions` | Skills Lab → Conventions: Run Scan / ReScan, candidate cards (accept, reject, inline edit), Create skill modal | `useConventions` → `GET /repos/:id/conventions`; `useExtractConventions` → `POST /repos/:id/conventions/extract`; `useUpdateConvention` → `PATCH /conventions/:id`; `useConventionSkillDrafts` → `GET /repos/:id/conventions/skill-drafts`; `useCreateConventionSkills` → `POST /repos/:id/conventions/skills` |
 | `/skills` | skill grid + preview drawer, create / import, delete | `useSkills` → `GET /skills`; `useSkillAgents`, `useCreateSkill`, `useImportSkillPreview` → `POST /skills/import`, `useUpdateSkill`, `useDeleteSkill` |
 | `/skills/[id]` | skill editor — Config, Context, Preview, Versioning | `useSkill`, `useUpdateSkill`, `useSkillVersions`, `useRestoreSkillVersion`, `useSetSkillContextDocs` |
@@ -220,6 +221,12 @@ is the result page of one run. Status comes from the API and is polled, so a rel
 shows the current state. How a run is built, grouped and measured is described in
 [docs/multi-agent-review.md](../../docs/multi-agent-review.md).
 
+## Agent Performance
+
+`/agent-performance` (sidebar, GLOBAL, above CI Runs) shows the stored runs and finding decisions of
+every agent on one repository. Every request is a GET read; nothing starts a review. The rules, the
+two endpoints and every state are described in [docs/agent-performance.md](../../docs/agent-performance.md).
+
 ## Settings
 
 Keys entered here are sent to the API and stored server-side in
@@ -237,5 +244,5 @@ All visible text resolves through `next-intl` — no literal strings in componen
 
 ## Not here yet
 
-Memory and the other dashboards are later lessons. Their message namespaces already exist in `messages/en/`, which is why
-you will see `memory.json` with no screen behind it. (The `brief` namespace is used by the PR Brief block on Overview; the `eval` namespace by the Evals tab and the Eval Dashboard.)
+Memory is a later lesson. Its message namespace already exists in `messages/en/`, which is why
+you will see `memory.json` with no screen behind it. (The `brief` namespace is used by the PR Brief block on Overview; the `eval` namespace by the Evals tab and the Eval Dashboard; the `agentPerformance` namespace by the Agent Performance page.)

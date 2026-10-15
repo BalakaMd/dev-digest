@@ -127,6 +127,20 @@
       "when": 1791816740092,
       "tag": "0017_wooden_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792009533458,
+      "tag": "0018_kind_peter_parker",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792039752112,
+      "tag": "0019_third_network",
+      "breakpoints": true
     }
   ]
 }

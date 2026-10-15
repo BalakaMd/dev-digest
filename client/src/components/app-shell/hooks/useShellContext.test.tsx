@@ -125,3 +125,23 @@ describe("useShellContext — removing a repository (AC-87)", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/repos/r2/pulls"));
   });
 });
+
+describe("useShellContext — selecting a repository (SPEC-10 AC-62)", () => {
+  afterEach(() => window.history.replaceState({}, "", "/"));
+
+  it("stays on Agent Performance, keeping range and sort and dropping the expanded row", () => {
+    pathname = "/agent-performance";
+    window.history.replaceState({}, "", "/agent-performance?repo=r1&range=1d&sort=runs&expanded=a1");
+    setup().result.current.onSelectRepo!("r2");
+    expect(push).toHaveBeenCalledTimes(1);
+    const [path, query] = (push.mock.calls[0]![0] as string).split("?");
+    expect(path).toBe("/agent-performance");
+    expect(Object.fromEntries(new URLSearchParams(query))).toEqual({ repo: "r2", range: "1d", sort: "runs" });
+  });
+
+  it("opens the repository's pull requests from any other page", () => {
+    pathname = "/repos/r1/pulls";
+    setup().result.current.onSelectRepo!("r2");
+    expect(push).toHaveBeenCalledWith("/repos/r2/pulls");
+  });
+});

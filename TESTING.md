@@ -41,11 +41,12 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 + jsdom). `fetch` is mocked; no API, DB, or browser. Covers the PR-review
 surface (list, diff, findings, run controls) and the agent editor, plus the
 Onboarding Tour guards (markdown without raw HTML or links, GitHub URL encoding,
-the sidebar item), and the CI tab, the Export Wizard and the CI Runs page.
+the sidebar item), and the CI tab, the Export Wizard and the CI Runs page, and the Agent Performance page
+(its `_model` rules, cards, table, cost breakdown and hooks).
 
 **server-unit** — the DB-free majority: adapters, prompt assembly, grounding,
 repo-intel ranking & indexing, the onboarding module (assembly, run sources,
-one-request generation), pricing, route smoke. The `typecheck` job also
+one-request generation), pricing, route smoke, the Agent Performance aggregation, contract and route validation. The `typecheck` job also
 runs on Windows, which doubles as the `@ast-grep/napi` prebuilt gate (install
 fails there if the win32 prebuilt is missing).
 
@@ -58,9 +59,12 @@ scoring, compare, helpers, contracts, suggestion, structure, suggestion-fixtures
 dashboard/compare/restart, agent restore, repository). They inject a scripted LLM
 and trap `fetch`, so no model is called. The Export to CI suites live in
 `server/test/ci/` (GitHub and secrets mocked; `*.it.test.ts` on a real Postgres).
+The Agent Performance suites (`server/test/agent-performance*.it.test.ts`, `run-cost-source.it.test.ts`) seed
+local and CI runs across two workspaces, assert the read-only guarantee (row counts, no model/GitHub/price-book
+call, `fetch` trapped) and that each read stays under 2 s at 10,000 counted runs, also on cold statistics.
 
 **reviewer-core** — the pure engine: `toReview` selection, prompt construction,
-and a `run` with a stubbed model → grounded findings. No DB / GitHub / FS.
+and a `run` with a stubbed model → grounded findings, and the cost source of a run (provider / estimate / mixed). No DB / GitHub / FS.
 
 **agent-runner** — the CI runner bundled into exported pull requests: manifest and
 skill loading, the diff filter, the result artifact and the exit code, with a

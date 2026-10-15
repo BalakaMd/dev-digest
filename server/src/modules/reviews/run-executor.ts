@@ -255,7 +255,7 @@ export class ReviewRunExecutor {
           if (this.container.runBus.isCancelled(runId)) throw new RunCancelledError();
         },
       });
-      const { tokensIn, tokensOut, costUsd, grounding } = outcome;
+      const { tokensIn, tokensOut, costUsd, costSource, grounding } = outcome;
 
       // A finding may only cite documents that were injected in this run (AC-49).
       const cited = filterCitations(
@@ -299,6 +299,7 @@ export class ReviewRunExecutor {
         tokensIn,
         tokensOut,
         costUsd,
+        costSource,
         findingsCount: findingRows.length,
         grounding,
         score: outcome.review.score,

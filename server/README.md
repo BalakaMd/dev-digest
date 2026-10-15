@@ -82,6 +82,9 @@ flowchart TB
   subgraph CI["Export to CI"]
     ciMod["ci<br/>/agents/:id/ci/(preview|check|secrets|install|installations)<br/>/ci/refresh · /ci/runs · /ci/runs/:id"]
   end
+  subgraph Perf["Agent performance"]
+    agentPerf["agent-performance<br/>GET /agent-performance · GET /agents/:id/performance"]
+  end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
     blast["blast<br/>GET /pulls/:id/blast"]

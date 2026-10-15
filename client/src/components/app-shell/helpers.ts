@@ -38,3 +38,16 @@ export function activeKeyFor(pathname: string): string {
   if (pathname.startsWith("/ci-runs")) return "ci-runs";
   return "";
 }
+
+/**
+ * Where selecting repository `id` in the sidebar leads. On the Agent
+ * Performance page it stays there (range and sort are kept, `repo` is set and
+ * the expanded row is dropped); everywhere else it opens the repo's pulls.
+ */
+export function repoSwitchHref(pathname: string, search: string, id: string): string {
+  if (!pathname.startsWith("/agent-performance")) return `/repos/${id}/pulls`;
+  const params = new URLSearchParams(search);
+  params.set("repo", id);
+  params.delete("expanded");
+  return `/agent-performance?${params.toString()}`;
+}

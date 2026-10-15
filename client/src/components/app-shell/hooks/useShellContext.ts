@@ -9,7 +9,7 @@ import { useTheme } from "../../../lib/theme";
 import { useActiveRepo } from "../../../lib/repo-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePulls, useDeleteRepo, fetchLocalDocCount } from "../../../lib/hooks";
-import { activeKeyFor, toShellRepo } from "../helpers";
+import { activeKeyFor, repoSwitchHref, toShellRepo } from "../helpers";
 
 interface ShellContextOptions {
   onOpenCommandPalette: () => void;
@@ -33,9 +33,10 @@ export function useShellContext({ onOpenCommandPalette }: ShellContextOptions): 
   const onSelectRepo = React.useCallback(
     (id: string) => {
       setRepoId(id);
-      router.push(`/repos/${id}/pulls`);
+      // Search is read at click time (no useSearchParams in the shell).
+      router.push(repoSwitchHref(pathname, window.location.search, id));
     },
-    [setRepoId, router],
+    [setRepoId, router, pathname],
   );
 
   const onAddRepo = React.useCallback(() => router.push("/onboarding"), [router]);

@@ -58,6 +58,8 @@ import { EvalRepository } from '../modules/eval/repository.js';
 import { EvalService } from '../modules/eval/service.js';
 import { CiRepository } from '../modules/ci/repository.js';
 import { CiService } from '../modules/ci/service.js';
+import { AgentPerformanceRepository } from '../modules/agent-performance/repository.js';
+import { AgentPerformanceService } from '../modules/agent-performance/service.js';
 import { CiCollector } from '../modules/ci/collector.js';
 import { FsRunnerBundle } from '../adapters/runner-bundle/index.js';
 import type { RunnerBundle } from '../adapters/runner-bundle/types.js';
@@ -135,6 +137,7 @@ export class Container {
   private _evalService?: EvalService;
   private _runnerBundle?: RunnerBundle;
   private _ciService?: CiService;
+  private _agentPerformanceService?: AgentPerformanceService;
   private _ciCollector?: CiCollector;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
@@ -415,6 +418,13 @@ export class Container {
       });
     })();
     return this._ciService;
+  }
+
+  /** Agent Performance reads (SPEC-10) — read-only; the repository is the only dependency (no PriceBook, LLM or GitHub). */
+  get agentPerformanceService(): AgentPerformanceService {
+    return (this._agentPerformanceService ??= new AgentPerformanceService({
+      repo: new AgentPerformanceRepository(this.db),
+    }));
   }
 
   /** Pulls finished CI runs from GitHub (SPEC-09); one instance so concurrent refreshes coalesce. */

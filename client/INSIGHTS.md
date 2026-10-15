@@ -132,3 +132,24 @@ simulated unmount/remount detaches the mutation observer from the first `mutate(
 survives, so the second effect run is skipped and nothing re-attaches the observer to the result.
 **Takeaway** — never guard a mount-time `mutate()` with a ref; let the effect run twice (make the
 endpoint idempotent/coalescing) or fire it from an event handler.
+
+## 2026-10-15 — [gotcha] `:focus-visible` in tests and in the browser needs a real focus, not `fireEvent.focus` or a bare `.focus()`
+**Symptom** — a tooltip that opens "on keyboard focus" never appeared: in jsdom after `fireEvent.focus(el)`, and in
+Chrome after `el.focus()` from the console (`el.matches(':focus-visible')` was `false` both times).
+**Cause** — `fireEvent.focus` only dispatches the event, it does not move focus; programmatic focus after a mouse
+interaction is not "focus-visible". Mocking `Element.prototype.matches` globally to force it breaks Testing Library.
+**Takeaway** — in tests use `act(() => el.focus())`; to emulate pointer focus override `matches` on that one element.
+In a real browser reach the element with real Tab / Shift+Tab key presses.
+
+## 2026-10-15 — [gotcha] An absolutely positioned tip inside a table wrapper with `overflow-x: auto` is clipped
+**Symptom** — the focus tip under the last table row was cut off (only a strip of it was visible).
+**Cause** — `overflow-x: auto` makes `overflow-y` non-visible as well, so the wrapper clips anything that sticks out below the last row.
+**Takeaway** — open tips inside such a table upward (`bottom: 100%`) over the row above or the header, or render them
+in a portal. Check the last row and the scrolled-horizontally state in a real browser; jsdom has no layout.
+
+## 2026-10-15 — [gotcha] next-intl `format.dateTime` needs `timeZone` just like `relativeTime`
+**Symptom** — `IntlError: ENVIRONMENT_FALLBACK` in the console from "Data as of <time>" on the Agent Performance page.
+**Cause** — the provider has no global `timeZone`; every date formatter that is not given one logs it (the 2026-09-25 entry
+only mentions `relativeTime`).
+**Takeaway** — pass `timeZone` to the provider once, or to each `format.dateTime` call; tests pass `timeZone="UTC"`.
+Still open on this page: `AgentPerformanceView.tsx` does not pass one.

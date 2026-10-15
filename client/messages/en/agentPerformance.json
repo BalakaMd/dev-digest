@@ -1,32 +1,116 @@
 {
   "title": "Agent Performance",
-  "subtitle": "Accept-rate is the headline quality signal · cost shown as a breakdown",
-  "loadError": "Could not load agent performance.",
-  "summary": {
-    "totalRuns": "Total runs",
-    "avgAcceptRate": "Avg accept-rate",
-    "totalCost": "Total cost",
-    "mostActive": "Most active"
+  "subtitle": "Which agents earn their keep — accept rate is the quality signal",
+  "repository": "Repository: {name}",
+  "dataAsOf": "Data as of {time}",
+  "refresh": "Refresh",
+  "retry": "Retry",
+  "dash": "—",
+  "reviewRunsOnly": "Agent review runs only — eval runs and other model calls are not included",
+  "range": {
+    "label": "Range",
+    "oneDay": "1 day",
+    "thirtyDays": "30 days",
+    "custom": "Custom range",
+    "start": "Start date",
+    "end": "End date",
+    "apply": "Apply",
+    "errors": {
+      "incomplete": "Choose both a start and an end date.",
+      "endBeforeStart": "The end date is before the start date.",
+      "endInFuture": "The end date is in the future.",
+      "tooLong": "The range covers more than 366 days."
+    }
   },
-  "costByAgent": "Cost by agent",
-  "costByModel": "Cost by model",
-  "noCost": "No cost recorded yet.",
-  "sort": {
-    "acceptRate": "accept-rate",
-    "runs": "runs",
-    "cost": "cost"
+  "notice": {
+    "reset": "Reset to default: {parts}.",
+    "parts": {
+      "repo": "repository",
+      "range": "range",
+      "sort": "sort column",
+      "dir": "sort direction",
+      "expanded": "expanded row"
+    }
+  },
+  "cards": {
+    "totalRuns": "Total runs ({range})",
+    "totalCost": "Total cost ({range})",
+    "avgAccept": "Avg accept rate",
+    "mostActive": "Most-active agent",
+    "runsSparkline": "Runs per period: {values}",
+    "notPriced": "{count, plural, one {# run not priced} other {# runs not priced}}",
+    "vsPrevious": "{delta} vs previous period",
+    "noPrevious": "No previous data",
+    "sourceProvider": "Provider-reported {amount} ({percent}%)",
+    "sourceEstimate": "DevDigest estimate {amount} ({percent}%)",
+    "sourceMixed": "Mixed {amount} ({percent}%)",
+    "sourceUnknown": "Source unknown {amount} ({percent}%)",
+    "ofDecisions": "{count, plural, one {of # decision} other {of # decisions}}",
+    "localOnly": "local runs only",
+    "noDecisions": "No decisions yet",
+    "lowSample": "Low sample",
+    "ringLabel": "Accept rate {percent}%",
+    "ringLabelQuality": "Accept rate {percent}%, {quality}",
+    "mostActiveRuns": "{count, plural, one {# run} other {# runs}}",
+    "openMostActive": "Show {name} in the table"
+  },
+  "accept": {
+    "high": "High (≥70%)",
+    "medium": "Medium (50–69%)",
+    "low": "Low (<50%)",
+    "lowSample": "Low sample",
+    "cell": "{percent}% · {accepted}/{decisions}",
+    "headerHint": "Accepted / (accepted + dismissed), local runs only"
   },
   "table": {
+    "caption": "Agents",
     "agent": "Agent",
-    "accept": "Accept",
     "runs": "Runs",
+    "failed": "Failed",
+    "avgCost": "Avg cost",
+    "avgDuration": "Avg dur.",
+    "accept": "Accept",
+    "costPerAccepted": "Cost / accepted",
+    "lastRun": "Last run",
+    "view": "View",
+    "viewAgent": "View {name}",
+    "disabled": "Disabled",
+    "expand": "Show details of {name}",
+    "sortBy": "Sort by {column}"
+  },
+  "expanded": {
+    "loading": "Loading details…",
+    "error": "Could not load the details of this agent.",
+    "costByModel": "Cost by model",
+    "unknownModel": "Unknown model",
+    "noModelCost": "No priced runs",
     "findings": "Findings",
-    "cost": "Cost",
-    "trend": "Trend"
+    "accepted": "Accepted: {count}",
+    "dismissed": "Dismissed: {count}",
+    "undecided": "Undecided: {count}",
+    "runsBySource": "Counted runs",
+    "local": "Local: {count}",
+    "ci": "CI: {count}",
+    "costBySource": "Cost by source"
   },
-  "empty": {
-    "title": "No agent runs yet",
-    "body": "Run a review (manually) to populate per-agent performance."
+  "breakdown": {
+    "title": "Cost breakdown",
+    "byAgent": "By agent",
+    "byModel": "By model",
+    "other": "Other",
+    "deletedAgent": "Deleted agent",
+    "unknownModel": "Unknown model",
+    "legendRow": "{name} {amount} ({percent}%)",
+    "noPriced": "No priced runs in this period"
   },
-  "perAgent": "Per-agent"
+  "states": {
+    "loading": "Loading agent performance…",
+    "error": "Could not load agent performance.",
+    "noRepoTitle": "No repository yet",
+    "noRepoLink": "Import a repository",
+    "noAgentsTitle": "No agents yet",
+    "noAgentsLink": "Go to Agents",
+    "noRunsTitle": "No agent runs on {repo} in this period",
+    "noRunsHint": "Choose a longer range."
+  }
 }

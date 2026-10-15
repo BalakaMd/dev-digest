@@ -64,6 +64,7 @@ export class OpenRouterProvider implements LLMProvider {
     let tokensIn = 0;
     let tokensOut = 0;
     let costFromApi: number | null = null;
+    let reportedCalls = 0;
     let lastRaw = '';
     let lastFinish: string | null | undefined;
 
@@ -105,7 +106,10 @@ export class OpenRouterProvider implements LLMProvider {
       tokensOut += res.usage?.completion_tokens ?? 0;
       // `usage.cost` is an OpenRouter extension (USD), absent from the OpenAI SDK type.
       const apiCost = (res.usage as { cost?: number } | null | undefined)?.cost;
-      if (typeof apiCost === 'number') costFromApi = (costFromApi ?? 0) + apiCost;
+      if (typeof apiCost === 'number') {
+        costFromApi = (costFromApi ?? 0) + apiCost;
+        reportedCalls++;
+      }
 
       const parsed = parseWithRepair(req.schema, lastRaw);
       if (parsed.ok) {
@@ -115,6 +119,7 @@ export class OpenRouterProvider implements LLMProvider {
           tokensIn,
           tokensOut,
           costUsd: costFromApi ?? this.estimateCost?.(req.model, tokensIn, tokensOut) ?? null,
+          costSource: reportedCalls === 0 ? 'estimate' : reportedCalls === attempt ? 'provider' : 'mixed',
           raw: lastRaw,
           attempts: attempt,
         };

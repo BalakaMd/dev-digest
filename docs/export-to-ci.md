@@ -611,6 +611,7 @@ on it, never shows CI runs.
 | `head_sha` | The workflow run's head commit |
 | `findings_count`, `blockers` | From the result; `blockers` falls back to the `critical` count for results of older runners |
 | `cost_usd`, `duration_ms` | From the result (null when not reported) |
+| `cost_source` | Not recorded: a CI run has no cost source, so [Agent Performance](agent-performance.md) reads its cost as "Source unknown" |
 | `verdict` | `approve`, `comment` or `request_changes` as computed by the runner; derived only when an older result has none (blockers, then findings, else approve) |
 | `ci_trace` | The trace below, as `jsonb` |
 
@@ -735,8 +736,8 @@ is the fifth tab of the agent editor, after Evals, reachable as `?tab=ci`. It sh
   Switch this agent's provider to OpenRouter in Config to export." and a link to the Config tab. A
   disabled agent can still be exported; the tab says the studio setting does not affect CI runs.
 
-**The CI Runs page** ([`/ci-runs`](../client/src/app/ci-runs/page.tsx), sidebar item "CI Runs" in a new
-GLOBAL group in [`nav.ts`](../client/src/vendor/ui/nav.ts), a vendored file edited for this feature)
+**The CI Runs page** ([`/ci-runs`](../client/src/app/ci-runs/page.tsx), sidebar item "CI Runs" in the
+GLOBAL group, directly below "Agent Performance", in [`nav.ts`](../client/src/vendor/ui/nav.ts), a vendored file edited for this feature)
 lists every CI run of the workspace, newest first, 50 per page with "Load more". Columns: time, pull
 request (repository and `#<n>` linking to the pull request on GitHub), agent, verdict (text: Approve,
 Comment, Request changes or Failed), findings, cost, duration and a link to the Actions run, all in

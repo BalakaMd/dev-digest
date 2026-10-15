@@ -73,7 +73,8 @@ export const RunStats = z.object({
   tokens_in: z.number().int(),
   tokens_out: z.number().int(),
   /**
-   * USD billed for this run. Null — never 0 — when the price is unknown (model
+   * USD cost of this run — provider-reported or a price-book estimate (the source is stored as
+   * agent_runs.cost_source). Null — never 0 — when the price is unknown (model
    * missing from the price book) or the run never reached the model. The UI
    * renders null as "—"; a 0 would read as "this review was free".
    */
@@ -134,7 +135,7 @@ export const RunSummary = z.object({
   duration_ms: z.number().int().nullable(),
   tokens_in: z.number().int().nullable(),
   tokens_out: z.number().int().nullable(),
-  /** USD billed for this run; null when unpriced or unfinished. See RunStats. */
+  /** USD cost of this run (provider-reported or estimated); null when unpriced or unfinished. See RunStats. */
   cost_usd: z.number().nullable(),
   findings_count: z.number().int().nullable(),
   grounding: z.string().nullable(),

@@ -33,6 +33,7 @@ flowchart TD
   SETTINGS["/settings/:section<br/>API keys · feature models · workspace"]
   TOUR["/repos/:repoId/onboarding-tour<br/>stored tour · generate"]
   CIRUNS["/ci-runs<br/>CI runs of the workspace · refresh"]
+  AGENTPERF["/agent-performance<br/>agent runs, cost and accept rate of one repository"]
   MULTI["/multi-agent-review<br/>configure run"] --> MRES["/multi-agent-review/:id<br/>results"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
@@ -46,6 +47,7 @@ flowchart TD
   SETTINGS -->|"/settings · /providers"| API
   TOUR -->|"GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"| API
   CIRUNS -->|"POST /ci/refresh · GET /ci/runs · GET /ci/runs/:id"| API
+  AGENTPERF -->|"GET /agent-performance · GET /agents/:id/performance"| API
 ```
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,

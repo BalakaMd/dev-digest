@@ -1,6 +1,6 @@
 # Spec: Agent Performance Dashboard
 Spec ID: SPEC-10
-Status: approved
+Status: implemented
 Supersedes: —
 
 ## Problem and user

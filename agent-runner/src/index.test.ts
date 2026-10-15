@@ -178,6 +178,38 @@ describe('main() env contract (AC-61, AC-21, AC-63)', () => {
     expect(everything).not.toContain('sk-or-v1-FAKEFAKEFAKEFAKE');
   });
 
+  it('appends a job summary to GITHUB_STEP_SUMMARY without changing the gate exit code', async () => {
+    const summaryPath = path.join(dir, 'step-summary.md');
+
+    const code = await main(
+      env({
+        [CI_RUNNER_ENV.AGENT_SLUG]: 'second',
+        [CI_RUNNER_ENV.POST_AS]: 'none',
+        GITHUB_STEP_SUMMARY: summaryPath,
+      }),
+    );
+
+    expect(code).toBe(1);
+    const summary = readFileSync(summaryPath, 'utf8');
+    expect(summary).toContain('DevDigest review — Second Agent on PR #9');
+    expect(summary).toContain('| Verdict | Request changes |');
+    expect(summary).toContain('Hardcoded key');
+    expect(summary).not.toContain('sk-or-v1-FAKEFAKEFAKEFAKE');
+  });
+
+  it('still exits per the gate when the job summary cannot be written', async () => {
+    const code = await main(
+      env({
+        [CI_RUNNER_ENV.AGENT_SLUG]: 'second',
+        [CI_RUNNER_ENV.POST_AS]: 'none',
+        GITHUB_STEP_SUMMARY: path.join(dir, 'missing-dir', 'summary.md'),
+      }),
+    );
+
+    expect(code).toBe(1);
+    expect(logged.join('\n')).toContain('could not write the job summary');
+  });
+
   it('AC-21: DEVDIGEST_POST_AS=pr_comment posts exactly one issue comment', async () => {
     await main(env({ [CI_RUNNER_ENV.AGENT_SLUG]: 'first', [CI_RUNNER_ENV.POST_AS]: 'pr_comment' }));
 
